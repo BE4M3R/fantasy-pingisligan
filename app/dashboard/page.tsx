@@ -7,6 +7,7 @@ import {
   setTeamCaptain,
   setPlayerPosition,
 } from "@/app/dashboard/actions";
+import { SeasonBanner } from "@/app/season-banner";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPool, type DashboardPlayer } from "@/app/dashboard/player-pool";
 import { createClient } from "@/lib/supabase/server";
@@ -230,6 +231,10 @@ export default async function DashboardPage({
       </header>
 
       <section className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-6">
+          <SeasonBanner />
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="table-panel rounded-lg border p-6">
             <p className="text-sm font-medium text-sky-200">
