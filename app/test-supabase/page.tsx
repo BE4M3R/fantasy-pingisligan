@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function TestSupabasePage() {
+  const supabase = await createClient();
   const { data, error } = await supabase.from("players").select("*").limit(5);
 
   return (

@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fantasy Pingisligan
+
+A Next.js fantasy table tennis app for the Swedish Pingisligan. Users can create
+accounts with Supabase Auth, log in, and eventually build fantasy teams,
+compete in leagues, and score points from real Pingisligan results.
+
+## Stack
+
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Supabase Auth and Postgres
+- Vercel-friendly deployment
+
+## Supabase setup
+
+Create a Supabase project, then add these values to `.env.local`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Do not commit service role keys or other private tokens.
+
+In the Supabase SQL editor, run:
+
+```sql
+-- contents of supabase/schema.sql
+```
+
+That creates starter tables for profiles, clubs, players, fantasy teams,
+leagues, matches and player stats, plus row-level security policies.
+
+In Supabase Auth settings, add these redirect URLs for local development:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+Add the matching deployed Vercel callback URL when you deploy.
 
 ## Getting Started
 
 First, run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Useful routes:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` public landing page
+- `/signup` create account
+- `/login` log in
+- `/dashboard` protected app area with squad builder
+- `/test-supabase` simple database smoke test
 
-## Learn More
+## Data imports
 
-To learn more about Next.js, take a look at the following resources:
+Keep Profixio scraping and result imports server-side. Good places for that
+later are a GitHub Actions scheduled job, a Supabase Edge Function, or a
+server-only script. Do not put scraping logic in browser/client components.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To import players from the first Profixio men ranking page, add a private
+service role key locally in `.env.local` or in your cron environment:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
 
-## Deploy on Vercel
+Then run:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run import:players
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The script reads club search strings from `clubs.txt`, takes up to 10 first-page
+ranking matches per club, and stores prices as whole fantasy currency values
+using `(max(2250, ranking_points) - 2200) * 100000`.
+
+For existing Supabase databases created before the importer, run
+`supabase/player-import-migration.sql` in the Supabase SQL editor. It is safe to
+run again after the squad builder update; it also normalizes fantasy team
+budgets to the same whole-number currency unit as player prices.
+
+To test parsing without writing to Supabase:
+
+```bash
+npm run import:players:dry
+```
+
+## Deploy
+
+When deploying to Vercel, add these environment variables in the Vercel project:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Also add the deployed callback URL to Supabase Auth redirect URLs:
+
+```text
+https://your-domain.vercel.app/auth/callback
+```
