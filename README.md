@@ -1,6 +1,6 @@
 # Fantasy Pingisligan
 
-A Next.js fantasy table tennis app for the Swedish Pingisligan. Users can create
+A Next.js fantasy table tennis app for the Pingisligan. Users can create
 accounts with Supabase Auth, log in, and eventually build fantasy teams,
 compete in leagues, and score points from real Pingisligan results.
 
