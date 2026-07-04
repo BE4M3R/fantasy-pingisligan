@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import { CLUB_LOGOS } from "@/app/dashboard/club-logos";
 import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,8 +49,26 @@ async function HomeContent() {
         </nav>
       </header>
 
-      <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-10 px-6 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <div>
+      <section className="relative mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-10 overflow-hidden px-6 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-6 top-6 flex items-center justify-between opacity-25 sm:top-8 sm:opacity-35"
+        >
+          {CLUB_LOGOS.map((logo, index) => (
+            <Image
+              alt=""
+              className={`h-10 w-10 object-contain sm:h-14 sm:w-14 lg:h-16 lg:w-16 ${
+                index % 2 === 0 ? "translate-y-2" : "-translate-y-2"
+              }`}
+              height={64}
+              key={logo.src}
+              src={logo.src}
+              width={64}
+            />
+          ))}
+        </div>
+
+        <div className="relative z-10">
           <div className="mb-6 max-w-2xl">
             <SeasonBanner />
           </div>
@@ -58,8 +78,8 @@ async function HomeContent() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-lg leading-8 text-sky-100/75">
-            Build a fantasy table tennis squad, track Pingisligan results, score
-            points from real performances, and compete in private leagues.
+            Build a fantasy table tennis squad, track Pingisligan results, and score
+            points from real performances to compete on the global leaderboard.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -78,7 +98,7 @@ async function HomeContent() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="relative z-10 grid gap-4 sm:grid-cols-2">
           <div className="table-panel rounded-lg border p-5">
             <h2 className="font-bold">Build your squad</h2>
             <p className="mt-2 text-sm leading-6 text-sky-100/65">

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 const PUBLIC_SITE_URL = "https://fantasy-pingisligan.vercel.app";
+const DEVELOPER_SIGNUP_CODE = "pingisligan-dev";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -58,9 +59,17 @@ export async function signUp(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
   const displayName = getString(formData, "display_name");
+  const developerCode = getString(formData, "developer_code");
 
-  if (!email || !password || !displayName) {
-    redirectWithMessage("/signup", "Name, email and password are required.");
+  if (!email || !password || !displayName || !developerCode) {
+    redirectWithMessage(
+      "/signup",
+      "Name, email, password and developer code are required.",
+    );
+  }
+
+  if (developerCode !== DEVELOPER_SIGNUP_CODE) {
+    redirectWithMessage("/signup", "The developer code is not correct.");
   }
 
   const supabase = await createClient();

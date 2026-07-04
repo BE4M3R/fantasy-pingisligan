@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { addPlayerToTeam, removePlayerFromTeam } from "@/app/dashboard/actions";
+import { addPlayerToTeam, swapPlayerIntoTeam } from "@/app/dashboard/actions";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 
 const SQUAD_SIZE = 6;
@@ -16,12 +16,17 @@ export type DashboardPlayer = {
   clubs: { name: string } | { name: string }[] | null;
 };
 
+export type SquadPlayerOption = DashboardPlayer & {
+  position: "starter" | "bench";
+};
+
 type SortField = "name" | "club" | "price";
 type SortDirection = "asc" | "desc";
 
 type PlayerPoolProps = {
   players: DashboardPlayer[];
   selectedPlayerIds: string[];
+  squadPlayers: SquadPlayerOption[];
   squadSize: number;
   remainingBudget: number;
   transfersLocked: boolean;
@@ -66,6 +71,7 @@ function ClubLogoBadge({ clubName }: { clubName: string }) {
 export function PlayerPool({
   players,
   selectedPlayerIds,
+  squadPlayers,
   squadSize,
   remainingBudget,
   transfersLocked,
@@ -171,7 +177,13 @@ export function PlayerPool({
               const isSelected = selectedIds.has(player.id);
               const isFull = squadSize >= SQUAD_SIZE;
               const isTooExpensive = Number(player.price) > remainingBudget;
+              const swapOptions = squadPlayers.filter(
+                (squadPlayer) =>
+                  Number(player.price) <=
+                  remainingBudget + Number(squadPlayer.price),
+              );
               const cannotAdd = transfersLocked || isSelected || isFull || isTooExpensive;
+              const cannotSwap = transfersLocked || isSelected || !isFull || swapOptions.length === 0;
 
               return (
                 <tr className="transition hover:bg-white/5" key={player.id}>
@@ -192,13 +204,33 @@ export function PlayerPool({
                   </td>
                   <td className="px-4 py-3 text-right">
                     {isSelected ? (
-                      <form action={removePlayerFromTeam}>
+                      <span className="inline-flex rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100">
+                        Selected
+                      </span>
+                    ) : isFull ? (
+                      <form action={swapPlayerIntoTeam} className="flex justify-end gap-2">
                         <input name="player_id" type="hidden" value={player.id} />
-                        <button
-                          className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
-                          disabled={transfersLocked}
+                        <select
+                          className="max-w-36 rounded-md border border-white/15 bg-sky-950 px-2 py-2 text-xs font-semibold text-sky-50 outline-none transition focus:border-sky-100 disabled:cursor-not-allowed disabled:text-sky-100/35"
+                          defaultValue=""
+                          disabled={cannotSwap}
+                          name="outgoing_player_id"
+                          required
                         >
-                          Remove
+                          <option disabled value="">
+                            Swap with
+                          </option>
+                          {swapOptions.map((squadPlayer) => (
+                            <option key={squadPlayer.id} value={squadPlayer.id}>
+                              {squadPlayer.first_name} {squadPlayer.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 transition hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+                          disabled={cannotSwap}
+                        >
+                          Swap in
                         </button>
                       </form>
                     ) : (

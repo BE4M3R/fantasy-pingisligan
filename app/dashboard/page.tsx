@@ -1,14 +1,12 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import {
-  removePlayerFromTeam,
   setTeamCaptain,
-  setPlayerPosition,
+  swapSquadPlayers,
   updateTeamName,
 } from "@/app/dashboard/actions";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
-import { SeasonBanner } from "@/app/season-banner";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPool, type DashboardPlayer } from "@/app/dashboard/player-pool";
 import { createClient } from "@/lib/supabase/server";
@@ -45,8 +43,16 @@ type TransferLock = {
   unlock_at: string | null;
 };
 
+type ProgressPointsRow = {
+  points: number | string;
+};
+
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
+}
+
+function formatPoints(value: number | string) {
+  return new Intl.NumberFormat("sv-SE").format(Number(value));
 }
 
 function formatDateTime(value: string | null) {
@@ -107,15 +113,34 @@ function ClubLogoBadge({ clubName, size = "md" }: { clubName: string; size?: "sm
   );
 }
 
+function ExternalLinkIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+    </svg>
+  );
+}
+
 function SquadCard({
   player,
+  swapTargets,
   transfersLocked,
 }: {
   player: SquadPlayer;
+  swapTargets: SquadPlayer[];
   transfersLocked: boolean;
 }) {
-  const targetPosition = player.position === "starter" ? "bench" : "starter";
-
   return (
     <div className="rounded-md border border-white/15 bg-sky-950/70 p-4 shadow-sm shadow-slate-950/20">
       <div className="flex items-start justify-between gap-3">
@@ -135,29 +160,41 @@ function SquadCard({
             </p>
           </div>
         </div>
-        <form action={removePlayerFromTeam}>
-          <input name="player_id" type="hidden" value={player.id} />
-          <button
-            className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
-            disabled={transfersLocked}
-          >
-            Remove
-          </button>
-        </form>
       </div>
 
-      <form action={setPlayerPosition} className="mt-4">
-        <input name="player_id" type="hidden" value={player.id} />
-        <input name="position" type="hidden" value={targetPosition} />
-        <button
-          className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
-          disabled={transfersLocked}
-        >
-          Move to {targetPosition === "starter" ? "main players" : "bench"}
-        </button>
-      </form>
+      {swapTargets.length ? (
+        <form action={swapSquadPlayers} className="mt-4 grid gap-2">
+          <input name="player_id" type="hidden" value={player.id} />
+          <label className="sr-only" htmlFor={`swap-target-${player.id}`}>
+            Swap with
+          </label>
+          <select
+            className="w-full rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-sm font-semibold text-sky-50 outline-none transition focus:border-sky-100"
+            defaultValue=""
+            disabled={transfersLocked}
+            id={`swap-target-${player.id}`}
+            name="target_player_id"
+            required
+          >
+            <option disabled value="">
+              Swap with
+            </option>
+            {swapTargets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.first_name} {target.last_name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
+            disabled={transfersLocked}
+          >
+            Swap position
+          </button>
+        </form>
+      ) : null}
 
-      {!player.is_captain ? (
+      {swapTargets.length && !player.is_captain ? (
         <form action={setTeamCaptain} className="mt-2">
           <input name="player_id" type="hidden" value={player.id} />
           <button
@@ -236,6 +273,7 @@ export default async function DashboardPage({
     : { data: [] };
 
   const { data: transferLockRows } = await supabase.rpc("current_transfer_lock");
+  const { data: progressRows } = await supabase.rpc("get_my_gameweek_progress");
 
   const transferLock = (
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
@@ -249,22 +287,23 @@ export default async function DashboardPage({
   const bench = squad.filter((player) => player.position === "bench");
   const captain = squad.find((player) => player.is_captain);
   const selectedPlayerIds = squad.map((player) => player.id);
+  const isSquadFull = squad.length >= STARTER_SIZE + BENCH_SIZE;
   const usedBudget = squad.reduce(
     (total, player) => total + Number(player.price),
     0,
   );
   const budget = Number(fantasyTeam?.budget ?? DEFAULT_BUDGET);
   const remainingBudget = budget - usedBudget;
+  const totalPoints = ((progressRows ?? []) as ProgressPointsRow[]).reduce(
+    (total, row) => total + Number(row.points),
+    0,
+  );
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="squad" />
 
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-6">
-          <SeasonBanner />
-        </div>
-
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="table-panel rounded-lg border p-6">
             <p className="text-sm font-medium text-sky-200">
@@ -298,18 +337,25 @@ export default async function DashboardPage({
               stay inside your fantasy budget.
             </p>
             <a
-              className="mt-6 inline-flex rounded-md border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10"
+              className="mt-6 inline-flex items-center gap-2 rounded-md border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10"
               href={STUPA_RESULTS_URL}
               rel="noreferrer"
               target="_blank"
             >
               Open Pingisligan results
+              <ExternalLinkIcon />
             </a>
           </div>
 
           <div className="table-panel rounded-lg border p-6">
             <h2 className="text-base font-bold">Season status</h2>
             <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="text-sky-100/55">Total points</dt>
+                <dd className="mt-1 font-semibold text-sky-50">
+                  {formatPoints(totalPoints)}
+                </dd>
+              </div>
               <div>
                 <dt className="text-sky-100/55">Budget</dt>
                 <dd className="mt-1 font-semibold text-sky-50">
@@ -379,6 +425,7 @@ export default async function DashboardPage({
                     <SquadCard
                       key={player.id}
                       player={player}
+                      swapTargets={isSquadFull ? bench : []}
                       transfersLocked={transfersLocked}
                     />
                   ))
@@ -403,6 +450,7 @@ export default async function DashboardPage({
                     <SquadCard
                       key={player.id}
                       player={player}
+                      swapTargets={isSquadFull ? starters : []}
                       transfersLocked={transfersLocked}
                     />
                   ))
@@ -430,6 +478,7 @@ export default async function DashboardPage({
             players={players}
             remainingBudget={remainingBudget}
             selectedPlayerIds={selectedPlayerIds}
+            squadPlayers={squad}
             squadSize={squad.length}
             transfersLocked={transfersLocked}
           />

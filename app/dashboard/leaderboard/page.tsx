@@ -4,7 +4,6 @@ import {
   LeaderboardTable,
   type LeaderboardRow,
 } from "@/app/dashboard/leaderboard-table";
-import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function LeaderboardPage() {
@@ -28,10 +27,6 @@ export default async function LeaderboardPage() {
       <DashboardHeader activeTab="leaderboard" />
 
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-6">
-          <SeasonBanner />
-        </div>
-
         <section className="table-panel rounded-lg border p-6">
           <div className="flex items-center justify-between gap-4">
             <div>

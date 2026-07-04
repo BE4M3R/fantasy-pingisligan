@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sendPasswordReset, signIn } from "@/app/auth/actions";
-import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
@@ -23,10 +22,6 @@ export default async function LoginPage({
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
-        <div className="mb-4">
-          <SeasonBanner />
-        </div>
-
         <div className="table-panel rounded-lg border p-6">
           <Link className="text-sm font-semibold text-sky-200" href="/">
             Fantasy Pingisligan
@@ -34,7 +29,7 @@ export default async function LoginPage({
 
           <h1 className="mt-8 text-3xl font-bold tracking-tight">Log in</h1>
           <p className="mt-3 text-sm leading-6 text-sky-100/70">
-            Pick your squad, follow matchdays, and compete in your leagues.
+            Pick your squad, follow matchdays, and compete on the leaderboard.
           </p>
 
           {message ? (

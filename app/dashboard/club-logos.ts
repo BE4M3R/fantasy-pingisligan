@@ -4,7 +4,7 @@ export type ClubLogo = {
   src: string;
 };
 
-const CLUB_LOGOS: ClubLogo[] = [
+export const CLUB_LOGOS: ClubLogo[] = [
   { alt: "Eslövs logo", match: "eslov", src: "/club-logos/eslovs.webp" },
   {
     alt: "Söderhamn logo",

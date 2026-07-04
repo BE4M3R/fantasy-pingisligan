@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signUp } from "@/app/auth/actions";
-import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function SignupPage({
@@ -23,10 +22,6 @@ export default async function SignupPage({
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
-        <div className="mb-4">
-          <SeasonBanner />
-        </div>
-
         <div className="table-panel rounded-lg border p-6">
           <Link className="text-sm font-semibold text-sky-200" href="/">
             Fantasy Pingisligan
@@ -76,6 +71,17 @@ export default async function SignupPage({
                 type="password"
                 autoComplete="new-password"
                 minLength={6}
+                required
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-sky-100">
+              Developer code
+              <input
+                className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
+                name="developer_code"
+                type="password"
+                autoComplete="off"
                 required
               />
             </label>
