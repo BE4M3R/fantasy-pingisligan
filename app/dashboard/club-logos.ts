@@ -28,11 +28,6 @@ const CLUB_LOGOS: ClubLogo[] = [
     match: "sparvagen",
     src: "/club-logos/sparvagen.webp",
   },
-  {
-    alt: "Falkenberg logo",
-    match: "falkenberg",
-    src: "/club-logos/falkenberg.webp",
-  },
 ];
 
 function searchable(value: string) {

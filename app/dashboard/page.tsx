@@ -1,12 +1,13 @@
-import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { signOut } from "@/app/auth/actions";
 import {
   removePlayerFromTeam,
   setTeamCaptain,
   setPlayerPosition,
+  updateTeamName,
 } from "@/app/dashboard/actions";
+import { DashboardHeader } from "@/app/dashboard/dashboard-header";
+import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { SeasonBanner } from "@/app/season-banner";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPool, type DashboardPlayer } from "@/app/dashboard/player-pool";
@@ -15,8 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
 const DEFAULT_BUDGET = 100000000;
-const PROFIXIO_RESULTS_URL =
-  "https://www.profixio.com/fx/serieoppsett.php?t=SBTF_SERIE_AVD27149&k=LS27149&p=1";
+const STUPA_RESULTS_URL =
+  "https://sbtfeventsott.stupaevents.com/events/417/1118/0/1/1";
 type SquadPosition = "starter" | "bench";
 
 type FantasyTeam = {
@@ -217,18 +218,7 @@ export default async function DashboardPage({
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
-      <header className="border-b border-white/15 bg-sky-950/70 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link className="font-bold text-sky-100" href="/">
-            Fantasy Pingisligan
-          </Link>
-          <form action={signOut}>
-            <button className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
-              Log out
-            </button>
-          </form>
-        </div>
-      </header>
+      <DashboardHeader activeTab="squad" />
 
       <section className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-6">
@@ -243,13 +233,33 @@ export default async function DashboardPage({
             <h1 className="mt-3 text-3xl font-bold tracking-tight">
               {fantasyTeam?.name ?? "Your fantasy club"}
             </h1>
+            <form
+              action={updateTeamName}
+              className="mt-5 flex max-w-xl flex-col gap-3 sm:flex-row"
+            >
+              <label className="sr-only" htmlFor="team_name">
+                Team name
+              </label>
+              <input
+                className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-sky-50 outline-none transition placeholder:text-sky-100/35 focus:border-sky-100/70 focus:bg-white/15"
+                defaultValue={fantasyTeam?.name ?? ""}
+                id="team_name"
+                maxLength={40}
+                name="team_name"
+                placeholder="Team name"
+                required
+              />
+              <button className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white">
+                Save name
+              </button>
+            </form>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-sky-100/70">
               Select six players from the imported Pingisligan player pool and
               stay inside your fantasy budget.
             </p>
             <a
               className="mt-6 inline-flex rounded-md border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10"
-              href={PROFIXIO_RESULTS_URL}
+              href={STUPA_RESULTS_URL}
               rel="noreferrer"
               target="_blank"
             >
@@ -288,6 +298,7 @@ export default async function DashboardPage({
                 </dd>
               </div>
             </dl>
+            <DeleteAccountForm />
           </div>
         </div>
 

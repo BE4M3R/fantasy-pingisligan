@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { signIn } from "@/app/auth/actions";
+import { sendPasswordReset, signIn } from "@/app/auth/actions";
 import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -77,6 +77,27 @@ export default async function LoginPage({
               Create one
             </Link>
           </p>
+
+          <form
+            action={sendPasswordReset}
+            className="mt-6 border-t border-white/10 pt-6"
+          >
+            <label className="block text-sm font-medium text-sky-100">
+              Forgot password?
+              <input
+                autoComplete="email"
+                className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
+                name="email"
+                placeholder="Email"
+                required
+                type="email"
+              />
+            </label>
+
+            <button className="mt-3 w-full rounded-md border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
+              Send reset link
+            </button>
+          </form>
         </div>
       </section>
     </main>

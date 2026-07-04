@@ -1,8 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+
+const PUBLIC_SITE_URL = "https://fantasy-pingisligan.vercel.app";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -31,6 +32,28 @@ export async function signIn(formData: FormData) {
   redirect("/dashboard");
 }
 
+export async function sendPasswordReset(formData: FormData) {
+  const email = getString(formData, "email");
+
+  if (!email) {
+    redirectWithMessage("/login", "Email is required to reset your password.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${PUBLIC_SITE_URL}/auth/reset-password`,
+  });
+
+  if (error) {
+    redirectWithMessage("/login", error.message);
+  }
+
+  redirectWithMessage(
+    "/login",
+    "If an account exists for that email, a password reset link has been sent.",
+  );
+}
+
 export async function signUp(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
@@ -40,13 +63,26 @@ export async function signUp(formData: FormData) {
     redirectWithMessage("/signup", "Name, email and password are required.");
   }
 
-  const origin = (await headers()).get("origin") ?? "http://localhost:3000";
   const supabase = await createClient();
+  const { data: emailIsRegistered, error: emailCheckError } =
+    await supabase.rpc("email_is_registered", { candidate_email: email });
+
+  if (emailCheckError) {
+    redirectWithMessage("/signup", emailCheckError.message);
+  }
+
+  if (emailIsRegistered) {
+    redirectWithMessage(
+      "/signup",
+      "That email is already in use. Log in or reset your password instead.",
+    );
+  }
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${PUBLIC_SITE_URL}/auth/callback`,
       data: {
         display_name: displayName,
       },
@@ -61,6 +97,42 @@ export async function signUp(formData: FormData) {
     "/login",
     "Check your email to confirm your account, then sign in.",
   );
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = getString(formData, "password");
+
+  if (!password) {
+    redirectWithMessage("/reset-password", "Password is required.");
+  }
+
+  if (password.length < 6) {
+    redirectWithMessage(
+      "/reset-password",
+      "Password must be at least 6 characters.",
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirectWithMessage(
+      "/login",
+      "Open the password reset link from your email before setting a new password.",
+    );
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    redirectWithMessage("/reset-password", error.message);
+  }
+
+  await supabase.auth.signOut();
+  redirectWithMessage("/login", "Password updated. Sign in with your new password.");
 }
 
 export async function signOut() {

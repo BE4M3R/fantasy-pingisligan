@@ -8,6 +8,7 @@ const SQUAD_SIZE = 6;
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
 const DEFAULT_BUDGET = 100000000;
+const MAX_TEAM_NAME_LENGTH = 40;
 const VALID_POSITIONS = ["starter", "bench"] as const;
 
 type SquadPosition = (typeof VALID_POSITIONS)[number];
@@ -155,6 +156,46 @@ export async function addPlayerToTeam(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+}
+
+export async function updateTeamName(formData: FormData) {
+  const name = getString(formData, "team_name").replace(/\s+/g, " ");
+
+  if (!name) {
+    dashboardMessage("Team name cannot be empty.");
+  }
+
+  if (name.length > MAX_TEAM_NAME_LENGTH) {
+    dashboardMessage(`Team name can be at most ${MAX_TEAM_NAME_LENGTH} characters.`);
+  }
+
+  const { supabase, userId } = await getUserId();
+  const team = await getOrCreateFantasyTeam(supabase, userId);
+
+  const { error } = await supabase
+    .from("fantasy_teams")
+    .update({ name, updated_at: new Date().toISOString() })
+    .eq("id", team.id)
+    .eq("user_id", userId);
+
+  if (error) {
+    dashboardMessage(error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/leaderboard");
+}
+
+export async function deleteAccount() {
+  const { supabase } = await getUserId();
+
+  const { error } = await supabase.rpc("delete_current_user");
+
+  if (error) {
+    dashboardMessage(error.message);
+  }
+
+  redirect("/");
 }
 
 export async function setPlayerPosition(formData: FormData) {
