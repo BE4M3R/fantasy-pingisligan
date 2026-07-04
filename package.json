@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "import:players": "node scripts/import-profixio-players.mjs",
-    "import:players:dry": "node scripts/import-profixio-players.mjs --dry-run"
+    "import:players:dry": "node scripts/import-profixio-players.mjs --dry-run",
+    "import:schedule": "node scripts/import-stupa-schedule.mjs",
+    "import:schedule:dry": "node scripts/import-stupa-schedule.mjs --dry-run"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

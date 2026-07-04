@@ -24,6 +24,7 @@ type PlayerPoolProps = {
   selectedPlayerIds: string[];
   squadSize: number;
   remainingBudget: number;
+  transfersLocked: boolean;
 };
 
 function formatMoney(value: number | string) {
@@ -67,6 +68,7 @@ export function PlayerPool({
   selectedPlayerIds,
   squadSize,
   remainingBudget,
+  transfersLocked,
 }: PlayerPoolProps) {
   const [sortField, setSortField] = useState<SortField>("price");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -169,7 +171,7 @@ export function PlayerPool({
               const isSelected = selectedIds.has(player.id);
               const isFull = squadSize >= SQUAD_SIZE;
               const isTooExpensive = Number(player.price) > remainingBudget;
-              const cannotAdd = isSelected || isFull || isTooExpensive;
+              const cannotAdd = transfersLocked || isSelected || isFull || isTooExpensive;
 
               return (
                 <tr className="transition hover:bg-white/5" key={player.id}>
@@ -192,7 +194,10 @@ export function PlayerPool({
                     {isSelected ? (
                       <form action={removePlayerFromTeam}>
                         <input name="player_id" type="hidden" value={player.id} />
-                        <button className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200">
+                        <button
+                          className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
+                          disabled={transfersLocked}
+                        >
                           Remove
                         </button>
                       </form>

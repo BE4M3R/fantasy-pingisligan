@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 
-type DashboardTab = "squad" | "leaderboard";
+type DashboardTab = "squad" | "leaderboard" | "progress";
 
 const tabs: { href: string; label: string; value: DashboardTab }[] = [
   { href: "/dashboard", label: "Squad", value: "squad" },
   { href: "/dashboard/leaderboard", label: "Leaderboard", value: "leaderboard" },
+  { href: "/dashboard/progress", label: "Progress", value: "progress" },
 ];
 
 export function DashboardHeader({ activeTab }: { activeTab: DashboardTab }) {

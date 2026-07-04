@@ -38,8 +38,27 @@ type SquadPlayer = DashboardPlayer & {
   position: SquadPosition;
 };
 
+type TransferLock = {
+  is_locked: boolean;
+  gameweek_name: string | null;
+  lock_at: string | null;
+  unlock_at: string | null;
+};
+
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Stockholm",
+  }).format(new Date(value));
 }
 
 function getClubName(player: DashboardPlayer) {
@@ -88,7 +107,13 @@ function ClubLogoBadge({ clubName, size = "md" }: { clubName: string; size?: "sm
   );
 }
 
-function SquadCard({ player }: { player: SquadPlayer }) {
+function SquadCard({
+  player,
+  transfersLocked,
+}: {
+  player: SquadPlayer;
+  transfersLocked: boolean;
+}) {
   const targetPosition = player.position === "starter" ? "bench" : "starter";
 
   return (
@@ -112,7 +137,10 @@ function SquadCard({ player }: { player: SquadPlayer }) {
         </div>
         <form action={removePlayerFromTeam}>
           <input name="player_id" type="hidden" value={player.id} />
-          <button className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200">
+          <button
+            className="rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
+            disabled={transfersLocked}
+          >
             Remove
           </button>
         </form>
@@ -121,7 +149,10 @@ function SquadCard({ player }: { player: SquadPlayer }) {
       <form action={setPlayerPosition} className="mt-4">
         <input name="player_id" type="hidden" value={player.id} />
         <input name="position" type="hidden" value={targetPosition} />
-        <button className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10">
+        <button
+          className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
+          disabled={transfersLocked}
+        >
           Move to {targetPosition === "starter" ? "main players" : "bench"}
         </button>
       </form>
@@ -129,7 +160,10 @@ function SquadCard({ player }: { player: SquadPlayer }) {
       {!player.is_captain ? (
         <form action={setTeamCaptain} className="mt-2">
           <input name="player_id" type="hidden" value={player.id} />
-          <button className="w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-sky-100 hover:bg-sky-100/15">
+          <button
+            className="w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-sky-100 hover:bg-sky-100/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
+            disabled={transfersLocked}
+          >
             Make captain
           </button>
         </form>
@@ -201,6 +235,12 @@ export default async function DashboardPage({
         .eq("fantasy_team_id", fantasyTeam.id)
     : { data: [] };
 
+  const { data: transferLockRows } = await supabase.rpc("current_transfer_lock");
+
+  const transferLock = (
+    Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
+  ) as TransferLock | null;
+  const transfersLocked = Boolean(transferLock?.is_locked);
   const players = (playerRows ?? []) as DashboardPlayer[];
   const squad = ((squadRows ?? []) as SquadRow[])
     .map(getSquadPlayer)
@@ -308,6 +348,13 @@ export default async function DashboardPage({
           </div>
         ) : null}
 
+        {transfersLocked ? (
+          <div className="mt-6 rounded-md border border-red-300/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+            {transferLock?.gameweek_name ?? "This gameweek"} is locked for
+            squad changes until {formatDateTime(transferLock?.unlock_at ?? null)}.
+          </div>
+        ) : null}
+
         <section className="table-panel mt-8 rounded-lg border p-6">
           <div>
             <h2 className="text-base font-bold">My squad</h2>
@@ -329,7 +376,11 @@ export default async function DashboardPage({
               <div className="grid gap-3 md:grid-cols-2">
                 {starters.length ? (
                   starters.map((player) => (
-                    <SquadCard key={player.id} player={player} />
+                    <SquadCard
+                      key={player.id}
+                      player={player}
+                      transfersLocked={transfersLocked}
+                    />
                   ))
                 ) : (
                   <div className="rounded-md border border-dashed border-white/20 px-4 py-8 text-sm text-sky-100/55 md:col-span-2">
@@ -349,7 +400,11 @@ export default async function DashboardPage({
               <div className="grid gap-3">
                 {bench.length ? (
                   bench.map((player) => (
-                    <SquadCard key={player.id} player={player} />
+                    <SquadCard
+                      key={player.id}
+                      player={player}
+                      transfersLocked={transfersLocked}
+                    />
                   ))
                 ) : (
                   <div className="rounded-md border border-dashed border-white/20 px-4 py-8 text-sm text-sky-100/55">
@@ -376,6 +431,7 @@ export default async function DashboardPage({
             remainingBudget={remainingBudget}
             selectedPlayerIds={selectedPlayerIds}
             squadSize={squad.length}
+            transfersLocked={transfersLocked}
           />
         </section>
       </section>

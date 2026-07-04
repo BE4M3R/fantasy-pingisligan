@@ -92,6 +92,22 @@ function getPositionCount(squad: SquadPlayerRow[], position: SquadPosition) {
   return squad.filter((row) => row.position === position).length;
 }
 
+async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data, error } = await supabase.rpc("current_transfer_lock");
+
+  if (error) {
+    dashboardMessage(error.message);
+  }
+
+  const lock = Array.isArray(data) ? data[0] : data;
+
+  if (lock?.is_locked) {
+    dashboardMessage(
+      `${lock.gameweek_name ?? "This gameweek"} is locked. Squad changes reopen after the round finishes.`,
+    );
+  }
+}
+
 export async function addPlayerToTeam(formData: FormData) {
   const playerId = getString(formData, "player_id");
 
@@ -100,6 +116,7 @@ export async function addPlayerToTeam(formData: FormData) {
   }
 
   const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
   const team = await getOrCreateFantasyTeam(supabase, userId);
 
   const { data: player, error: playerError } = await supabase
@@ -207,6 +224,7 @@ export async function setPlayerPosition(formData: FormData) {
   }
 
   const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
   const team = await getOrCreateFantasyTeam(supabase, userId);
 
   const { data: squadRows, error: squadError } = await supabase
@@ -261,6 +279,7 @@ export async function setTeamCaptain(formData: FormData) {
   }
 
   const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
   const team = await getOrCreateFantasyTeam(supabase, userId);
 
   const { data: squadPlayer, error: squadPlayerError } = await supabase
@@ -304,6 +323,7 @@ export async function removePlayerFromTeam(formData: FormData) {
   }
 
   const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
   const team = await getOrCreateFantasyTeam(supabase, userId);
 
   const { data: removingPlayer, error: removingPlayerError } = await supabase

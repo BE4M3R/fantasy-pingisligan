@@ -51,6 +51,32 @@ create unique index if not exists fantasy_team_players_one_captain
 on public.fantasy_team_players (fantasy_team_id)
 where is_captain;
 
+create table if not exists public.fantasy_gameweeks (
+  id uuid primary key default gen_random_uuid(),
+  stupa_event_id integer not null,
+  stupa_event_category_id integer not null,
+  stupa_round_id integer not null unique,
+  name text not null,
+  round_order integer,
+  first_match_starts_at timestamptz not null,
+  last_match_ends_at timestamptz not null,
+  lock_at timestamptz not null,
+  unlock_at timestamptz not null,
+  imported_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.fantasy_team_gameweek_points (
+  fantasy_team_id uuid not null references public.fantasy_teams(id) on delete cascade,
+  fantasy_gameweek_id uuid not null references public.fantasy_gameweeks(id) on delete cascade,
+  points integer not null default 0,
+  calculated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (fantasy_team_id, fantasy_gameweek_id)
+);
+
 create table if not exists public.leagues (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -69,12 +95,26 @@ create table if not exists public.league_members (
 create table if not exists public.matches (
   id uuid primary key default gen_random_uuid(),
   profixio_id text unique,
+  stupa_match_id integer,
+  fantasy_gameweek_id uuid references public.fantasy_gameweeks(id) on delete set null,
+  stupa_event_match_id integer,
+  stupa_event_id integer,
+  stupa_event_category_id integer,
+  stupa_round_id integer,
+  stupa_group_id integer,
   home_club_id uuid references public.clubs(id) on delete set null,
   away_club_id uuid references public.clubs(id) on delete set null,
+  home_team_name text,
+  away_team_name text,
   starts_at timestamptz,
+  ends_at timestamptz,
   status text not null default 'scheduled',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  source_updated_at timestamptz
 );
+
+create unique index if not exists matches_stupa_match_id_key
+on public.matches (stupa_match_id);
 
 create table if not exists public.player_match_stats (
   id uuid primary key default gen_random_uuid(),
@@ -98,6 +138,8 @@ alter table public.leagues enable row level security;
 alter table public.league_members enable row level security;
 alter table public.matches enable row level security;
 alter table public.player_match_stats enable row level security;
+alter table public.fantasy_gameweeks enable row level security;
+alter table public.fantasy_team_gameweek_points enable row level security;
 
 create policy "Profiles are readable by signed-in users"
 on public.profiles for select
@@ -129,6 +171,23 @@ create policy "Player match stats are public"
 on public.player_match_stats for select
 to anon, authenticated
 using (true);
+
+create policy "Fantasy gameweeks are public"
+on public.fantasy_gameweeks for select
+to anon, authenticated
+using (true);
+
+create policy "Users can read their gameweek points"
+on public.fantasy_team_gameweek_points for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.fantasy_teams
+    where fantasy_teams.id = fantasy_team_gameweek_points.fantasy_team_id
+      and fantasy_teams.user_id = auth.uid()
+  )
+);
 
 create policy "Users can read their fantasy team"
 on public.fantasy_teams for select
@@ -334,3 +393,80 @@ $$;
 
 revoke all on function public.email_is_registered(text) from public;
 grant execute on function public.email_is_registered(text) to anon, authenticated;
+
+create or replace function public.current_transfer_lock()
+returns table (
+  is_locked boolean,
+  gameweek_id uuid,
+  gameweek_name text,
+  lock_at timestamptz,
+  unlock_at timestamptz
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.fantasy_gameweeks
+      where now() >= lock_at
+        and now() <= unlock_at
+    ) as is_locked,
+    locked_gameweek.id as gameweek_id,
+    locked_gameweek.name as gameweek_name,
+    locked_gameweek.lock_at,
+    locked_gameweek.unlock_at
+  from (
+    select *
+    from public.fantasy_gameweeks
+    where now() >= lock_at
+      and now() <= unlock_at
+    order by lock_at
+    limit 1
+  ) as locked_gameweek
+  right join (select 1) as fallback on true;
+$$;
+
+grant execute on function public.current_transfer_lock() to anon, authenticated;
+
+create or replace function public.get_my_gameweek_progress()
+returns table (
+  gameweek_id uuid,
+  gameweek_name text,
+  round_order integer,
+  first_match_starts_at timestamptz,
+  last_match_ends_at timestamptz,
+  lock_at timestamptz,
+  unlock_at timestamptz,
+  status text,
+  points integer
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    fantasy_gameweeks.id as gameweek_id,
+    fantasy_gameweeks.name as gameweek_name,
+    fantasy_gameweeks.round_order,
+    fantasy_gameweeks.first_match_starts_at,
+    fantasy_gameweeks.last_match_ends_at,
+    fantasy_gameweeks.lock_at,
+    fantasy_gameweeks.unlock_at,
+    case
+      when now() > fantasy_gameweeks.unlock_at then 'Complete'
+      when now() >= fantasy_gameweeks.first_match_starts_at then 'In progress'
+      else 'Upcoming'
+    end as status,
+    coalesce(fantasy_team_gameweek_points.points, 0) as points
+  from public.fantasy_gameweeks
+  left join public.fantasy_teams
+    on fantasy_teams.user_id = auth.uid()
+  left join public.fantasy_team_gameweek_points
+    on fantasy_team_gameweek_points.fantasy_gameweek_id = fantasy_gameweeks.id
+    and fantasy_team_gameweek_points.fantasy_team_id = fantasy_teams.id
+  order by fantasy_gameweeks.round_order, fantasy_gameweeks.first_match_starts_at;
+$$;
+
+grant execute on function public.get_my_gameweek_progress() to authenticated;
