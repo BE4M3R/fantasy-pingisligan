@@ -123,11 +123,10 @@ export async function updatePassword(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) {
+  if (!claims?.sub) {
     redirectWithMessage(
       "/login",
       "Open the password reset link from your email before setting a new password.",

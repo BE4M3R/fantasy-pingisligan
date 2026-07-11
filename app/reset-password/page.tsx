@@ -9,11 +9,10 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ message?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) {
+  if (!claims?.sub) {
     redirect(
       `/login?message=${encodeURIComponent(
         "Open the password reset link from your email before setting a new password.",

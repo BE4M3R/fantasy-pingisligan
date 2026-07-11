@@ -5,17 +5,16 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [claimsResult, progressResult] = await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.rpc("get_my_gameweek_progress"),
+  ]);
 
-  if (!user) {
+  if (!claimsResult.data?.claims.sub) {
     redirect("/login");
   }
 
-  const { data: progressRows, error: progressError } = await supabase.rpc(
-    "get_my_gameweek_progress",
-  );
+  const { data: progressRows, error: progressError } = progressResult;
 
   const progress = (progressRows ?? []) as ProgressRow[];
 

@@ -30,7 +30,9 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  // Verify the access token while also allowing the SSR client to refresh it.
+  // With asymmetric signing keys, getClaims() avoids a request to Auth.
+  await supabase.auth.getClaims();
 
   return response;
 }

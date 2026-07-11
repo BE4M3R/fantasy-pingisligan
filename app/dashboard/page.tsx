@@ -215,27 +215,28 @@ export default async function DashboardPage({
   searchParams: Promise<{ message?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) {
+  if (!claims?.sub) {
     redirect("/login");
   }
+
+  const userId = claims.sub;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   const displayName =
-    profile?.display_name ?? user.user_metadata.display_name ?? user.email;
+    profile?.display_name ?? claims.user_metadata?.display_name ?? claims.email;
 
   const { data: existingTeam } = await supabase
     .from("fantasy_teams")
     .select("id, name, budget")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   let fantasyTeam = existingTeam as FantasyTeam | null;
@@ -244,7 +245,7 @@ export default async function DashboardPage({
     const { data: createdTeam } = await supabase
       .from("fantasy_teams")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         name: "My team",
         budget: DEFAULT_BUDGET,
       })

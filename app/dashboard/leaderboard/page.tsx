@@ -8,17 +8,17 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function LeaderboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [claimsResult, leaderboardResult] = await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.rpc("get_global_leaderboard"),
+  ]);
+  const userId = claimsResult.data?.claims.sub;
 
-  if (!user) {
+  if (!userId) {
     redirect("/login");
   }
 
-  const { data: leaderboardRows, error: leaderboardError } = await supabase.rpc(
-    "get_global_leaderboard",
-  );
+  const { data: leaderboardRows, error: leaderboardError } = leaderboardResult;
 
   const leaderboard = (leaderboardRows ?? []) as LeaderboardRow[];
 
@@ -43,7 +43,7 @@ export default async function LeaderboardPage() {
               the leaderboard.
             </div>
           ) : (
-            <LeaderboardTable currentUserId={user.id} rows={leaderboard} />
+            <LeaderboardTable currentUserId={userId} rows={leaderboard} />
           )}
         </section>
       </section>

@@ -10,9 +10,8 @@ export default function Home() {
 
 async function HomeContent() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
@@ -22,7 +21,7 @@ async function HomeContent() {
             Fantasy Pingisligan
           </Link>
           <div className="flex items-center gap-3">
-            {user ? (
+            {claims?.sub ? (
               <Link
                 className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white"
                 href="/dashboard"
@@ -85,9 +84,9 @@ async function HomeContent() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               className="rounded-md bg-sky-100 px-5 py-3 text-center text-sm font-bold text-sky-950 transition hover:bg-white"
-              href={user ? "/dashboard" : "/signup"}
+              href={claims?.sub ? "/dashboard" : "/signup"}
             >
-              {user ? "Open dashboard" : "Create account"}
+              {claims?.sub ? "Open dashboard" : "Create account"}
             </Link>
             <Link
               className="rounded-md border border-white/20 bg-white/5 px-5 py-3 text-center text-sm font-bold text-sky-50 transition hover:border-white/60 hover:bg-white/10"

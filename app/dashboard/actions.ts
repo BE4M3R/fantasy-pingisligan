@@ -33,15 +33,14 @@ function dashboardMessage(message: string): never {
 
 async function getUserId() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) {
+  if (!claims?.sub) {
     redirect("/login");
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: claims.sub };
 }
 
 async function getOrCreateFantasyTeam(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
