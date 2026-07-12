@@ -93,6 +93,24 @@ To test parsing without writing to Supabase:
 npm run import:players:dry
 ```
 
+To import scored Stupa submatches and per-player set results, first run
+`supabase/stupa-results-migration.sql` in the Supabase SQL editor, then run:
+
+```bash
+npm run import:results
+```
+
+The importer defaults to the upcoming Pingisligan stage (`5727`). Override it
+with `STUPA_STAGE_ID`, for example to inspect another completed league:
+
+```bash
+STUPA_STAGE_ID=4521 npm run import:results:dry
+```
+
+Stupa's player `meta_data.license_id` is matched to the existing Profixio ID.
+Unmatched players are retained in the raw result tables and reported instead of
+being silently discarded. Fantasy points are not assigned by this importer.
+
 ## Deploy
 
 When deploying to Vercel, add these environment variables in the Vercel project:
