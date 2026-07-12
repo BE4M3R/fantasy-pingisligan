@@ -54,8 +54,9 @@ where is_captain;
 
 create table if not exists public.fantasy_gameweeks (
   id uuid primary key default gen_random_uuid(),
-  stupa_event_id integer not null,
-  stupa_event_category_id integer not null,
+  stupa_stage_id integer,
+  stupa_event_id integer,
+  stupa_event_category_id integer,
   stupa_round_id integer not null unique,
   name text not null,
   round_order integer,
@@ -97,6 +98,7 @@ create table if not exists public.matches (
   id uuid primary key default gen_random_uuid(),
   profixio_id text unique,
   stupa_match_id integer,
+  stupa_stage_id integer,
   fantasy_gameweek_id uuid references public.fantasy_gameweeks(id) on delete set null,
   stupa_event_match_id integer,
   stupa_event_id integer,

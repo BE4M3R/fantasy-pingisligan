@@ -5,9 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const STUPA_API_BASE_URL = "https://testbackend.stupaevents.com";
 const STUPA_TENANT = "sbtf";
-const STUPA_EVENT_ID = 417;
-const STUPA_CATEGORY_ID = 1118;
-const STUPA_EVENT_CATEGORY_ID = 3809;
+const DEFAULT_STAGE_ID = 5727;
 const SOURCE_TIME_ZONE = "Europe/Stockholm";
 const LOCK_WINDOW_HOURS = 2;
 
@@ -117,16 +115,20 @@ function addHours(isoValue, hours) {
     .toISOString();
 }
 
-async function fetchStupaMatches() {
-  const url = new URL("/ott/v1/matches", STUPA_API_BASE_URL);
-  url.searchParams.set("event_id", String(STUPA_EVENT_ID));
-  url.searchParams.set("event_category_id", String(STUPA_EVENT_CATEGORY_ID));
-  url.searchParams.set("category_id", String(STUPA_CATEGORY_ID));
+async function fetchStage(stageId) {
+  const url = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
+  url.searchParams.set("stage_id", String(stageId));
+  url.searchParams.set("view", "standard");
+  url.searchParams.set("show_matrix", "true");
+  url.searchParams.set("fetch_point_system", "true");
 
   const response = await fetch(url, {
     headers: {
       accept: "application/json",
       tenant: STUPA_TENANT,
+      language: "sw",
+      source: "web",
+      "user-agent": "fantasy-pingisligan-schedule-importer/1.0",
     },
   });
 
@@ -134,34 +136,38 @@ async function fetchStupaMatches() {
     throw new Error(`Stupa schedule request failed with ${response.status}`);
   }
 
-  const matches = await response.json();
+  const payload = await response.json();
 
-  if (!Array.isArray(matches)) {
-    throw new Error("Stupa schedule response was not an array.");
+  if (payload?.code !== 200 || !Array.isArray(payload?.data)) {
+    throw new Error(`Unexpected Stupa schedule response: ${payload?.msg ?? "unknown error"}`);
   }
 
-  return matches.filter((match) => !match.is_deleted);
+  return payload.data
+    .flatMap((group) => group.matches ?? [])
+    .filter((match) => !match.is_deleted);
 }
 
 function getParticipantName(match, order) {
-  return match.participants
-    ?.find((participant) => participant.order === order)
-    ?.participant_name?.trim() ?? null;
+  const participants = match.participants ?? [];
+  return (
+    participants.find((participant) => participant.order === order) ??
+    participants[order - 1]
+  )?.participant_name?.trim() ?? null;
 }
 
-function buildGameweeks(matches) {
+function buildGameweeks(matches, stageId) {
   const byRoundId = new Map();
 
   for (const match of matches) {
-    if (!match.round_id || !match.start_time || !match.end_time) {
+    const endTime = match.end_time ?? match.slot?.end_time;
+    if (!match.round_id || !match.start_time || !endTime) {
       continue;
     }
 
     const startsAt = localDateTimeToUtcIso(match.start_time);
-    const endsAt = localDateTimeToUtcIso(match.end_time);
+    const endsAt = localDateTimeToUtcIso(endTime);
     const current = byRoundId.get(match.round_id) ?? {
-      stupa_event_id: STUPA_EVENT_ID,
-      stupa_event_category_id: STUPA_EVENT_CATEGORY_ID,
+      stupa_stage_id: stageId,
       stupa_round_id: match.round_id,
       name: match.round?.name ?? `Round ${match.round_id}`,
       round_order: match.round?.order ?? null,
@@ -249,7 +255,7 @@ async function upsertGameweeks(supabase, gameweeks) {
   return new Map(data.map((gameweek) => [gameweek.stupa_round_id, gameweek]));
 }
 
-async function upsertMatches(supabase, matches, gameweeksByRoundId) {
+async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
   const clubs = await getClubs(supabase);
   const payload = [];
 
@@ -257,7 +263,7 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId) {
     const homeTeamName = getParticipantName(match, 1);
     const awayTeamName = getParticipantName(match, 2);
     const startsAt = localDateTimeToUtcIso(match.start_time);
-    const endsAt = localDateTimeToUtcIso(match.end_time);
+    const endsAt = localDateTimeToUtcIso(match.end_time ?? match.slot?.end_time);
 
     if (!match.id || !match.round_id || !startsAt || !endsAt) {
       continue;
@@ -268,8 +274,7 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId) {
       stupa_match_id: match.id,
       fantasy_gameweek_id: gameweeksByRoundId.get(match.round_id)?.id ?? null,
       stupa_event_match_id: match.event_match_id ?? null,
-      stupa_event_id: STUPA_EVENT_ID,
-      stupa_event_category_id: STUPA_EVENT_CATEGORY_ID,
+      stupa_stage_id: stageId,
       stupa_round_id: match.round_id,
       stupa_group_id: match.group_id ?? null,
       home_club_id: await getOrCreateClubId(supabase, clubs, homeTeamName),
@@ -300,10 +305,15 @@ async function main() {
 
   const dryRun =
     process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
-  const matches = await fetchStupaMatches();
-  const gameweeks = buildGameweeks(matches);
+  const stageId = Number.parseInt(process.env.STUPA_STAGE_ID ?? String(DEFAULT_STAGE_ID), 10);
+  if (!Number.isInteger(stageId)) {
+    throw new Error("STUPA_STAGE_ID must be an integer.");
+  }
 
-  console.log(`Fetched ${matches.length} Stupa matches.`);
+  const matches = await fetchStage(stageId);
+  const gameweeks = buildGameweeks(matches, stageId);
+
+  console.log(`Fetched ${matches.length} Stupa matches from stage ${stageId}.`);
   console.log(`Built ${gameweeks.length} fantasy gameweeks.`);
 
   for (const gameweek of gameweeks) {
@@ -326,7 +336,7 @@ async function main() {
   });
 
   const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks);
-  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId);
+  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId);
 
   console.log(`Imported ${gameweeks.length} gameweeks and ${importedMatches} matches.`);
 }

@@ -65,6 +65,8 @@ Keep Profixio scraping and result imports server-side. Good places for that
 later are a GitHub Actions scheduled job, a Supabase Edge Function, or a
 server-only script. Do not put scraping logic in browser/client components.
 
+### Player imports
+
 To import players from the first Profixio men ranking page, add a private
 service role key locally in `.env.local` or in your cron environment:
 
@@ -92,6 +94,28 @@ To test parsing without writing to Supabase:
 ```bash
 npm run import:players:dry
 ```
+
+### Schedule imports
+
+The schedule importer reads rounds, teams, dates and match times from Stupa's
+stage-based group-match endpoint. It also creates fantasy gameweeks and their
+transfer lock windows.
+
+For an existing Supabase database, first run
+`supabase/stupa-stage-schedule-migration.sql` in the Supabase SQL editor. The
+importer defaults to the upcoming Pingisligan stage (`5727`). Then run:
+
+```bash
+npm run import:schedule
+```
+
+To inspect another stage without writing to Supabase:
+
+```bash
+STUPA_STAGE_ID=4521 npm run import:schedule:dry
+```
+
+### Result imports
 
 To import scored Stupa submatches and per-player set results, first run
 `supabase/stupa-results-migration.sql` in the Supabase SQL editor, then run:
