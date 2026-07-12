@@ -59,6 +59,15 @@ Useful routes:
 - `/dashboard` protected app area with squad builder
 - `/test-supabase` simple database smoke test
 
+## Developer documentation
+
+- [Repository guide](docs/README.md) — where code lives and where to start
+- [Architecture](docs/architecture.md) — application boundaries and request flows
+- [Database](docs/database.md) — main tables and relationships
+- [Data imports](docs/data-imports.md) — importer order, operation and troubleshooting
+- [Updating a checkout](docs/updating.md) — pull, migrate and verify safely
+- [Flowcharts](docs/flowcharts/README.md) — visual request and import flows
+
 ## Data imports
 
 Keep Profixio scraping and result imports server-side. Good places for that
@@ -130,6 +139,9 @@ with `STUPA_STAGE_ID`, for example to inspect another completed league:
 ```bash
 STUPA_STAGE_ID=4521 npm run import:results:dry
 ```
+
+See [Data imports](docs/data-imports.md) for the required import order, Windows
+commands, rerun behavior and troubleshooting.
 
 Stupa's player `meta_data.license_id` is matched to the existing Profixio ID.
 Unmatched players are retained in the raw result tables and reported instead of
