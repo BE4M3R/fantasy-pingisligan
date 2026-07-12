@@ -1,14 +1,12 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import {
-  setTeamCaptain,
-  swapSquadPlayers,
-  updateTeamName,
-} from "@/app/dashboard/actions";
+import { updateTeamName } from "@/app/dashboard/actions";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { getClubLogo } from "@/app/dashboard/club-logos";
-import { PlayerPool, type DashboardPlayer } from "@/app/dashboard/player-pool";
+import { PlayerPicker } from "@/app/dashboard/player-picker";
+import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
+import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
 import { createClient } from "@/lib/supabase/server";
 
 const STARTER_SIZE = 4;
@@ -16,8 +14,6 @@ const BENCH_SIZE = 2;
 const DEFAULT_BUDGET = 100000000;
 const STUPA_RESULTS_URL =
   "https://sbtfeventsott.stupaevents.com/events/417/1118/0/1/1";
-type SquadPosition = "starter" | "bench";
-
 type FantasyTeam = {
   id: string;
   name: string;
@@ -134,16 +130,25 @@ function ExternalLinkIcon() {
 
 function SquadCard({
   player,
+  remainingBudget,
+  selectedPlayerIds,
   swapTargets,
   transfersLocked,
 }: {
   player: SquadPlayer;
+  remainingBudget: number;
+  selectedPlayerIds: string[];
   swapTargets: SquadPlayer[];
   transfersLocked: boolean;
 }) {
   return (
-    <div className="rounded-md border border-white/15 bg-sky-950/70 p-4 shadow-sm shadow-slate-950/20">
-      <div className="flex items-start justify-between gap-3">
+    <SquadCardActions
+      player={player}
+      remainingBudget={remainingBudget}
+      selectedPlayerIds={selectedPlayerIds}
+      swapTargets={swapTargets}
+      transfersLocked={transfersLocked}
+    >
         <div className="flex min-w-0 items-center gap-3">
           <ClubLogoBadge clubName={getClubName(player)} />
           <div className="min-w-0">
@@ -160,52 +165,7 @@ function SquadCard({
             </p>
           </div>
         </div>
-      </div>
-
-      {swapTargets.length ? (
-        <form action={swapSquadPlayers} className="mt-4 grid gap-2">
-          <input name="player_id" type="hidden" value={player.id} />
-          <label className="sr-only" htmlFor={`swap-target-${player.id}`}>
-            Swap with
-          </label>
-          <select
-            className="w-full rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-sm font-semibold text-sky-50 outline-none transition focus:border-sky-100"
-            defaultValue=""
-            disabled={transfersLocked}
-            id={`swap-target-${player.id}`}
-            name="target_player_id"
-            required
-          >
-            <option disabled value="">
-              Swap with
-            </option>
-            {swapTargets.map((target) => (
-              <option key={target.id} value={target.id}>
-                {target.first_name} {target.last_name}
-              </option>
-            ))}
-          </select>
-          <button
-            className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
-            disabled={transfersLocked}
-          >
-            Swap position
-          </button>
-        </form>
-      ) : null}
-
-      {swapTargets.length && !player.is_captain ? (
-        <form action={setTeamCaptain} className="mt-2">
-          <input name="player_id" type="hidden" value={player.id} />
-          <button
-            className="w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-sky-100 hover:bg-sky-100/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-sky-100/35"
-            disabled={transfersLocked}
-          >
-            Make captain
-          </button>
-        </form>
-      ) : null}
-    </div>
+    </SquadCardActions>
   );
 }
 
@@ -257,13 +217,6 @@ export default async function DashboardPage({
 
   const { message } = await searchParams;
 
-  const { data: playerRows } = await supabase
-    .from("players")
-    .select("id, first_name, last_name, birth_year, price, clubs(name)")
-    .eq("active", true)
-    .order("ranking_position", { ascending: true, nullsFirst: false })
-    .order("price", { ascending: false });
-
   const { data: squadRows } = fantasyTeam
     ? await supabase
         .from("fantasy_team_players")
@@ -280,7 +233,6 @@ export default async function DashboardPage({
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
-  const players = (playerRows ?? []) as DashboardPlayer[];
   const squad = ((squadRows ?? []) as SquadRow[])
     .map(getSquadPlayer)
     .filter((player): player is SquadPlayer => Boolean(player));
@@ -421,20 +373,22 @@ export default async function DashboardPage({
                 </span>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                {starters.length ? (
-                  starters.map((player) => (
+                {starters.map((player) => (
                     <SquadCard
                       key={player.id}
                       player={player}
+                      remainingBudget={remainingBudget}
+                      selectedPlayerIds={selectedPlayerIds}
                       swapTargets={isSquadFull ? bench : []}
                       transfersLocked={transfersLocked}
                     />
-                  ))
-                ) : (
-                  <div className="rounded-md border border-dashed border-white/20 px-4 py-8 text-sm text-sky-100/55 md:col-span-2">
-                    No main players selected yet.
-                  </div>
-                )}
+                  ))}
+                {starters.length < STARTER_SIZE ? (
+                  <PlayerPicker position="starter" remainingBudget={remainingBudget} selectedPlayerIds={selectedPlayerIds} transfersLocked={transfersLocked} />
+                ) : null}
+                {Array.from({ length: Math.max(0, STARTER_SIZE - starters.length - 1) }, (_, index) => (
+                  <div aria-label="Empty main player slot" className="min-h-28 rounded-md border border-dashed border-white/10 bg-sky-950/20" key={`starter-empty-${index}`} />
+                ))}
               </div>
             </div>
 
@@ -446,44 +400,27 @@ export default async function DashboardPage({
                 </span>
               </div>
               <div className="grid gap-3">
-                {bench.length ? (
-                  bench.map((player) => (
+                {bench.map((player) => (
                     <SquadCard
                       key={player.id}
                       player={player}
+                      remainingBudget={remainingBudget}
+                      selectedPlayerIds={selectedPlayerIds}
                       swapTargets={isSquadFull ? starters : []}
                       transfersLocked={transfersLocked}
                     />
-                  ))
-                ) : (
-                  <div className="rounded-md border border-dashed border-white/20 px-4 py-8 text-sm text-sky-100/55">
-                    No bench players selected yet.
-                  </div>
-                )}
+                  ))}
+                {bench.length < BENCH_SIZE ? (
+                  <PlayerPicker position="bench" remainingBudget={remainingBudget} selectedPlayerIds={selectedPlayerIds} transfersLocked={transfersLocked} />
+                ) : null}
+                {Array.from({ length: Math.max(0, BENCH_SIZE - bench.length - 1) }, (_, index) => (
+                  <div aria-label="Empty bench player slot" className="min-h-28 rounded-md border border-dashed border-white/10 bg-sky-950/20" key={`bench-empty-${index}`} />
+                ))}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="table-panel mt-8 rounded-lg border p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold">Player pool</h2>
-              <p className="mt-1 text-sm text-sky-100/60">
-                All active players currently available in Supabase.
-              </p>
-            </div>
-          </div>
-
-          <PlayerPool
-            players={players}
-            remainingBudget={remainingBudget}
-            selectedPlayerIds={selectedPlayerIds}
-            squadPlayers={squad}
-            squadSize={squad.length}
-            transfersLocked={transfersLocked}
-          />
-        </section>
       </section>
     </main>
   );

@@ -108,6 +108,7 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
 
 export async function addPlayerToTeam(formData: FormData) {
   const playerId = getString(formData, "player_id");
+  const requestedPosition = getString(formData, "position");
 
   if (!playerId) {
     dashboardMessage("Missing player.");
@@ -146,6 +147,18 @@ export async function addPlayerToTeam(formData: FormData) {
     dashboardMessage("Your squad already has six players.");
   }
 
+  const position: SquadPosition =
+    requestedPosition === "bench" || requestedPosition === "starter"
+      ? requestedPosition
+      : getPositionCount(squad, "starter") < STARTER_SIZE
+        ? "starter"
+        : "bench";
+  const positionLimit = position === "starter" ? STARTER_SIZE : BENCH_SIZE;
+
+  if (getPositionCount(squad, position) >= positionLimit) {
+    dashboardMessage(`All ${position === "starter" ? "main" : "bench"} slots are already filled.`);
+  }
+
   const usedBudget = squad.reduce((total, row) => total + getNestedPrice(row), 0);
   const playerPrice = Number(player.price);
   const budget = Number(team.budget);
@@ -160,10 +173,7 @@ export async function addPlayerToTeam(formData: FormData) {
       fantasy_team_id: team.id,
       is_captain: squad.length === 0,
       player_id: player.id,
-      position:
-        getPositionCount(squad, "starter") < STARTER_SIZE
-          ? "starter"
-          : "bench",
+      position,
     });
 
   if (insertError) {
@@ -404,10 +414,6 @@ export async function setTeamCaptain(formData: FormData) {
     dashboardMessage(squadError.message);
   }
 
-  if ((squadRows ?? []).length !== SQUAD_SIZE) {
-    dashboardMessage("Fill your six-player squad before choosing a captain.");
-  }
-
   if (!(squadRows ?? []).some((row) => row.player_id === playerId)) {
     dashboardMessage("Player not found in your squad.");
   }
@@ -435,6 +441,55 @@ export async function setTeamCaptain(formData: FormData) {
 }
 
 export async function removePlayerFromTeam(formData: FormData) {
-  void formData;
-  dashboardMessage("Use a swap to change your team once your squad has six players.");
+  const playerId = getString(formData, "player_id");
+
+  if (!playerId) {
+    dashboardMessage("Missing player.");
+  }
+
+  const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
+  const team = await getOrCreateFantasyTeam(supabase, userId);
+  const { data: squadRows, error: squadError } = await supabase
+    .from("fantasy_team_players")
+    .select("player_id, is_captain")
+    .eq("fantasy_team_id", team.id);
+
+  if (squadError) {
+    dashboardMessage(squadError.message);
+  }
+
+  const player = (squadRows ?? []).find((row) => row.player_id === playerId);
+
+  if (!player) {
+    dashboardMessage("Player not found in your squad.");
+  }
+
+  const { error: deleteError } = await supabase
+    .from("fantasy_team_players")
+    .delete()
+    .eq("fantasy_team_id", team.id)
+    .eq("player_id", playerId);
+
+  if (deleteError) {
+    dashboardMessage(deleteError.message);
+  }
+
+  if (player.is_captain) {
+    const nextCaptain = (squadRows ?? []).find((row) => row.player_id !== playerId);
+
+    if (nextCaptain) {
+      const { error: captainError } = await supabase
+        .from("fantasy_team_players")
+        .update({ is_captain: true })
+        .eq("fantasy_team_id", team.id)
+        .eq("player_id", nextCaptain.player_id);
+
+      if (captainError) {
+        dashboardMessage(captainError.message);
+      }
+    }
+  }
+
+  revalidatePath("/dashboard");
 }
