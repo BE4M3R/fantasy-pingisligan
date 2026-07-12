@@ -66,7 +66,6 @@ Useful routes:
 - [Database](docs/database.md) — main tables and relationships
 - [Data imports](docs/data-imports.md) — importer order, operation and troubleshooting
 - [Updating a checkout](docs/updating.md) — pull, migrate and verify safely
-- [Flowcharts](docs/flowcharts/README.md) — visual request and import flows
 
 ## Data imports
 

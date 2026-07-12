@@ -1,0 +1,16 @@
+- Create fantasy point calcualtion based on match results
+- Create fantasy rules, lock amount of transfers and so on
+- When transfer window locks create snapshot of each team as backup?
+- See some statistics of each player
+- Do some manual test based on other leauge, this maybe? https://sbtfeventsott.stupaevents.com/events/182/315/2/5/5
+    - Test player selection
+    - Transfer lock window
+    - Not full team?
+    - Captain working
+    - Giving correct points
+    - Maybe more
+- Can AI make good automatic unit tests?
+- Move change team name and delete account to some settings button.
+- Setup own private leagues
+
+ 

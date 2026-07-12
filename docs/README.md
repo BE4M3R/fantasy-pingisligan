@@ -14,7 +14,6 @@ Start with the root [README](../README.md) to install and run the application.
 | `scripts/` | Server-only Profixio and Stupa importers |
 | `supabase/schema.sql` | Complete schema for a new database |
 | `supabase/*-migration.sql` | Incremental changes for an existing database |
-| `docs/flowcharts/` | Mermaid diagrams of important runtime flows |
 
 ## Reading order
 
@@ -22,7 +21,6 @@ Start with the root [README](../README.md) to install and run the application.
 2. [Database](database.md)
 3. [Data imports](data-imports.md)
 4. [Updating a checkout](updating.md)
-5. [Flowcharts](flowcharts/README.md)
 
 ## Important rules
 
