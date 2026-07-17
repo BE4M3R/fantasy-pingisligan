@@ -136,8 +136,6 @@ export default async function OverviewPage() {
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
-  const starters = squad.filter((row) => row.position === "starter");
-  const bench = squad.filter((row) => row.position === "bench");
   const captain = squad.find((row) => row.is_captain);
   const captainPlayer = captain ? getPlayer(captain) : null;
   const usedBudget = squad.reduce(
@@ -149,13 +147,13 @@ export default async function OverviewPage() {
     (total, row) => total + Number(row.points),
     0,
   );
-  const currentGameweek =
+  const latestRound =
     progress.find((row) => row.status === "In progress") ??
-    [...progress].reverse().find((row) => row.status === "Complete") ??
-    progress.find((row) => row.status === "Upcoming");
+    [...progress].reverse().find((row) => row.status === "Complete");
   const upcomingGameweek = progress.find((row) => row.status === "Upcoming");
   const rankIndex = leaderboard.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
+  const isSquadReady = squad.length === SQUAD_SIZE;
   const squadCompletion = Math.round((squad.length / SQUAD_SIZE) * 100);
 
   return (
@@ -190,12 +188,15 @@ export default async function OverviewPage() {
                 <dd className="mt-2 text-2xl font-black">{formatPoints(totalPoints)}</dd>
               </div>
               <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                <dt className="truncate text-xs font-semibold uppercase tracking-wide text-sky-100/50">
-                  {currentGameweek?.gameweek_name ?? "Gameweek"}
+                <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
+                  Latest round
                 </dt>
                 <dd className="mt-2 text-2xl font-black">
-                  {formatPoints(currentGameweek?.points ?? 0)} pts
+                  {latestRound ? `${formatPoints(latestRound.points)} pts` : "—"}
                 </dd>
+                <p className="mt-1 truncate text-xs text-sky-100/45">
+                  {latestRound?.gameweek_name ?? "No results yet"}
+                </p>
               </div>
               <div className="rounded-md border border-white/10 bg-white/5 p-4">
                 <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
@@ -207,22 +208,44 @@ export default async function OverviewPage() {
 
             <div className="mt-6 rounded-md border border-white/10 bg-sky-950/35 p-4">
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="font-semibold">Squad ready</span>
-                <span className="text-sky-100/60">
+                <span
+                  className={`font-semibold ${
+                    isSquadReady ? "text-emerald-300" : "text-red-300"
+                  }`}
+                >
+                  {isSquadReady ? "Squad ready" : "Squad not ready"}
+                </span>
+                <span className={isSquadReady ? "text-sky-100/60" : "text-red-200/80"}>
                   {squad.length} / {SQUAD_SIZE} players
                 </span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className="h-full rounded-full bg-emerald-400 transition-all"
+                  className={`h-full rounded-full transition-all ${
+                    isSquadReady ? "bg-emerald-400" : "bg-red-400"
+                  }`}
                   style={{ width: `${squadCompletion}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-sky-100/55">
-                Captain: {captainPlayer
-                  ? `${captainPlayer.first_name} ${captainPlayer.last_name}`
-                  : "not selected"}
-              </p>
+              <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 text-xs sm:flex-row sm:items-end sm:justify-between">
+                <p className="text-sky-100/55">
+                  Captain: {captainPlayer
+                    ? `${captainPlayer.first_name} ${captainPlayer.last_name}`
+                    : "not selected"}
+                </p>
+                <div className="sm:text-right">
+                  <p className="font-bold uppercase tracking-wide text-sky-100/45">
+                    {transfersLocked ? "Transfers reopen" : "Next squad lock"}
+                  </p>
+                  <p className="mt-1 font-semibold text-sky-50">
+                    {formatDateTime(
+                      transfersLocked
+                        ? transferLock?.unlock_at ?? null
+                        : upcomingGameweek?.lock_at ?? null,
+                    ) || "No deadline scheduled"}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -284,36 +307,6 @@ export default async function OverviewPage() {
               ) : null}
             </ol>
 
-            <p className="mt-6 border-t border-white/10 pt-5 text-xs font-bold uppercase tracking-wide text-sky-100/45">
-              Team details
-            </p>
-            <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-sky-100/55">Main / bench</dt>
-                <dd className="mt-1 font-semibold text-sky-50">
-                  {starters.length} / {STARTER_SIZE} · {bench.length} / {BENCH_SIZE}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sky-100/55">Squad value</dt>
-                <dd className="mt-1 font-semibold text-sky-50">
-                  {formatMoney(usedBudget)}
-                </dd>
-              </div>
-            </dl>
-
-            <div className="mt-6 border-t border-white/10 pt-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-sky-100/45">
-                {transfersLocked ? "Transfers reopen" : "Next squad lock"}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-sky-50">
-                {formatDateTime(
-                  transfersLocked
-                    ? transferLock?.unlock_at ?? null
-                    : upcomingGameweek?.lock_at ?? null,
-                ) || "No deadline scheduled"}
-              </p>
-            </div>
           </aside>
         </div>
       </section>
