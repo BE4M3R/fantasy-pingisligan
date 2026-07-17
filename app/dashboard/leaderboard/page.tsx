@@ -26,11 +26,13 @@ export default async function LeaderboardPage() {
     <main className="table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="leaderboard" />
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <section className="table-panel rounded-lg border p-6">
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <section className="table-panel rounded-lg border p-4 sm:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-base font-bold">Leaderboard</h1>
+              <h1 className="text-2xl font-black tracking-tight sm:text-base sm:font-bold">
+                Leaderboard
+              </h1>
               <p className="mt-1 text-sm text-sky-100/60">
                 Fantasy teams sorted by total points.
               </p>
