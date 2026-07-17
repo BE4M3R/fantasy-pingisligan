@@ -155,6 +155,11 @@ export default async function OverviewPage() {
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const isSquadReady = squad.length === SQUAD_SIZE;
   const squadCompletion = Math.round((squad.length / SQUAD_SIZE) * 100);
+  const squadStatusColor = isSquadReady ? "#5ee9b5" : "#ffa3a3";
+  const squadCountColor = isSquadReady
+    ? "rgba(223, 242, 254, 0.6)"
+    : "rgba(255, 202, 202, 0.8)";
+  const squadProgressColor = isSquadReady ? "#00d294" : "#ff6568";
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
@@ -208,23 +213,20 @@ export default async function OverviewPage() {
 
             <div className="mt-6 rounded-md border border-white/10 bg-sky-950/35 p-4">
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span
-                  className={`font-semibold ${
-                    isSquadReady ? "text-emerald-300" : "text-red-300"
-                  }`}
-                >
+                <span className="font-semibold" style={{ color: squadStatusColor }}>
                   {isSquadReady ? "Squad ready" : "Squad not ready"}
                 </span>
-                <span className={isSquadReady ? "text-sky-100/60" : "text-red-200/80"}>
+                <span style={{ color: squadCountColor }}>
                   {squad.length} / {SQUAD_SIZE} players
                 </span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className={`h-full rounded-full transition-all ${
-                    isSquadReady ? "bg-emerald-400" : "bg-red-400"
-                  }`}
-                  style={{ width: `${squadCompletion}%` }}
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    backgroundColor: squadProgressColor,
+                    width: `${squadCompletion}%`,
+                  }}
                 />
               </div>
               <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 text-xs sm:flex-row sm:items-end sm:justify-between">
