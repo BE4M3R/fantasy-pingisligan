@@ -97,7 +97,7 @@ export function SquadCardActions({
 
             {transfersLocked ? (
               <div className="mt-5 rounded-md border border-red-300/30 bg-red-400/10 p-3 text-sm text-red-100">
-                Player changes are unavailable during the transfer lock.
+                Player changes are unavailable while the transfer window is closed.
               </div>
             ) : null}
 

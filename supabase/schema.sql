@@ -261,6 +261,13 @@ create policy "Users can manage their squad"
 on public.fantasy_team_players for all
 to authenticated
 using (
+  not exists (
+    select 1
+    from public.fantasy_gameweeks
+    where now() >= lock_at
+      and now() <= unlock_at
+  )
+  and
   exists (
     select 1
     from public.fantasy_teams
@@ -269,6 +276,13 @@ using (
   )
 )
 with check (
+  not exists (
+    select 1
+    from public.fantasy_gameweeks
+    where now() >= lock_at
+      and now() <= unlock_at
+  )
+  and
   exists (
     select 1
     from public.fantasy_teams

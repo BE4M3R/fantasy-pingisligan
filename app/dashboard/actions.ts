@@ -90,6 +90,18 @@ function getPositionCount(squad: SquadPlayerRow[], position: SquadPosition) {
   return squad.filter((row) => row.position === position).length;
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "after the round finishes";
+  }
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Stockholm",
+  }).format(new Date(value));
+}
+
 async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data, error } = await supabase.rpc("current_transfer_lock");
 
@@ -101,7 +113,7 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
 
   if (lock?.is_locked) {
     dashboardMessage(
-      `${lock.gameweek_name ?? "This gameweek"} is locked. Squad changes reopen after the round finishes.`,
+      `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens ${formatDateTime(lock.unlock_at)}.`,
     );
   }
 }

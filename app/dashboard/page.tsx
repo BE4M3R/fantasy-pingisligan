@@ -35,6 +35,11 @@ type TransferLock = {
   unlock_at: string | null;
 };
 
+type UpcomingGameweek = {
+  lock_at: string;
+  name: string;
+};
+
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
 }
@@ -171,7 +176,7 @@ export default async function SquadPage({
     fantasyTeam = createdTeam as FantasyTeam | null;
   }
 
-  const [squadResult, transferLockResult] = await Promise.all([
+  const [squadResult, transferLockResult, upcomingGameweekResult] = await Promise.all([
     fantasyTeam
       ? supabase
           .from("fantasy_team_players")
@@ -181,6 +186,13 @@ export default async function SquadPage({
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [] }),
     supabase.rpc("current_transfer_lock"),
+    supabase
+      .from("fantasy_gameweeks")
+      .select("name, lock_at")
+      .gt("lock_at", new Date().toISOString())
+      .order("lock_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const { message } = await searchParams;
   const transferLockRows = transferLockResult.data;
@@ -188,6 +200,7 @@ export default async function SquadPage({
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
+  const upcomingGameweek = upcomingGameweekResult.data as UpcomingGameweek | null;
   const squad = ((squadResult.data ?? []) as SquadRow[])
     .map(getSquadPlayer)
     .filter((player): player is SquadPlayer => Boolean(player));
@@ -213,12 +226,39 @@ export default async function SquadPage({
           </div>
         ) : null}
 
-        {transfersLocked ? (
-          <div className="mb-6 rounded-md border border-red-300/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
-            {transferLock?.gameweek_name ?? "This gameweek"} is locked for
-            squad changes until {formatDateTime(transferLock?.unlock_at ?? null)}.
+        <div
+          className={`mb-6 rounded-lg border px-4 py-4 ${
+            transfersLocked
+              ? "border-red-300/30 text-red-100"
+              : "border-emerald-300/30 text-emerald-100"
+          }`}
+          style={{
+            backgroundColor: transfersLocked
+              ? "rgba(248, 113, 113, 0.12)"
+              : "rgba(52, 211, 153, 0.14)",
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+                transfersLocked ? "bg-red-300" : "bg-emerald-300"
+              }`}
+            />
+            <div>
+              <p className="font-bold">
+                Transfer window {transfersLocked ? "closed" : "open"}
+              </p>
+              <p className="mt-1 text-sm opacity-80">
+                {transfersLocked
+                  ? `Squad changes reopen ${formatDateTime(transferLock?.unlock_at ?? null) || "after the round finishes"}.`
+                  : upcomingGameweek
+                    ? `You can change your squad until ${formatDateTime(upcomingGameweek.lock_at)} before ${upcomingGameweek.name}.`
+                    : "You can change your squad. No closing time is currently scheduled."}
+              </p>
+            </div>
           </div>
-        ) : null}
+        </div>
 
         <section className="table-panel rounded-lg border p-6">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">

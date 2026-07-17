@@ -237,7 +237,9 @@ export default async function OverviewPage() {
                 </p>
                 <div className="sm:text-right">
                   <p className="font-bold uppercase tracking-wide text-sky-100/45">
-                    {transfersLocked ? "Transfers reopen" : "Next squad lock"}
+                    {transfersLocked
+                      ? "Transfer window reopens"
+                      : "Transfer window closes"}
                   </p>
                   <p className="mt-1 font-semibold text-sky-50">
                     {formatDateTime(
