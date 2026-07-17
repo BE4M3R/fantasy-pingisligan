@@ -30,7 +30,7 @@ export async function signIn(formData: FormData) {
     redirectWithMessage("/login", error.message);
   }
 
-  redirect("/dashboard");
+  redirect("/dashboard/overview");
 }
 
 export async function sendPasswordReset(formData: FormData) {

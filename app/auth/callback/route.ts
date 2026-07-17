@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const type = requestUrl.searchParams.get("type");
   const next =
     requestUrl.searchParams.get("next") ??
-    (type === "recovery" ? "/reset-password" : "/dashboard");
+    (type === "recovery" ? "/reset-password" : "/dashboard/overview");
 
   if (code) {
     const supabase = await createClient();

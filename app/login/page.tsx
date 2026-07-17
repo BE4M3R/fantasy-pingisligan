@@ -13,7 +13,7 @@ export default async function LoginPage({
   const claims = data?.claims;
 
   if (claims?.sub) {
-    redirect("/dashboard");
+    redirect("/dashboard/overview");
   }
 
   const { message } = await searchParams;

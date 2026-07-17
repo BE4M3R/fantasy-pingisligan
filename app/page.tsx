@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CLUB_LOGOS } from "@/app/dashboard/club-logos";
 import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,10 @@ async function HomeContent() {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
 
+  if (claims?.sub) {
+    redirect("/dashboard/overview");
+  }
+
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <header className="border-b border-white/15 bg-sky-950/70 backdrop-blur">
@@ -21,29 +26,18 @@ async function HomeContent() {
             Fantasy Pingisligan
           </Link>
           <div className="flex items-center gap-3">
-            {claims?.sub ? (
-              <Link
-                className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white"
-                href="/dashboard"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
-                  href="/login"
-                >
-                  Log in
-                </Link>
-                <Link
-                  className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white"
-                  href="/signup"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
+            <Link
+              className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
+              href="/login"
+            >
+              Log in
+            </Link>
+            <Link
+              className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white"
+              href="/signup"
+            >
+              Sign up
+            </Link>
           </div>
         </nav>
       </header>
@@ -84,9 +78,9 @@ async function HomeContent() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               className="rounded-md bg-sky-100 px-5 py-3 text-center text-sm font-bold text-sky-950 transition hover:bg-white"
-              href={claims?.sub ? "/dashboard" : "/signup"}
+              href="/signup"
             >
-              {claims?.sub ? "Open dashboard" : "Create account"}
+              Create account
             </Link>
             <Link
               className="rounded-md border border-white/20 bg-white/5 px-5 py-3 text-center text-sm font-bold text-sky-50 transition hover:border-white/60 hover:bg-white/10"

@@ -4,7 +4,7 @@ import { updateTeamName } from "@/app/dashboard/actions";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { createClient } from "@/lib/supabase/server";
 
-type DashboardTab = "squad" | "leaderboard" | "progress";
+type DashboardTab = "overview" | "squad" | "leaderboard" | "progress";
 
 type TeamSettings = {
   name: string;
@@ -12,6 +12,7 @@ type TeamSettings = {
 };
 
 const tabs: { href: string; label: string; value: DashboardTab }[] = [
+  { href: "/dashboard/overview", label: "Home", value: "overview" },
   { href: "/dashboard", label: "Squad", value: "squad" },
   { href: "/dashboard/leaderboard", label: "Leaderboard", value: "leaderboard" },
   { href: "/dashboard/progress", label: "Progress", value: "progress" },
@@ -115,17 +116,17 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
 
       <header className="relative z-40 border-b border-white/15 bg-sky-950/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link className="font-bold text-sky-100" href="/">
+          <Link className="font-bold text-sky-100" href="/dashboard/overview">
             Fantasy Pingisligan
           </Link>
 
           <nav
             aria-label="Dashboard"
-            className="order-last flex w-full rounded-md border border-white/15 bg-white/5 p-1 text-sm font-semibold sm:order-none sm:w-auto"
+            className="order-last flex w-full rounded-md border border-white/15 bg-white/5 p-1 text-xs font-semibold sm:order-none sm:w-auto sm:text-sm"
           >
             {tabs.map((tab) => (
               <Link
-                className={`flex-1 rounded-sm px-3 py-1.5 text-center transition sm:flex-none ${
+                className={`flex-1 rounded-sm px-2 py-1.5 text-center transition sm:flex-none sm:px-3 ${
                   activeTab === tab.value
                     ? "bg-sky-100 text-sky-950"
                     : "text-sky-100 hover:bg-white/10 hover:text-white"
