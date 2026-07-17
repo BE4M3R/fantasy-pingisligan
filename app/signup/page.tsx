@@ -30,7 +30,8 @@ export default async function SignupPage({
             Create account
           </h1>
           <p className="mt-3 text-sm leading-6 text-sky-100/70">
-            Start your club, join private leagues, and prepare for the season.
+            Create your login. You will name your fantasy team when you first
+            enter the dashboard.
           </p>
 
           {message ? (
@@ -40,17 +41,6 @@ export default async function SignupPage({
           ) : null}
 
           <form action={signUp} className="mt-8 space-y-5">
-            <label className="block text-sm font-medium text-sky-100">
-              Display name
-              <input
-                className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
-                name="display_name"
-                type="text"
-                autoComplete="name"
-                required
-              />
-            </label>
-
             <label className="block text-sm font-medium text-sky-100">
               Email
               <input

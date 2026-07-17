@@ -33,6 +33,7 @@ create table if not exists public.fantasy_teams (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   budget numeric(12, 0) not null default 100000000,
+  onboarding_completed boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id)
@@ -347,10 +348,11 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
-create or replace function public.get_global_leaderboard()
+drop function if exists public.get_global_leaderboard();
+
+create function public.get_global_leaderboard()
 returns table (
   user_id uuid,
-  display_name text,
   team_name text,
   total_points bigint
 )
@@ -360,14 +362,8 @@ set search_path = public
 stable
 as $$
   select
-    users.id as user_id,
-    coalesce(
-      nullif(profiles.display_name, ''),
-      nullif(users.raw_user_meta_data->>'display_name', ''),
-      split_part(users.email, '@', 1),
-      'Player'
-    ) as display_name,
-    coalesce(fantasy_teams.name, 'No team yet') as team_name,
+    fantasy_teams.user_id,
+    fantasy_teams.name as team_name,
     coalesce(
       sum(
         case
@@ -377,22 +373,14 @@ as $$
       ),
       0
     )::bigint as total_points
-  from auth.users
-  left join public.profiles
-    on profiles.id = users.id
-  left join public.fantasy_teams
-    on fantasy_teams.user_id = users.id
+  from public.fantasy_teams
   left join public.fantasy_team_players
     on fantasy_team_players.fantasy_team_id = fantasy_teams.id
   left join public.player_match_stats
     on player_match_stats.player_id = fantasy_team_players.player_id
-  group by
-    users.id,
-    profiles.display_name,
-    users.raw_user_meta_data,
-    users.email,
-    fantasy_teams.name
-  order by total_points desc, display_name asc;
+  where fantasy_teams.onboarding_completed
+  group by fantasy_teams.user_id, fantasy_teams.name
+  order by total_points desc, lower(fantasy_teams.name), fantasy_teams.user_id;
 $$;
 
 grant execute on function public.get_global_leaderboard() to authenticated;

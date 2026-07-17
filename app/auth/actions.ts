@@ -58,13 +58,12 @@ export async function sendPasswordReset(formData: FormData) {
 export async function signUp(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
-  const displayName = getString(formData, "display_name");
   const developerCode = getString(formData, "developer_code");
 
-  if (!email || !password || !displayName || !developerCode) {
+  if (!email || !password || !developerCode) {
     redirectWithMessage(
       "/signup",
-      "Name, email, password and developer code are required.",
+      "Email, password and developer code are required.",
     );
   }
 
@@ -92,9 +91,6 @@ export async function signUp(formData: FormData) {
     password,
     options: {
       emailRedirectTo: `${PUBLIC_SITE_URL}/auth/callback`,
-      data: {
-        display_name: displayName,
-      },
     },
   });
 

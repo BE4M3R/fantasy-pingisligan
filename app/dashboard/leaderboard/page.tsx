@@ -32,7 +32,7 @@ export default async function LeaderboardPage() {
             <div>
               <h1 className="text-base font-bold">Leaderboard</h1>
               <p className="mt-1 text-sm text-sky-100/60">
-                All registered users sorted by total fantasy points.
+                Fantasy teams sorted by total points.
               </p>
             </div>
           </div>

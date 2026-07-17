@@ -199,7 +199,11 @@ export async function updateTeamName(formData: FormData) {
 
   const { error } = await supabase
     .from("fantasy_teams")
-    .update({ name, updated_at: new Date().toISOString() })
+    .update({
+      name,
+      onboarding_completed: true,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", team.id)
     .eq("user_id", userId);
 
@@ -207,8 +211,7 @@ export async function updateTeamName(formData: FormData) {
     dashboardMessage(error.message);
   }
 
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/leaderboard");
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function deleteAccount() {
