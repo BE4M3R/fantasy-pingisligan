@@ -1,16 +1,43 @@
-- Create fantasy point calcualtion based on match results
-- Create fantasy rules, lock amount of transfers and so on
-- When transfer window locks create snapshot of each team as backup?
-- See some statistics of each player
-- Do some manual test based on other leauge, this maybe? https://sbtfeventsott.stupaevents.com/events/182/315/2/5/5
-    - Test player selection
-    - Transfer lock window
-    - Not full team?
-    - Captain working
-    - Giving correct points
-    - Maybe more
-- Can AI make good automatic unit tests?
-- Move change team name and delete account to some settings button.
-- Setup own private leagues
+## Scoring and game rules
 
- 
+- Define and document the complete fantasy rules:
+  - Points awarded from match, set and result data
+  - Captain multiplier and whether bench players score
+  - Treatment of incomplete squads at the deadline
+  - Free transfers per window and any penalties for extra transfers
+- Calculate `player_match_stats` from imported Stupa results.
+- Write player round points to `fantasy_team_gameweek_players` snapshots.
+- Calculate and store each team's total in `fantasy_team_gameweek_points`.
+- Update global leaderboards to use stored gameweek totals instead of the live squad.
+- Make the scoring pipeline idempotent so corrected results can be safely recalculated.
+
+## Automation and operations
+
+- Schedule the existing Stupa schedule and result importers with GitHub Actions.
+- Run round scoring automatically after completed results are imported.
+- Add monitoring for failed Cron runs or locked gameweeks without squad snapshots.
+- Add an admin workflow for reconciling unmatched Stupa players before scoring.
+
+## Product features
+
+- Add player statistics pages with match and fantasy-point history.
+- Show each team's snapshotted squad and player points for previous rounds.
+- Build private league creation, invite, membership and leaderboard UI.
+- Add transfer tracking and display remaining free transfers once the rules are decided.
+
+## Testing
+
+- Create small development-only SQL test scripts for setting gameweek deadlines,
+  simulating open/closed transfer windows, triggering snapshots, and restoring
+  the original timestamps after manual testing.
+- Test the full lock cycle: window closes, changes are rejected, snapshots are
+  created once, and changes reopen at `unlock_at`.
+- Add automated tests for:
+  - Four starters, two bench players, captain and budget validation
+  - Player selection, replacement and main/bench swaps
+  - Transfer-window enforcement in server actions and RLS
+  - Snapshot idempotency and one player row per team/gameweek
+  - Incomplete squads at the deadline
+  - Captain multipliers and gameweek point totals
+- Run an end-to-end import and scoring test against another completed league:
+  https://sbtfeventsott.stupaevents.com/events/182/315/2/5/5
