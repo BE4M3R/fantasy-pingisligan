@@ -52,6 +52,36 @@ The schedule import must precede results because results reference parent rows
 in `matches`. The scripts use upserts and are intended to be safely rerunnable.
 Review warnings about missing matches or unmatched players after every run.
 
+## Transfer locking and squad snapshots
+
+Apply these migrations once, in this order:
+
+1. `supabase/transfer-window-lock-migration.sql`
+2. `supabase/squad-snapshot-cron-migration.sql`
+
+Before the second migration, enable **Cron** under **Integrations** in the
+Supabase Dashboard if it is not already enabled. The migration creates the
+snapshot tables and schedules `snapshot_locked_squads()` every five minutes. Check
+**Integrations > Cron > Jobs > snapshot-locked-squads > History** to verify
+runs. A run outside a locked gameweek correctly reports zero new snapshots.
+
+To test from the SQL editor after temporarily closing a gameweek, run:
+
+```sql
+select * from public.snapshot_locked_squads();
+
+select *
+from public.fantasy_team_gameweek_snapshots
+order by snapshotted_at desc;
+
+select *
+from public.fantasy_team_gameweek_players
+order by created_at desc;
+```
+
+The first call during a new locked gameweek reports inserted rows. Running it
+again reports zero new rows, confirming that retries do not duplicate data.
+
 ## Environment checklist
 
 Local `.env.local` needs the public URL and anonymous key for the application.

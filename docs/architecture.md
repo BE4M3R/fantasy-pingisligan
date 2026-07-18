@@ -41,12 +41,22 @@ flowchart LR
     Submatches --> PlayerResults
     Completed --> PlayerResults
     PlayerResults -. future fantasy-point calculation .-> Stats[player_match_stats]
+    Gameweeks --> SnapshotCron[Supabase Cron: locked squad snapshots]
+    SnapshotCron --> Snapshots[gameweek squad snapshots]
+    Snapshots -. future round scoring .-> Stats
 ```
 
 `fantasy_gameweeks` does not contain every fixture itself. It represents a
 round and stores the first and last match times plus the transfer lock window.
 The individual team fixtures are rows in `matches`, linked back to their
 gameweek through `fantasy_gameweek_id`.
+
+While a gameweek transfer window is closed, Supabase Cron calls the idempotent
+`snapshot_locked_squads()` database function every five minutes. It creates one
+snapshot header for every team that existed at the deadline and immutable
+player rows containing names, position, captain, price and club data. Repeated
+calls are safe because the snapshot tables use team/gameweek/player keys and
+ignore conflicts. Later scoring must use these rows rather than the live squad.
 
 The Stupa schedule and completed results are two views of the same real-world
 team fixtures. The schedule importer creates the parent `matches` rows before
