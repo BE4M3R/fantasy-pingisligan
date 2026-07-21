@@ -61,7 +61,7 @@ export function SquadCardActions({
     <>
       <button
         aria-label={`Open actions for ${playerName}`}
-        className="group min-h-28 w-full touch-manipulation cursor-pointer rounded-md border border-white/15 bg-sky-950/70 p-4 text-left shadow-sm shadow-slate-950/20 transition hover:border-sky-100/60 hover:bg-sky-900/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
+        className="group h-28 min-w-0 w-full touch-manipulation cursor-pointer overflow-hidden rounded-md border border-white/15 bg-sky-950/70 p-4 text-left shadow-sm shadow-slate-950/20 transition hover:border-sky-100/60 hover:bg-sky-900/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
         onClick={openActions}
         ref={triggerRef}
         type="button"

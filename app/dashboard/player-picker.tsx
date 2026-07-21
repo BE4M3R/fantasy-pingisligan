@@ -103,7 +103,7 @@ export function PlayerPicker({
       <button
         className={trigger === "replace"
           ? "mt-2 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-          : "group flex min-h-28 w-full flex-col items-center justify-center rounded-md border border-dashed border-sky-200/35 bg-sky-950/35 px-4 py-6 text-sky-100/70 transition hover:border-sky-100 hover:bg-sky-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"}
+          : "group flex h-28 min-w-0 w-full flex-col items-center justify-center rounded-md border border-dashed border-sky-200/35 bg-sky-950/35 px-4 py-6 text-sky-100/70 transition hover:border-sky-100 hover:bg-sky-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"}
         disabled={transfersLocked}
         onClick={openPicker}
         type="button"

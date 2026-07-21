@@ -124,11 +124,17 @@ function SquadCard({
       <div className="flex min-w-0 items-center gap-3">
         <ClubLogoBadge clubName={clubName} />
         <div className="min-w-0">
-          <h3 className="truncate font-semibold">
-            {player.first_name} {player.last_name}
+          <h3 className="flex min-w-0 items-center gap-2 font-semibold">
+            <span className="truncate">
+              {player.first_name} {player.last_name}
+            </span>
             {player.is_captain ? (
-              <span className="ml-2 rounded-sm bg-emerald-400 px-1.5 py-0.5 text-[10px] font-black uppercase text-zinc-950">
-                Captain
+              <span
+                aria-label="Captain"
+                className="inline-flex shrink-0 items-center justify-center rounded-sm bg-emerald-400 px-2 py-0.5 text-sm font-black uppercase leading-none text-zinc-950 sm:px-1.5 sm:text-[10px]"
+              >
+                <span aria-hidden="true" className="sm:hidden">C</span>
+                <span aria-hidden="true" className="hidden sm:inline">Captain</span>
               </span>
             ) : null}
           </h3>
@@ -260,7 +266,7 @@ export default async function SquadPage({
           </div>
         </div>
 
-        <section className="table-panel rounded-lg border p-6">
+        <section className="table-panel min-w-0 rounded-lg border p-6">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">
@@ -284,15 +290,15 @@ export default async function SquadPage({
             </dl>
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <div>
+          <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-3 lg:gap-3">
+            <div className="min-w-0 lg:col-span-2">
               <div className="mb-3 flex items-center justify-between gap-4">
                 <h2 className="text-sm font-bold text-sky-100">Main players</h2>
                 <span className="text-xs font-semibold text-sky-100/55">
                   {starters.length} / {STARTER_SIZE}
                 </span>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
                 {starters.map((player) => (
                   <SquadCard
                     key={player.id}
@@ -316,7 +322,7 @@ export default async function SquadPage({
                   (_, index) => (
                     <div
                       aria-label="Empty main player slot"
-                      className="min-h-28 rounded-md border border-dashed border-white/10 bg-sky-950/20"
+                      className="h-28 min-w-0 rounded-md border border-dashed border-white/10 bg-sky-950/20"
                       key={`starter-empty-${index}`}
                     />
                   ),
@@ -324,14 +330,14 @@ export default async function SquadPage({
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <div className="mb-3 flex items-center justify-between gap-4">
                 <h2 className="text-sm font-bold text-sky-100">Bench</h2>
                 <span className="text-xs font-semibold text-sky-100/55">
                   {bench.length} / {BENCH_SIZE}
                 </span>
               </div>
-              <div className="grid gap-3">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
                 {bench.map((player) => (
                   <SquadCard
                     key={player.id}
@@ -355,7 +361,7 @@ export default async function SquadPage({
                   (_, index) => (
                     <div
                       aria-label="Empty bench player slot"
-                      className="min-h-28 rounded-md border border-dashed border-white/10 bg-sky-950/20"
+                      className="h-28 min-w-0 rounded-md border border-dashed border-white/10 bg-sky-950/20"
                       key={`bench-empty-${index}`}
                     />
                   ),
