@@ -15,6 +15,8 @@ type PlayerPickerProps = {
   trigger?: "slot" | "replace";
 };
 
+type PriceSort = "default" | "low-to-high" | "high-to-low";
+
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
 }
@@ -53,6 +55,8 @@ export function PlayerPicker({
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [club, setClub] = useState("all");
+  const [priceSort, setPriceSort] = useState<PriceSort>("default");
+  const [affordableOnly, setAffordableOnly] = useState(false);
 
   async function openPicker() {
     dialogRef.current?.showModal();
@@ -87,13 +91,23 @@ export function PlayerPicker({
   );
   const visiblePlayers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("sv-SE");
-    return (players ?? []).filter((player) => {
+    const filteredPlayers = (players ?? []).filter((player) => {
       const matchesQuery = `${player.first_name} ${player.last_name} ${getClubName(player)}`
         .toLocaleLowerCase("sv-SE")
         .includes(normalizedQuery);
-      return matchesQuery && (club === "all" || getClubName(player) === club);
+      const matchesClub = club === "all" || getClubName(player) === club;
+      const isAffordable = Number(player.price) <= remainingBudget;
+
+      return matchesQuery && matchesClub && (!affordableOnly || isAffordable);
     });
-  }, [club, players, query]);
+
+    if (priceSort === "default") return filteredPlayers;
+
+    return filteredPlayers.toSorted((firstPlayer, secondPlayer) => {
+      const priceDifference = Number(firstPlayer.price) - Number(secondPlayer.price);
+      return priceSort === "low-to-high" ? priceDifference : -priceDifference;
+    });
+  }, [affordableOnly, club, players, priceSort, query, remainingBudget]);
 
   const slotLabel = position === "starter" ? "main player" : "bench player";
   const isReplacement = Boolean(outgoingPlayerId);
@@ -126,12 +140,31 @@ export function PlayerPicker({
             <button aria-label="Close player picker" className="rounded-md px-3 py-1 text-2xl text-sky-100/60 hover:bg-white/10 hover:text-white" onClick={() => dialogRef.current?.close()} type="button">×</button>
           </div>
 
-          <div className="grid gap-3 border-b border-white/10 p-5 sm:grid-cols-[1fr_14rem] sm:p-6">
-            <input aria-label="Search players" className="rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm outline-none placeholder:text-sky-100/40 focus:border-sky-100" onChange={(event) => setQuery(event.target.value)} placeholder="Search player or club…" value={query} />
-            <select aria-label="Filter by club" className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-sm outline-none focus:border-sky-100" onChange={(event) => setClub(event.target.value)} value={club}>
+          <div className="grid gap-3 border-b border-white/10 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-[minmax(0,1fr)_12rem_12rem_auto]">
+            <input aria-label="Search players" className="rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm" onChange={(event) => setQuery(event.target.value)} placeholder="Search player or club…" value={query} />
+            <select aria-label="Filter by club" className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm" onChange={(event) => setClub(event.target.value)} value={club}>
               <option value="all">All clubs</option>
               {clubs.map((clubName) => <option key={clubName} value={clubName}>{clubName}</option>)}
             </select>
+            <select
+              aria-label="Sort players by price"
+              className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm"
+              onChange={(event) => setPriceSort(event.target.value as PriceSort)}
+              value={priceSort}
+            >
+              <option value="default">Default order</option>
+              <option value="low-to-high">Price: Low to high</option>
+              <option value="high-to-low">Price: High to low</option>
+            </select>
+            <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-sky-50">
+              <input
+                checked={affordableOnly}
+                className="h-4 w-4 shrink-0 accent-emerald-400"
+                onChange={(event) => setAffordableOnly(event.target.checked)}
+                type="checkbox"
+              />
+              <span className="whitespace-nowrap">Only affordable</span>
+            </label>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
