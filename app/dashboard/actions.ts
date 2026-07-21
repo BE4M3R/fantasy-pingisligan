@@ -9,11 +9,15 @@ const BENCH_SIZE = 2;
 const SQUAD_SIZE = STARTER_SIZE + BENCH_SIZE;
 const DEFAULT_BUDGET = 100000000;
 const MAX_TEAM_NAME_LENGTH = 40;
+const MAX_PLAYERS_PER_CLUB = 2;
 
 type SquadPosition = "starter" | "bench";
 
 type TeamPlayer = {
-  players: { price: number | string } | { price: number | string }[] | null;
+  players:
+    | { club_id: string | null; price: number | string }
+    | { club_id: string | null; price: number | string }[]
+    | null;
 };
 
 type SquadPlayerRow = TeamPlayer & {
@@ -86,6 +90,25 @@ function getNestedPrice(row: TeamPlayer) {
   return Number(player?.price ?? 0);
 }
 
+function getNestedClubId(row: TeamPlayer) {
+  const player = Array.isArray(row.players) ? row.players[0] : row.players;
+  return player?.club_id ?? null;
+}
+
+function hasReachedClubLimit(
+  squad: SquadPlayerRow[],
+  clubId: string | null,
+  excludedPlayerId?: string,
+) {
+  if (!clubId) {
+    return false;
+  }
+
+  return squad.filter(
+    (row) => row.player_id !== excludedPlayerId && getNestedClubId(row) === clubId,
+  ).length >= MAX_PLAYERS_PER_CLUB;
+}
+
 function getPositionCount(squad: SquadPlayerRow[], position: SquadPosition) {
   return squad.filter((row) => row.position === position).length;
 }
@@ -132,7 +155,7 @@ export async function addPlayerToTeam(formData: FormData) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, price")
+    .select("id, price, club_id")
     .eq("id", playerId)
     .maybeSingle();
 
@@ -142,7 +165,7 @@ export async function addPlayerToTeam(formData: FormData) {
 
   const { data: squadRows, error: squadError } = await supabase
     .from("fantasy_team_players")
-    .select("player_id, position, is_captain, players(price)")
+    .select("player_id, position, is_captain, players(price, club_id)")
     .eq("fantasy_team_id", team.id);
 
   if (squadError) {
@@ -157,6 +180,10 @@ export async function addPlayerToTeam(formData: FormData) {
 
   if (squad.length >= SQUAD_SIZE) {
     dashboardMessage("Your squad already has six players.");
+  }
+
+  if (hasReachedClubLimit(squad, player.club_id)) {
+    dashboardMessage("You can select a maximum of two players from the same club.");
   }
 
   const position: SquadPosition =
@@ -324,7 +351,7 @@ export async function swapPlayerIntoTeam(formData: FormData) {
 
   const { data: incomingPlayer, error: incomingError } = await supabase
     .from("players")
-    .select("id, price")
+    .select("id, price, club_id")
     .eq("id", incomingPlayerId)
     .maybeSingle();
 
@@ -334,7 +361,7 @@ export async function swapPlayerIntoTeam(formData: FormData) {
 
   const { data: squadRows, error: squadError } = await supabase
     .from("fantasy_team_players")
-    .select("player_id, position, is_captain, players(price)")
+    .select("player_id, position, is_captain, players(price, club_id)")
     .eq("fantasy_team_id", team.id);
 
   if (squadError) {
@@ -357,6 +384,10 @@ export async function swapPlayerIntoTeam(formData: FormData) {
     dashboardMessage("Choose a player from your squad to swap out.");
   }
 
+  if (hasReachedClubLimit(squad, incomingPlayer.club_id, outgoingPlayer.player_id)) {
+    dashboardMessage("You can select a maximum of two players from the same club.");
+  }
+
   const usedBudget = squad.reduce((total, row) => total + getNestedPrice(row), 0);
   const newBudgetUse =
     usedBudget - getNestedPrice(outgoingPlayer) + Number(incomingPlayer.price);
@@ -365,45 +396,14 @@ export async function swapPlayerIntoTeam(formData: FormData) {
     dashboardMessage("That swap would exceed your budget.");
   }
 
-  const { error: insertError } = await supabase
+  const { error: updateError } = await supabase
     .from("fantasy_team_players")
-    .insert({
-      fantasy_team_id: team.id,
-      is_captain: false,
-      player_id: incomingPlayer.id,
-      position: outgoingPlayer.position,
-    });
-
-  if (insertError) {
-    dashboardMessage(insertError.message);
-  }
-
-  const { error: deleteError } = await supabase
-    .from("fantasy_team_players")
-    .delete()
+    .update({ player_id: incomingPlayer.id })
     .eq("fantasy_team_id", team.id)
     .eq("player_id", outgoingPlayer.player_id);
 
-  if (deleteError) {
-    await supabase
-      .from("fantasy_team_players")
-      .delete()
-      .eq("fantasy_team_id", team.id)
-      .eq("player_id", incomingPlayer.id);
-
-    dashboardMessage(deleteError.message);
-  }
-
-  if (outgoingPlayer.is_captain) {
-    const { error: captainError } = await supabase
-      .from("fantasy_team_players")
-      .update({ is_captain: true })
-      .eq("fantasy_team_id", team.id)
-      .eq("player_id", incomingPlayer.id);
-
-    if (captainError) {
-      dashboardMessage(captainError.message);
-    }
+  if (updateError) {
+    dashboardMessage(updateError.message);
   }
 
   revalidatePath("/dashboard");

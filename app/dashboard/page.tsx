@@ -62,6 +62,12 @@ function getClubName(player: DashboardPlayer) {
     : player.clubs?.name ?? "Free agent";
 }
 
+function getClubId(player: DashboardPlayer) {
+  return Array.isArray(player.clubs)
+    ? player.clubs[0]?.id ?? null
+    : player.clubs?.id ?? null;
+}
+
 function getSquadPlayer(row: SquadRow) {
   const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
@@ -101,12 +107,14 @@ function ClubLogoBadge({ clubName }: { clubName: string }) {
 function SquadCard({
   player,
   remainingBudget,
+  selectedClubIds,
   selectedPlayerIds,
   swapTargets,
   transfersLocked,
 }: {
   player: SquadPlayer;
   remainingBudget: number;
+  selectedClubIds: string[];
   selectedPlayerIds: string[];
   swapTargets: SquadPlayer[];
   transfersLocked: boolean;
@@ -117,6 +125,7 @@ function SquadCard({
     <SquadCardActions
       player={player}
       remainingBudget={remainingBudget}
+      selectedClubIds={selectedClubIds}
       selectedPlayerIds={selectedPlayerIds}
       swapTargets={swapTargets}
       transfersLocked={transfersLocked}
@@ -187,7 +196,7 @@ export default async function SquadPage({
       ? supabase
           .from("fantasy_team_players")
           .select(
-            "player_id, position, is_captain, players(id, first_name, last_name, birth_year, price, clubs(name))",
+            "player_id, position, is_captain, players(id, first_name, last_name, birth_year, price, clubs(id, name))",
           )
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [] }),
@@ -212,6 +221,9 @@ export default async function SquadPage({
     .filter((player): player is SquadPlayer => Boolean(player));
   const starters = squad.filter((player) => player.position === "starter");
   const bench = squad.filter((player) => player.position === "bench");
+  const selectedClubIds = squad
+    .map(getClubId)
+    .filter((clubId): clubId is string => Boolean(clubId));
   const selectedPlayerIds = squad.map((player) => player.id);
   const isSquadFull = squad.length >= STARTER_SIZE + BENCH_SIZE;
   const usedBudget = squad.reduce(
@@ -274,7 +286,7 @@ export default async function SquadPage({
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight">My squad</h1>
               <p className="mt-2 text-sm text-sky-100/60">
-                Pick four main players, two bench players, and one captain.
+                Pick four main players, two bench players, and one captain. Maximum two players per club.
               </p>
             </div>
 
@@ -304,6 +316,7 @@ export default async function SquadPage({
                     key={player.id}
                     player={player}
                     remainingBudget={remainingBudget}
+                    selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
                     swapTargets={isSquadFull ? bench : []}
                     transfersLocked={transfersLocked}
@@ -313,6 +326,7 @@ export default async function SquadPage({
                   <PlayerPicker
                     position="starter"
                     remainingBudget={remainingBudget}
+                    selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
                     transfersLocked={transfersLocked}
                   />
@@ -343,6 +357,7 @@ export default async function SquadPage({
                     key={player.id}
                     player={player}
                     remainingBudget={remainingBudget}
+                    selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
                     swapTargets={isSquadFull ? starters : []}
                     transfersLocked={transfersLocked}
@@ -352,6 +367,7 @@ export default async function SquadPage({
                   <PlayerPicker
                     position="bench"
                     remainingBudget={remainingBudget}
+                    selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
                     transfersLocked={transfersLocked}
                   />

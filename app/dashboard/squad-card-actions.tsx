@@ -14,6 +14,7 @@ type SquadCardActionsProps = {
   children: React.ReactNode;
   player: SquadPlayerOption & { is_captain: boolean };
   remainingBudget: number;
+  selectedClubIds: string[];
   selectedPlayerIds: string[];
   swapTargets: SquadPlayerOption[];
   transfersLocked: boolean;
@@ -23,6 +24,7 @@ export function SquadCardActions({
   children,
   player,
   remainingBudget,
+  selectedClubIds,
   selectedPlayerIds,
   swapTargets,
   transfersLocked,
@@ -125,7 +127,16 @@ export function SquadCardActions({
               ) : null}
 
               {swapTargets.length ? (
-                <PlayerPicker outgoingPlayerId={player.id} position={player.position} remainingBudget={remainingBudget + Number(player.price)} selectedPlayerIds={selectedPlayerIds} transfersLocked={transfersLocked} trigger="replace" />
+                <PlayerPicker
+                  outgoingClubId={Array.isArray(player.clubs) ? player.clubs[0]?.id : player.clubs?.id}
+                  outgoingPlayerId={player.id}
+                  position={player.position}
+                  remainingBudget={remainingBudget + Number(player.price)}
+                  selectedClubIds={selectedClubIds}
+                  selectedPlayerIds={selectedPlayerIds}
+                  transfersLocked={transfersLocked}
+                  trigger="replace"
+                />
               ) : null}
 
               <form

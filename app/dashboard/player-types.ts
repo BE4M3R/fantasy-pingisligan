@@ -4,7 +4,7 @@ export type DashboardPlayer = {
   last_name: string;
   birth_year: number | null;
   price: number | string;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs: { id: string; name: string } | { id: string; name: string }[] | null;
 };
 
 export type SquadPosition = "starter" | "bench";

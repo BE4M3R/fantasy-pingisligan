@@ -9,13 +9,16 @@ import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-type
 type PlayerPickerProps = {
   position: SquadPosition;
   remainingBudget: number;
+  selectedClubIds: string[];
   selectedPlayerIds: string[];
   transfersLocked: boolean;
+  outgoingClubId?: string;
   outgoingPlayerId?: string;
   trigger?: "slot" | "replace";
 };
 
 type PriceSort = "default" | "low-to-high" | "high-to-low";
+const MAX_PLAYERS_PER_CLUB = 2;
 
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
@@ -25,6 +28,12 @@ function getClubName(player: DashboardPlayer) {
   return Array.isArray(player.clubs)
     ? player.clubs[0]?.name
     : player.clubs?.name ?? "Free agent";
+}
+
+function getClubId(player: DashboardPlayer) {
+  return Array.isArray(player.clubs)
+    ? player.clubs[0]?.id ?? null
+    : player.clubs?.id ?? null;
 }
 
 function ClubLogo({ player }: { player: DashboardPlayer }) {
@@ -45,8 +54,10 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
 export function PlayerPicker({
   position,
   remainingBudget,
+  selectedClubIds,
   selectedPlayerIds,
   transfersLocked,
+  outgoingClubId,
   outgoingPlayerId,
   trigger = "slot",
 }: PlayerPickerProps) {
@@ -85,6 +96,19 @@ export function PlayerPicker({
   }, []);
 
   const selectedIds = useMemo(() => new Set(selectedPlayerIds), [selectedPlayerIds]);
+  const clubCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const clubId of selectedClubIds) {
+      counts.set(clubId, (counts.get(clubId) ?? 0) + 1);
+    }
+
+    if (outgoingClubId) {
+      counts.set(outgoingClubId, Math.max(0, (counts.get(outgoingClubId) ?? 0) - 1));
+    }
+
+    return counts;
+  }, [outgoingClubId, selectedClubIds]);
   const clubs = useMemo(
     () => [...new Set((players ?? []).map(getClubName))].sort((a, b) => a.localeCompare(b, "sv-SE")),
     [players],
@@ -175,6 +199,11 @@ export function PlayerPicker({
                 {visiblePlayers.map((player) => {
                   const selected = selectedIds.has(player.id);
                   const tooExpensive = Number(player.price) > remainingBudget;
+                  const playerClubId = getClubId(player);
+                  const clubLimitReached = Boolean(
+                    playerClubId
+                      && (clubCounts.get(playerClubId) ?? 0) >= MAX_PLAYERS_PER_CLUB,
+                  );
                   return (
                     <div className="flex items-center gap-3 rounded-md border border-white/15 bg-white/5 p-3" key={player.id}>
                       <ClubLogo player={player} />
@@ -186,8 +215,8 @@ export function PlayerPicker({
                         <input name="player_id" type="hidden" value={player.id} />
                         <input name="position" type="hidden" value={position} />
                         {outgoingPlayerId ? <input name="outgoing_player_id" type="hidden" value={outgoingPlayerId} /> : null}
-                        <button className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400" disabled={selected || tooExpensive || transfersLocked}>
-                          {selected ? "Selected" : tooExpensive ? "Over budget" : "Add"}
+                        <button className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400" disabled={selected || tooExpensive || clubLimitReached || transfersLocked}>
+                          {selected ? "Selected" : tooExpensive ? "Over budget" : clubLimitReached ? "Club limit" : "Add"}
                         </button>
                       </form>
                     </div>

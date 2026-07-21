@@ -82,6 +82,12 @@ order by created_at desc;
 The first call during a new locked gameweek reports inserted rows. Running it
 again reports zero new rows, confirming that retries do not duplicate data.
 
+## Squad club limit
+
+Apply `supabase/club-player-limit-migration.sql` once to enforce the maximum of
+two players per club. The migration stops without changing the database if an
+existing squad already exceeds the limit; correct that squad and run it again.
+
 ## Environment checklist
 
 Local `.env.local` needs the public URL and anonymous key for the application.

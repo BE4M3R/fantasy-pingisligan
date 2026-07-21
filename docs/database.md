@@ -37,6 +37,8 @@ erDiagram
 RLS is enabled on application tables. Public sports data has read policies;
 team data is limited to its owner. Server Actions still validate business rules
 such as the four-starter/two-bench limit, one captain, budget and transfer lock.
+The two-players-per-club rule is also enforced by a database trigger so writes
+outside the application cannot bypass it.
 
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`
 and leaderboard-related RPCs provide derived data to the application.

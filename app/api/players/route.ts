@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("players")
-    .select("id, first_name, last_name, birth_year, price, clubs(name)")
+    .select("id, first_name, last_name, birth_year, price, clubs(id, name)")
     .eq("active", true)
     .order("ranking_position", { ascending: true, nullsFirst: false })
     .order("price", { ascending: false });
