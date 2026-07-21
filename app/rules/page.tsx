@@ -104,7 +104,7 @@ export default async function RulesPage() {
           <RuleCard eyebrow="01" title="Build your squad">
             <ul className="space-y-2">
               <li><strong className="text-white">SEK 100m</strong> budget</li>
-              <li><strong className="text-white">8 players:</strong> 6 starters and 2 bench players</li>
+              <li><strong className="text-white">6 players:</strong> 4 starters and 2 bench players</li>
               <li>Maximum <strong className="text-white">2 players per club</strong></li>
               <li>No positions or formation requirements</li>
             </ul>

@@ -15,9 +15,9 @@ fantasy points.
 ## Squad
 
 - Budget: **SEK 100 million**.
-- Squad size: **8 players**.
+- Squad size: **6 players**.
 - Club limit: **maximum 2 players from the same club**.
-- Starting lineup: **6 players**.
+- Starting lineup: **4 players**.
 - Bench: **2 players**.
 - There are no player positions or formation requirements.
 
