@@ -28,6 +28,12 @@ async function HomeContent() {
           <div className="flex items-center gap-3">
             <Link
               className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
+              href="/rules"
+            >
+              Rules
+            </Link>
+            <Link
+              className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
               href="/login"
             >
               Log in

@@ -4,7 +4,7 @@ import { updateTeamName } from "@/app/dashboard/actions";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { createClient } from "@/lib/supabase/server";
 
-type DashboardTab = "overview" | "squad" | "leaderboard" | "progress";
+type DashboardTab = "overview" | "squad" | "leaderboard" | "progress" | "rules";
 
 type TeamSettings = {
   name: string;
@@ -16,6 +16,7 @@ const tabs: { href: string; label: string; value: DashboardTab }[] = [
   { href: "/dashboard", label: "Squad", value: "squad" },
   { href: "/dashboard/leaderboard", label: "Leaderboard", value: "leaderboard" },
   { href: "/dashboard/progress", label: "Progress", value: "progress" },
+  { href: "/rules", label: "Rules", value: "rules" },
 ];
 
 function SettingsIcon() {
