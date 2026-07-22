@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
+import {
+  ChipSelector,
+  type ChipSelection,
+} from "@/app/dashboard/chip-selector";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
@@ -36,6 +40,7 @@ type TransferLock = {
 };
 
 type UpcomingGameweek = {
+  id: string;
   lock_at: string;
   name: string;
 };
@@ -191,7 +196,12 @@ export default async function SquadPage({
     fantasyTeam = createdTeam as FantasyTeam | null;
   }
 
-  const [squadResult, transferLockResult, upcomingGameweekResult] = await Promise.all([
+  const [
+    squadResult,
+    transferLockResult,
+    upcomingGameweekResult,
+    chipSelectionsResult,
+  ] = await Promise.all([
     fantasyTeam
       ? supabase
           .from("fantasy_team_players")
@@ -203,11 +213,17 @@ export default async function SquadPage({
     supabase.rpc("current_transfer_lock"),
     supabase
       .from("fantasy_gameweeks")
-      .select("name, lock_at")
+      .select("id, name, lock_at")
       .gt("lock_at", new Date().toISOString())
       .order("lock_at", { ascending: true })
       .limit(1)
       .maybeSingle(),
+    fantasyTeam
+      ? supabase
+          .from("fantasy_team_chip_selections")
+          .select("chip, fantasy_gameweek_id, locked_at, used_at")
+          .eq("fantasy_team_id", fantasyTeam.id)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   const { message } = await searchParams;
   const transferLockRows = transferLockResult.data;
@@ -216,6 +232,17 @@ export default async function SquadPage({
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
   const upcomingGameweek = upcomingGameweekResult.data as UpcomingGameweek | null;
+  const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
+  const chipMigrationMissing = Boolean(
+    chipSelectionsResult.error?.message.includes("fantasy_team_chip_selections"),
+  );
+  const currentChipSelection = upcomingGameweek
+    ? chipSelections.find(
+        (selection) =>
+          selection.fantasy_gameweek_id === upcomingGameweek.id &&
+          !selection.locked_at,
+      ) ?? null
+    : null;
   const squad = ((squadResult.data ?? []) as SquadRow[])
     .map(getSquadPlayer)
     .filter((player): player is SquadPlayer => Boolean(player));
@@ -276,6 +303,16 @@ export default async function SquadPage({
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mb-6">
+          <ChipSelector
+            currentSelection={currentChipSelection}
+            migrationMissing={chipMigrationMissing}
+            selections={chipSelections}
+            transfersLocked={transfersLocked}
+            upcomingGameweek={upcomingGameweek}
+          />
         </div>
 
         <section className="table-panel min-w-0 rounded-lg border p-6">

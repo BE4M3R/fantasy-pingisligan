@@ -105,7 +105,7 @@ export function RulesContent() {
 
         <RuleCard eyebrow="04" title="Make transfers">
           <ul className="space-y-2">
-            <li><strong className="text-white">2 free transfers</strong> each gameweek</li>
+            <li><strong className="text-white">1 free transfer</strong> each gameweek</li>
             <li>Extra transfers cost <strong className="text-white">-4 points</strong> each</li>
             <li>Unused free transfers do not roll over.</li>
             <li>Changes fully reversed before the deadline do not count.</li>

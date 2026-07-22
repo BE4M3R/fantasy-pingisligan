@@ -8,6 +8,13 @@ export type ProgressRow = {
   unlock_at: string;
   status: string;
   points: number | string;
+  active_chip?: string | null;
+};
+
+const chipLabels: Record<string, string> = {
+  bench_boost: "Bench Boost",
+  triple_captain: "Triple Captain",
+  wildcard: "Wildcard",
 };
 
 function formatDate(value: string) {
@@ -58,6 +65,11 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                   <p className="mt-1 text-xs leading-5 text-sky-100/55">
                     {formatMatchDates(row)}
                   </p>
+                  {row.active_chip ? (
+                    <p className="mt-2 text-xs font-semibold text-emerald-200">
+                      {chipLabels[row.active_chip] ?? row.active_chip}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-xl font-black text-sky-100">
@@ -100,7 +112,14 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
             {rows.length ? (
               rows.map((row) => (
                 <tr className="transition hover:bg-white/5" key={row.gameweek_id}>
-                  <td className="px-4 py-3 font-medium">{row.gameweek_name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {row.gameweek_name}
+                    {row.active_chip ? (
+                      <p className="mt-1 text-xs font-semibold text-emerald-200">
+                        {chipLabels[row.active_chip] ?? row.active_chip}
+                      </p>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-sky-100/70">
                     {formatMatchDates(row)}
                   </td>

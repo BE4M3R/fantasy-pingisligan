@@ -58,12 +58,14 @@ Apply these migrations once, in this order:
 
 1. `supabase/transfer-window-lock-migration.sql`
 2. `supabase/squad-snapshot-cron-migration.sql`
+3. `supabase/chips-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the
 snapshot tables and schedules `snapshot_locked_squads()` every five minutes. Check
 **Integrations > Cron > Jobs > snapshot-locked-squads > History** to verify
-runs. A run outside a locked gameweek correctly reports zero new snapshots.
+runs. The chips migration also schedules `mark_used_chips()` every fifteen
+minutes. A run outside a locked gameweek correctly reports zero new snapshots.
 
 To test from the SQL editor after temporarily closing a gameweek, run:
 

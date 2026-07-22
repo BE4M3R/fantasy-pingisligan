@@ -12,6 +12,7 @@ const MAX_TEAM_NAME_LENGTH = 40;
 const MAX_PLAYERS_PER_CLUB = 2;
 
 type SquadPosition = "starter" | "bench";
+type Chip = "wildcard" | "triple_captain" | "bench_boost";
 
 type TeamPlayer = {
   players:
@@ -33,6 +34,10 @@ function getString(formData: FormData, key: string) {
 
 function dashboardMessage(message: string): never {
   redirect(`/dashboard?message=${encodeURIComponent(message)}`);
+}
+
+function isChip(value: string): value is Chip {
+  return value === "wildcard" || value === "triple_captain" || value === "bench_boost";
 }
 
 async function getUserId() {
@@ -137,6 +142,96 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
   if (lock?.is_locked) {
     dashboardMessage(
       `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens ${formatDateTime(lock.unlock_at)}.`,
+    );
+  }
+}
+
+async function assertTransferAllowance(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+  currentSquad: SquadPlayerRow[],
+  incomingPlayerId: string,
+  outgoingPlayerId: string,
+) {
+  const { data: upcomingGameweek, error: upcomingError } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id, lock_at")
+    .gt("lock_at", new Date().toISOString())
+    .order("lock_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (upcomingError) {
+    dashboardMessage(upcomingError.message);
+  }
+
+  if (!upcomingGameweek) {
+    return;
+  }
+
+  const { data: wildcardSelection, error: wildcardError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("chip")
+    .eq("fantasy_team_id", teamId)
+    .eq("fantasy_gameweek_id", upcomingGameweek.id)
+    .eq("chip", "wildcard")
+    .is("locked_at", null)
+    .maybeSingle();
+
+  if (wildcardError) {
+    if (wildcardError.message.includes("fantasy_team_chip_selections")) {
+      return;
+    }
+
+    dashboardMessage(wildcardError.message);
+  }
+
+  if (wildcardSelection) {
+    return;
+  }
+
+  const { data: previousGameweek, error: previousGameweekError } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id, fantasy_team_gameweek_snapshots!inner(fantasy_team_id)")
+    .eq("fantasy_team_gameweek_snapshots.fantasy_team_id", teamId)
+    .lt("lock_at", upcomingGameweek.lock_at)
+    .order("lock_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (previousGameweekError) {
+    dashboardMessage(previousGameweekError.message);
+  }
+
+  if (!previousGameweek?.id) {
+    return;
+  }
+
+  const { data: previousPlayers, error: previousPlayersError } = await supabase
+    .from("fantasy_team_gameweek_players")
+    .select("player_id")
+    .eq("fantasy_team_id", teamId)
+    .eq("fantasy_gameweek_id", previousGameweek.id);
+
+  if (previousPlayersError) {
+    dashboardMessage(previousPlayersError.message);
+  }
+
+  const previousPlayerIds = new Set(
+    (previousPlayers ?? []).map((row) => row.player_id),
+  );
+  const nextPlayerIds = new Set(
+    currentSquad.map((row) =>
+      row.player_id === outgoingPlayerId ? incomingPlayerId : row.player_id,
+    ),
+  );
+  const transferCount = [...nextPlayerIds].filter(
+    (playerId) => !previousPlayerIds.has(playerId),
+  ).length;
+
+  if (transferCount > 1) {
+    dashboardMessage(
+      "You can make one transfer per gameweek. Play your Wildcard chip for unlimited transfers.",
     );
   }
 }
@@ -251,6 +346,98 @@ export async function updateTeamName(formData: FormData) {
   }
 
   revalidatePath("/dashboard", "layout");
+}
+
+export async function selectGameweekChip(formData: FormData) {
+  const gameweekId = getString(formData, "gameweek_id");
+  const chip = getString(formData, "chip");
+
+  if (!gameweekId) {
+    dashboardMessage("No upcoming gameweek found.");
+  }
+
+  if (chip && !isChip(chip)) {
+    dashboardMessage("Choose a valid chip.");
+  }
+
+  const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
+  const team = await getOrCreateFantasyTeam(supabase, userId);
+
+  const { data: gameweek, error: gameweekError } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id, lock_at")
+    .eq("id", gameweekId)
+    .gt("lock_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (gameweekError) {
+    dashboardMessage(gameweekError.message);
+  }
+
+  if (!gameweek) {
+    dashboardMessage("That gameweek is already locked.");
+  }
+
+  if (!chip) {
+    const { error } = await supabase
+      .from("fantasy_team_chip_selections")
+      .delete()
+      .eq("fantasy_team_id", team.id)
+      .eq("fantasy_gameweek_id", gameweek.id)
+      .is("locked_at", null);
+
+    if (error) {
+      dashboardMessage(
+        error.message.includes("fantasy_team_chip_selections")
+          ? "Database migration needed: run supabase/chips-migration.sql to enable chips."
+          : error.message,
+      );
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/overview");
+    return;
+  }
+
+  const { data: usedChip, error: usedChipError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("chip")
+    .eq("fantasy_team_id", team.id)
+    .eq("chip", chip)
+    .not("locked_at", "is", null)
+    .maybeSingle();
+
+  if (usedChipError) {
+    dashboardMessage(
+      usedChipError.message.includes("fantasy_team_chip_selections")
+        ? "Database migration needed: run supabase/chips-migration.sql to enable chips."
+        : usedChipError.message,
+    );
+  }
+
+  if (usedChip) {
+    dashboardMessage("That chip has already been used this season.");
+  }
+
+  const { error } = await supabase
+    .from("fantasy_team_chip_selections")
+    .upsert(
+      {
+        fantasy_team_id: team.id,
+        fantasy_gameweek_id: gameweek.id,
+        chip,
+        selected_at: new Date().toISOString(),
+      },
+      { onConflict: "fantasy_team_id,fantasy_gameweek_id" },
+    );
+
+  if (error) {
+    dashboardMessage(error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/overview");
 }
 
 export async function deleteAccount() {
@@ -387,6 +574,14 @@ export async function swapPlayerIntoTeam(formData: FormData) {
   if (hasReachedClubLimit(squad, incomingPlayer.club_id, outgoingPlayer.player_id)) {
     dashboardMessage("You can select a maximum of two players from the same club.");
   }
+
+  await assertTransferAllowance(
+    supabase,
+    team.id,
+    squad,
+    incomingPlayer.id,
+    outgoingPlayer.player_id,
+  );
 
   const usedBudget = squad.reduce((total, row) => total + getNestedPrice(row), 0);
   const newBudgetUse =
