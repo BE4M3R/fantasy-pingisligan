@@ -9,6 +9,8 @@ export type ProgressRow = {
   status: string;
   points: number | string;
   active_chip?: string | null;
+  transfer_count_at_lock?: number | null;
+  transfer_penalty_points?: number | null;
 };
 
 const chipLabels: Record<string, string> = {
@@ -26,6 +28,14 @@ function formatDate(value: string) {
 
 function formatPoints(value: number | string) {
   return new Intl.NumberFormat("sv-SE").format(Number(value));
+}
+
+function formatTransferPenalty(row: ProgressRow) {
+  if (!row.transfer_penalty_points) {
+    return null;
+  }
+
+  return `${row.transfer_count_at_lock} transfers, ${formatPoints(row.transfer_penalty_points)} pts`;
 }
 
 function formatMatchDates(row: ProgressRow) {
@@ -68,6 +78,11 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                   {row.active_chip ? (
                     <p className="mt-2 text-xs font-semibold text-emerald-200">
                       {chipLabels[row.active_chip] ?? row.active_chip}
+                    </p>
+                  ) : null}
+                  {formatTransferPenalty(row) ? (
+                    <p className="mt-1 text-xs font-semibold text-amber-100">
+                      {formatTransferPenalty(row)}
                     </p>
                   ) : null}
                 </div>
@@ -117,6 +132,11 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                     {row.active_chip ? (
                       <p className="mt-1 text-xs font-semibold text-emerald-200">
                         {chipLabels[row.active_chip] ?? row.active_chip}
+                      </p>
+                    ) : null}
+                    {formatTransferPenalty(row) ? (
+                      <p className="mt-1 text-xs font-semibold text-amber-100">
+                        {formatTransferPenalty(row)}
                       </p>
                     ) : null}
                   </td>

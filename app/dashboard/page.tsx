@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
 const DEFAULT_BUDGET = 100000000;
+const MAX_FREE_TRANSFERS = 4;
 
 type FantasyTeam = {
   id: string;
@@ -43,6 +44,25 @@ type UpcomingGameweek = {
   id: string;
   lock_at: string;
   name: string;
+};
+
+type PreviousGameweek = {
+  id: string;
+  fantasy_team_gameweek_snapshots:
+    | { free_transfers_after_lock: number | null }
+    | { free_transfers_after_lock: number | null }[]
+    | null;
+};
+
+type PreviousPlayer = {
+  player_id: string;
+};
+
+type TransferSummary = {
+  detail: string;
+  penaltyPoints: number;
+  remainingLabel: string;
+  transferCount: number | null;
 };
 
 function formatMoney(value: number | string) {
@@ -85,6 +105,80 @@ function getSquadPlayer(row: SquadRow) {
     is_captain: row.is_captain,
     position: row.position,
   };
+}
+
+function getPreviousSnapshot(row: PreviousGameweek | null) {
+  if (!row) {
+    return null;
+  }
+
+  return Array.isArray(row.fantasy_team_gameweek_snapshots)
+    ? row.fantasy_team_gameweek_snapshots[0] ?? null
+    : row.fantasy_team_gameweek_snapshots;
+}
+
+function getTransferSummary({
+  currentChipSelection,
+  previousGameweek,
+  previousPlayers,
+  selectedPlayerIds,
+}: {
+  currentChipSelection: ChipSelection | null;
+  previousGameweek: PreviousGameweek | null;
+  previousPlayers: PreviousPlayer[];
+  selectedPlayerIds: string[];
+}): TransferSummary {
+  const previousSnapshot = getPreviousSnapshot(previousGameweek);
+
+  if (!previousSnapshot) {
+    return {
+      detail: "Initial squad selection is free before the first gameweek deadline.",
+      penaltyPoints: 0,
+      remainingLabel: "Unlimited",
+      transferCount: null,
+    };
+  }
+
+  const previousPlayerIds = new Set(previousPlayers.map((row) => row.player_id));
+  const transferCount = selectedPlayerIds.filter(
+    (playerId) => !previousPlayerIds.has(playerId),
+  ).length;
+  const availableTransfers = Math.min(
+    Number(previousSnapshot.free_transfers_after_lock ?? 1) + 1,
+    MAX_FREE_TRANSFERS,
+  );
+
+  if (currentChipSelection?.chip === "wildcard") {
+    return {
+      detail: `${transferCount} net transfers planned. Wildcard removes transfer penalties.`,
+      penaltyPoints: 0,
+      remainingLabel: "Unlimited",
+      transferCount,
+    };
+  }
+
+  const remainingTransfers = Math.max(availableTransfers - transferCount, 0);
+  const penaltyPoints = Math.max(transferCount - availableTransfers, 0) * -4;
+
+  return {
+    detail:
+      penaltyPoints < 0
+        ? `${transferCount} net transfers planned, including ${Math.abs(
+            penaltyPoints / 4,
+          )} extra transfer${penaltyPoints === -4 ? "" : "s"}.`
+        : `${transferCount} net transfers planned for ${upcomingTransferCopy(
+            availableTransfers,
+          )}.`,
+    penaltyPoints,
+    remainingLabel: String(remainingTransfers),
+    transferCount,
+  };
+}
+
+function upcomingTransferCopy(availableTransfers: number) {
+  return `${availableTransfers} available free transfer${
+    availableTransfers === 1 ? "" : "s"
+  }`;
 }
 
 function ClubLogoBadge({ clubName }: { clubName: string }) {
@@ -259,6 +353,51 @@ export default async function SquadPage({
   );
   const remainingBudget =
     Number(fantasyTeam?.budget ?? DEFAULT_BUDGET) - usedBudget;
+  let previousGameweek: PreviousGameweek | null = null;
+  let previousPlayers: PreviousPlayer[] = [];
+  let transferSummaryMigrationMissing = false;
+
+  if (fantasyTeam && upcomingGameweek && !chipMigrationMissing) {
+    const { data: previousGameweekRow, error: previousGameweekError } =
+      await supabase
+        .from("fantasy_gameweeks")
+        .select("id, fantasy_team_gameweek_snapshots!inner(free_transfers_after_lock)")
+        .eq("fantasy_team_gameweek_snapshots.fantasy_team_id", fantasyTeam.id)
+        .lt("lock_at", upcomingGameweek.lock_at)
+        .order("lock_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (previousGameweekError) {
+      transferSummaryMigrationMissing =
+        previousGameweekError.message.includes("free_transfers_after_lock");
+    } else {
+      previousGameweek = previousGameweekRow as PreviousGameweek | null;
+    }
+
+    if (previousGameweek?.id) {
+      const { data: previousPlayerRows, error: previousPlayersError } =
+        await supabase
+          .from("fantasy_team_gameweek_players")
+          .select("player_id")
+          .eq("fantasy_team_id", fantasyTeam.id)
+          .eq("fantasy_gameweek_id", previousGameweek.id);
+
+      if (previousPlayersError) {
+        transferSummaryMigrationMissing =
+          previousPlayersError.message.includes("fantasy_team_gameweek_players");
+      } else {
+        previousPlayers = (previousPlayerRows ?? []) as PreviousPlayer[];
+      }
+    }
+  }
+
+  const transferSummary = getTransferSummary({
+    currentChipSelection,
+    previousGameweek,
+    previousPlayers,
+    selectedPlayerIds,
+  });
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
@@ -327,7 +466,7 @@ export default async function SquadPage({
               </p>
             </div>
 
-            <dl className="grid grid-cols-2 gap-3 text-sm sm:min-w-64">
+            <dl className="grid grid-cols-2 gap-3 text-sm sm:min-w-80">
               <div className="rounded-md border border-white/10 bg-white/5 p-3">
                 <dt className="text-xs text-sky-100/50">Squad value</dt>
                 <dd className="mt-1 font-bold">{formatMoney(usedBudget)}</dd>
@@ -336,8 +475,30 @@ export default async function SquadPage({
                 <dt className="text-xs text-sky-100/50">Budget left</dt>
                 <dd className="mt-1 font-bold">{formatMoney(remainingBudget)}</dd>
               </div>
+              <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                <dt className="text-xs text-sky-100/50">Free transfers</dt>
+                <dd className="mt-1 font-bold">
+                  {transferSummaryMigrationMissing
+                    ? "Migration needed"
+                    : transferSummary.remainingLabel}
+                </dd>
+              </div>
+              <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                <dt className="text-xs text-sky-100/50">Transfer cost</dt>
+                <dd className="mt-1 font-bold">
+                  {transferSummary.penaltyPoints < 0
+                    ? `${transferSummary.penaltyPoints} pts`
+                    : "0 pts"}
+                </dd>
+              </div>
             </dl>
           </div>
+
+          <p className="mt-4 rounded-md border border-white/10 bg-sky-950/35 px-4 py-3 text-sm leading-6 text-sky-100/65">
+            {transferSummaryMigrationMissing
+              ? "Run the latest supabase/chips-migration.sql to enable transfer banking."
+              : transferSummary.detail}
+          </p>
 
           <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-3 lg:gap-3">
             <div className="min-w-0 lg:col-span-2">

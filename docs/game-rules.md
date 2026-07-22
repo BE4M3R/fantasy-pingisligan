@@ -134,7 +134,8 @@ The 3-0 and comeback bonuses do not apply.
 
 - Initial squad selection before the first deadline is unlimited and free.
 - Each team receives **1 free transfer per gameweek**.
-- Unused free transfers do not roll over.
+- Unused free transfers roll over, up to a maximum of **4 available free
+  transfers**.
 - Each additional transfer costs **4 points** in that gameweek.
 - Transfer usage is the net number of players changed from the previous locked
   squad. A change that is fully reversed before the deadline therefore does not

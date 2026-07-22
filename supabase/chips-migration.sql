@@ -113,6 +113,12 @@ using (
 alter table public.fantasy_team_gameweek_snapshots
   add column if not exists active_chip text;
 
+alter table public.fantasy_team_gameweek_snapshots
+  add column if not exists transfer_count_at_lock integer not null default 0,
+  add column if not exists free_transfers_at_lock integer,
+  add column if not exists free_transfers_after_lock integer not null default 1,
+  add column if not exists transfer_penalty_points integer not null default 0;
+
 do $$
 begin
   if not exists (
@@ -153,20 +159,74 @@ begin
     fantasy_gameweek_id,
     team_name_at_lock,
     budget_at_lock,
-    active_chip
+    active_chip,
+    transfer_count_at_lock,
+    free_transfers_at_lock,
+    free_transfers_after_lock,
+    transfer_penalty_points
   )
   select
     fantasy_teams.id,
     fantasy_gameweeks.id,
     fantasy_teams.name,
     fantasy_teams.budget,
-    chip_selections.chip
+    chip_selections.chip,
+    coalesce(transfer_usage.transfer_count, 0),
+    transfer_bank.free_transfers_at_lock,
+    case
+      when previous_snapshot.fantasy_gameweek_id is null then 1
+      when chip_selections.chip = 'wildcard' then transfer_bank.free_transfers_at_lock
+      else greatest(
+        transfer_bank.free_transfers_at_lock - coalesce(transfer_usage.transfer_count, 0),
+        0
+      )
+    end,
+    case
+      when previous_snapshot.fantasy_gameweek_id is null
+        or chip_selections.chip = 'wildcard' then 0
+      else greatest(
+        coalesce(transfer_usage.transfer_count, 0) - transfer_bank.free_transfers_at_lock,
+        0
+      ) * -4
+    end
   from public.fantasy_gameweeks
   cross join public.fantasy_teams
   left join public.fantasy_team_chip_selections as chip_selections
     on chip_selections.fantasy_team_id = fantasy_teams.id
     and chip_selections.fantasy_gameweek_id = fantasy_gameweeks.id
     and chip_selections.locked_at is null
+  left join lateral (
+    select
+      previous_snapshots.fantasy_gameweek_id,
+      previous_snapshots.free_transfers_after_lock
+    from public.fantasy_team_gameweek_snapshots as previous_snapshots
+    join public.fantasy_gameweeks as previous_gameweeks
+      on previous_gameweeks.id = previous_snapshots.fantasy_gameweek_id
+    where previous_snapshots.fantasy_team_id = fantasy_teams.id
+      and previous_gameweeks.lock_at < fantasy_gameweeks.lock_at
+    order by previous_gameweeks.lock_at desc
+    limit 1
+  ) as previous_snapshot on true
+  left join lateral (
+    select
+      case
+        when previous_snapshot.fantasy_gameweek_id is null then null
+        else least(previous_snapshot.free_transfers_after_lock + 1, 4)
+      end as free_transfers_at_lock
+  ) as transfer_bank on true
+  left join lateral (
+    select count(*)::integer as transfer_count
+    from public.fantasy_team_players as current_squad
+    where current_squad.fantasy_team_id = fantasy_teams.id
+      and previous_snapshot.fantasy_gameweek_id is not null
+      and not exists (
+        select 1
+        from public.fantasy_team_gameweek_players as previous_players
+        where previous_players.fantasy_team_id = fantasy_teams.id
+          and previous_players.fantasy_gameweek_id = previous_snapshot.fantasy_gameweek_id
+          and previous_players.player_id = current_squad.player_id
+      )
+  ) as transfer_usage on true
   where now() >= fantasy_gameweeks.lock_at
     and now() <= fantasy_gameweeks.unlock_at
     and fantasy_teams.created_at <= fantasy_gameweeks.lock_at
@@ -307,7 +367,8 @@ begin
   select
     snapshots.fantasy_team_id,
     snapshots.fantasy_gameweek_id,
-    coalesce(
+    (
+      coalesce(
       sum(
         case
           when snapshot_players.position = 'bench'
@@ -323,7 +384,7 @@ begin
         end
       ),
       0
-    )::integer as points,
+    ) + snapshots.transfer_penalty_points)::integer as points,
     now(),
     now()
   from public.fantasy_team_gameweek_snapshots as snapshots
@@ -331,7 +392,10 @@ begin
     on snapshot_players.fantasy_team_id = snapshots.fantasy_team_id
     and snapshot_players.fantasy_gameweek_id = snapshots.fantasy_gameweek_id
   where snapshots.fantasy_gameweek_id = target_gameweek_id
-  group by snapshots.fantasy_team_id, snapshots.fantasy_gameweek_id
+  group by
+    snapshots.fantasy_team_id,
+    snapshots.fantasy_gameweek_id,
+    snapshots.transfer_penalty_points
   on conflict (fantasy_team_id, fantasy_gameweek_id) do update
   set points = excluded.points,
       calculated_at = excluded.calculated_at,
@@ -384,7 +448,9 @@ returns table (
   unlock_at timestamptz,
   status text,
   points integer,
-  active_chip text
+  active_chip text,
+  transfer_count_at_lock integer,
+  transfer_penalty_points integer
 )
 language sql
 stable
@@ -404,7 +470,9 @@ as $$
       else 'Upcoming'
     end as status,
     coalesce(fantasy_team_gameweek_points.points, 0) as points,
-    fantasy_team_gameweek_snapshots.active_chip
+    fantasy_team_gameweek_snapshots.active_chip,
+    coalesce(fantasy_team_gameweek_snapshots.transfer_count_at_lock, 0) as transfer_count_at_lock,
+    coalesce(fantasy_team_gameweek_snapshots.transfer_penalty_points, 0) as transfer_penalty_points
   from public.fantasy_gameweeks
   left join public.fantasy_teams
     on fantasy_teams.user_id = auth.uid()
