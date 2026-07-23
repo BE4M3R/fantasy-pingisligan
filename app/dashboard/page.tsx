@@ -325,7 +325,6 @@ export default async function SquadPage({
     .map(getClubId)
     .filter((clubId): clubId is string => Boolean(clubId));
   const selectedPlayerIds = squad.map((player) => player.id);
-  const isSquadFull = squad.length >= STARTER_SIZE + BENCH_SIZE;
   const usedBudget = squad.reduce(
     (total, player) => total + Number(player.price),
     0,
@@ -497,7 +496,7 @@ export default async function SquadPage({
                     remainingBudget={remainingBudget}
                     selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
-                    swapTargets={isSquadFull ? bench : []}
+                    swapTargets={bench}
                     transfersLocked={transfersLocked}
                   />
                 ))}
@@ -538,7 +537,7 @@ export default async function SquadPage({
                     remainingBudget={remainingBudget}
                     selectedClubIds={selectedClubIds}
                     selectedPlayerIds={selectedPlayerIds}
-                    swapTargets={isSquadFull ? starters : []}
+                    swapTargets={starters}
                     transfersLocked={transfersLocked}
                   />
                 ))}

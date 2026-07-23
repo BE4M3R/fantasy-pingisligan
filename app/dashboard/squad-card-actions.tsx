@@ -32,6 +32,7 @@ export function SquadCardActions({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const playerName = `${player.first_name} ${player.last_name}`;
+  const canReplacePlayer = selectedPlayerIds.length >= 6;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -79,14 +80,14 @@ export function SquadCardActions({
           <div
             aria-labelledby={`squad-actions-${player.id}`}
             aria-modal="true"
-            className="fixed inset-0 z-[100] flex items-end bg-slate-950/75 text-white sm:items-center sm:justify-center sm:p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 text-white"
             onClick={(event) => {
               if (event.target === event.currentTarget) closeActions();
             }}
             role="dialog"
           >
           <div
-            className="max-h-[calc(100dvh_-_1rem)] w-full overflow-y-auto rounded-t-xl border border-white/15 bg-sky-950 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-xl sm:p-6"
+            className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-white/15 bg-sky-950 p-5 shadow-2xl sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
@@ -107,26 +108,35 @@ export function SquadCardActions({
               {!player.is_captain ? (
                 <form action={setTeamCaptain}>
                   <input name="player_id" type="hidden" value={player.id} />
-                  <button className="w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-4 py-3 text-sm font-semibold text-sky-50 transition hover:border-sky-100 hover:bg-sky-100/15 disabled:cursor-not-allowed disabled:opacity-40" disabled={transfersLocked}>
+                  <button className="h-12 w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-4 text-sm font-semibold text-sky-50 transition hover:border-sky-100 hover:bg-sky-100/15 disabled:cursor-not-allowed disabled:opacity-40" disabled={transfersLocked}>
                     Make captain
                   </button>
                 </form>
               ) : (
-                <div className="rounded-md border border-emerald-300/25 bg-emerald-300/10 px-4 py-3 text-center text-sm font-semibold text-emerald-100">Current captain</div>
+                <div className="flex h-12 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/10 px-4 text-center text-sm font-semibold text-emerald-100">Current captain</div>
               )}
 
               {swapTargets.length ? (
-                <form action={swapSquadPlayers} className="grid grid-cols-[1fr_auto] gap-2">
+                <form action={swapSquadPlayers}>
                   <input name="player_id" type="hidden" value={player.id} />
-                  <select aria-label="Player to swap position with" className="min-w-0 rounded-md border border-white/15 bg-sky-950 px-3 py-3 text-sm font-semibold text-sky-50 outline-none focus:border-sky-100 disabled:cursor-not-allowed disabled:opacity-40" defaultValue="" disabled={transfersLocked} name="target_player_id" required>
-                    <option disabled value="">Swap main/bench with…</option>
+                  <select
+                    aria-label="Player to swap position with"
+                    className="h-12 w-full min-w-0 rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-50 outline-none hover:border-white/60 hover:bg-white/10 focus:border-sky-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    defaultValue=""
+                    disabled={transfersLocked}
+                    name="target_player_id"
+                    onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                    required
+                  >
+                    <option disabled value="">
+                      {player.position === "starter" ? "Swap with a bench player…" : "Swap with a main player…"}
+                    </option>
                     {swapTargets.map((target) => <option key={target.id} value={target.id}>{target.first_name} {target.last_name}</option>)}
                   </select>
-                  <button className="rounded-md border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40" disabled={transfersLocked}>Swap</button>
                 </form>
               ) : null}
 
-              {swapTargets.length ? (
+              {canReplacePlayer ? (
                 <PlayerPicker
                   outgoingClubId={Array.isArray(player.clubs) ? player.clubs[0]?.id : player.clubs?.id}
                   outgoingPlayerId={player.id}
@@ -146,7 +156,7 @@ export function SquadCardActions({
                 }}
               >
                 <input name="player_id" type="hidden" value={player.id} />
-                <button className="w-full rounded-md border border-red-300/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-40" disabled={transfersLocked}>
+                <button className="h-12 w-full rounded-md border border-red-300/35 bg-red-400/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-40" disabled={transfersLocked}>
                   Remove from squad
                 </button>
               </form>

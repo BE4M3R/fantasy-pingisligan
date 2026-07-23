@@ -390,10 +390,6 @@ export async function swapSquadPlayers(formData: FormData) {
 
   const squad = (squadRows ?? []) as SquadPlayerRow[];
 
-  if (squad.length !== SQUAD_SIZE) {
-    dashboardMessage("Fill your six-player squad before swapping positions.");
-  }
-
   const player = squad.find((row) => row.player_id === playerId);
   const targetPlayer = squad.find((row) => row.player_id === targetPlayerId);
 

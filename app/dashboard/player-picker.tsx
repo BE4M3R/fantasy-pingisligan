@@ -68,9 +68,13 @@ export function PlayerPicker({
   const [club, setClub] = useState("all");
   const [priceSort, setPriceSort] = useState<PriceSort>("default");
   const [affordableOnly, setAffordableOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function openPicker() {
+    setFiltersOpen(false);
     dialogRef.current?.showModal();
+    setPickerOpen(true);
 
     if (players) return;
 
@@ -91,9 +95,40 @@ export function PlayerPicker({
     const closeOnBackdrop = (event: MouseEvent) => {
       if (event.target === dialog) dialog.close();
     };
+    const handleClose = () => setPickerOpen(false);
     dialog.addEventListener("click", closeOnBackdrop);
-    return () => dialog.removeEventListener("click", closeOnBackdrop);
+    dialog.addEventListener("close", handleClose);
+    return () => {
+      dialog.removeEventListener("click", closeOnBackdrop);
+      dialog.removeEventListener("close", handleClose);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+
+    const body = document.body;
+    const scrollPosition = window.scrollY;
+    const previousStyles = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    };
+
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollPosition}px`;
+    body.style.width = "100%";
+
+    return () => {
+      body.style.overflow = previousStyles.overflow;
+      body.style.position = previousStyles.position;
+      body.style.top = previousStyles.top;
+      body.style.width = previousStyles.width;
+      window.scrollTo(0, scrollPosition);
+    };
+  }, [pickerOpen]);
 
   const selectedIds = useMemo(() => new Set(selectedPlayerIds), [selectedPlayerIds]);
   const clubCounts = useMemo(() => {
@@ -135,12 +170,15 @@ export function PlayerPicker({
 
   const slotLabel = position === "starter" ? "main player" : "bench player";
   const isReplacement = Boolean(outgoingPlayerId);
+  const activeFilterCount = Number(club !== "all")
+    + Number(priceSort !== "default")
+    + Number(affordableOnly);
 
   return (
     <>
       <button
         className={trigger === "replace"
-          ? "mt-2 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          ? "h-12 w-full rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
           : "group flex h-28 min-w-0 w-full flex-col items-center justify-center rounded-md border border-dashed border-sky-200/35 bg-sky-950/35 px-4 py-6 text-sky-100/70 transition hover:border-sky-100 hover:bg-sky-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"}
         disabled={transfersLocked}
         onClick={openPicker}
@@ -152,11 +190,11 @@ export function PlayerPicker({
 
       <dialog
         aria-labelledby={`player-picker-title-${position}`}
-        className="m-auto h-[100dvh] max-h-none w-full max-w-none bg-transparent p-0 text-white backdrop:bg-slate-950/75 sm:h-auto sm:max-h-[85dvh] sm:w-[min(56rem,calc(100%-2rem))] sm:rounded-xl"
+        className="m-auto h-[100dvh] max-h-none w-full max-w-none overflow-hidden bg-transparent p-0 text-white backdrop:bg-slate-950/75 sm:h-auto sm:max-h-[85dvh] sm:w-[min(56rem,calc(100%-2rem))] sm:rounded-xl"
         ref={dialogRef}
       >
-        <div className="flex h-full max-h-[100dvh] flex-col border border-white/15 bg-sky-950 shadow-2xl sm:max-h-[85dvh] sm:rounded-xl">
-          <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-6">
+        <div className="flex h-full min-h-0 max-h-[100dvh] flex-col overflow-hidden border border-white/15 bg-sky-950 shadow-2xl sm:max-h-[85dvh] sm:rounded-xl">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-6">
             <div>
               <h2 className="text-xl font-bold" id={`player-picker-title-${position}`}>{isReplacement ? "Replace player" : `Add ${slotLabel}`}</h2>
               <p className="mt-1 text-sm text-sky-100/60">Remaining budget: {formatMoney(remainingBudget)}</p>
@@ -164,34 +202,69 @@ export function PlayerPicker({
             <button aria-label="Close player picker" className="rounded-md px-3 py-1 text-2xl text-sky-100/60 hover:bg-white/10 hover:text-white" onClick={() => dialogRef.current?.close()} type="button">×</button>
           </div>
 
-          <div className="grid gap-3 border-b border-white/10 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-[minmax(0,1fr)_12rem_12rem_auto]">
-            <input aria-label="Search players" className="rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm" onChange={(event) => setQuery(event.target.value)} placeholder="Search player or club…" value={query} />
-            <select aria-label="Filter by club" className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm" onChange={(event) => setClub(event.target.value)} value={club}>
-              <option value="all">All clubs</option>
-              {clubs.map((clubName) => <option key={clubName} value={clubName}>{clubName}</option>)}
-            </select>
-            <select
-              aria-label="Sort players by price"
-              className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm"
-              onChange={(event) => setPriceSort(event.target.value as PriceSort)}
-              value={priceSort}
-            >
-              <option value="default">Default order</option>
-              <option value="low-to-high">Price: Low to high</option>
-              <option value="high-to-low">Price: High to low</option>
-            </select>
-            <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-sky-50">
-              <input
-                checked={affordableOnly}
-                className="h-4 w-4 shrink-0 accent-emerald-400"
-                onChange={(event) => setAffordableOnly(event.target.checked)}
-                type="checkbox"
-              />
-              <span className="whitespace-nowrap">Only affordable</span>
-            </label>
+          <div className="shrink-0 border-b border-white/10 p-5 sm:p-6">
+            <div className="flex gap-3">
+              <input aria-label="Search players" className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm" onChange={(event) => setQuery(event.target.value)} placeholder="Search player or club…" value={query} />
+              <button
+                aria-controls={`player-picker-filters-${position}`}
+                aria-expanded={filtersOpen}
+                className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/30 hover:bg-white/10"
+                onClick={() => setFiltersOpen((open) => !open)}
+                type="button"
+              >
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+                </svg>
+                <span>Filters</span>
+                {activeFilterCount > 0 ? (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-100 px-1 text-xs text-sky-950">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+                <svg
+                  aria-hidden="true"
+                  className={`h-4 w-4 ${filtersOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="m6 9 6 6 6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                </svg>
+              </button>
+            </div>
+
+            {filtersOpen ? (
+              <div
+                className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                id={`player-picker-filters-${position}`}
+              >
+                <select aria-label="Filter by club" className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm" onChange={(event) => setClub(event.target.value)} value={club}>
+                  <option value="all">All clubs</option>
+                  {clubs.map((clubName) => <option key={clubName} value={clubName}>{clubName}</option>)}
+                </select>
+                <select
+                  aria-label="Sort players by price"
+                  className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm"
+                  onChange={(event) => setPriceSort(event.target.value as PriceSort)}
+                  value={priceSort}
+                >
+                  <option value="default">Default order</option>
+                  <option value="low-to-high">Price: Low to high</option>
+                  <option value="high-to-low">Price: High to low</option>
+                </select>
+                <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-sky-50 sm:col-span-2 lg:col-span-1">
+                  <input
+                    checked={affordableOnly}
+                    className="h-4 w-4 shrink-0 accent-emerald-400"
+                    onChange={(event) => setAffordableOnly(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span className="whitespace-nowrap">Only affordable</span>
+                </label>
+              </div>
+            ) : null}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+          <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-5 [-webkit-overflow-scrolling:touch] sm:p-6">
             {!players && !error ? <p className="py-12 text-center text-sm text-sky-100/60">Loading players…</p> : null}
             {error ? <div className="rounded-md border border-red-300/30 bg-red-400/10 p-4 text-sm text-red-100">{error}</div> : null}
             {players ? (
