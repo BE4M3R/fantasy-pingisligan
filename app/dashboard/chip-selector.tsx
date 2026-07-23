@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { selectGameweekChip } from "@/app/dashboard/actions";
 
 export type Chip = "wildcard" | "triple_captain" | "bench_boost";
@@ -104,6 +108,31 @@ export function ChipSelector({
   const lockedChip = selections.find(
     (selection) => selection.locked_at && !selection.used_at,
   );
+  const [pendingChip, setPendingChip] = useState<Chip | null>(null);
+  const chipTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const chipToConfirm = chips.find((chip) => chip.value === pendingChip);
+
+  useEffect(() => {
+    if (!pendingChip) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPendingChip(null);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [pendingChip]);
+
+  function closeConfirmation() {
+    setPendingChip(null);
+    window.requestAnimationFrame(() => chipTriggerRef.current?.focus());
+  }
 
   return (
     <section
@@ -142,54 +171,48 @@ export function ChipSelector({
               : "Available";
 
           return (
-            <form
-              action={selectGameweekChip}
-              className="h-full"
+            <button
+              aria-label={`${chip.label}. ${
+                isUsed ? "Used this season." : chip.description
+              } ${status}.`}
+              aria-pressed={isSelected}
+              className={`flex h-full min-h-24 w-full flex-col items-center rounded-md border px-2 py-3 text-center transition disabled:cursor-not-allowed sm:min-h-28 sm:px-3 ${
+                isSelected
+                  ? "border-emerald-300/70 bg-emerald-300/15"
+                  : `border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 ${
+                      disabled ? "opacity-45" : ""
+                    }`
+              }`}
+              disabled={disabled || isSelected}
               key={chip.value}
+              onClick={(event) => {
+                chipTriggerRef.current = event.currentTarget;
+                setPendingChip(chip.value);
+              }}
+              title={chip.description}
+              type="button"
             >
-              <input
-                name="gameweek_id"
-                type="hidden"
-                value={upcomingGameweek?.id ?? ""}
-              />
-              <input name="chip" type="hidden" value={chip.value} />
-              <button
-                aria-label={`${chip.label}. ${
-                  isUsed ? "Used this season." : chip.description
-                } ${status}.`}
-                aria-pressed={isSelected}
-                className={`flex h-full min-h-24 w-full flex-col items-center rounded-md border px-2 py-3 text-center transition disabled:cursor-not-allowed sm:min-h-28 sm:px-3 ${
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-full ${
                   isSelected
-                    ? "border-emerald-300/70 bg-emerald-300/15"
-                    : `border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 ${
-                        disabled ? "opacity-45" : ""
-                      }`
+                    ? "bg-emerald-300 text-sky-950"
+                    : "bg-white/10 text-emerald-300"
                 }`}
-                disabled={disabled || isSelected}
-                title={chip.description}
               >
-                <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                    isSelected
-                      ? "bg-emerald-300 text-sky-950"
-                      : "bg-white/10 text-emerald-300"
-                  }`}
-                >
-                  <ChipIcon chip={chip.value} />
+                <ChipIcon chip={chip.value} />
+              </span>
+              <span className="mt-2 text-xs font-bold leading-tight text-white sm:text-sm">
+                <span className="sm:hidden">
+                  {chip.value === "triple_captain"
+                    ? "3× Captain"
+                    : chip.label}
                 </span>
-                <span className="mt-2 text-xs font-bold leading-tight text-white sm:text-sm">
-                  <span className="sm:hidden">
-                    {chip.value === "triple_captain"
-                      ? "3× Captain"
-                      : chip.label}
-                  </span>
-                  <span className="hidden sm:inline">{chip.label}</span>
-                </span>
-                <span className="mt-auto pt-1 text-[0.65rem] font-semibold leading-tight text-sky-100/55 sm:text-xs">
-                  {status}
-                </span>
-              </button>
-            </form>
+                <span className="hidden sm:inline">{chip.label}</span>
+              </span>
+              <span className="mt-auto pt-1 text-[0.65rem] font-semibold leading-tight text-sky-100/55 sm:text-xs">
+                {status}
+              </span>
+            </button>
           );
         })}
       </div>
@@ -206,6 +229,81 @@ export function ChipSelector({
           </button>
         </form>
       ) : null}
+
+      {chipToConfirm && upcomingGameweek
+        ? createPortal(
+          <div
+            aria-labelledby="chip-confirmation-title"
+            aria-modal="true"
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/75 p-4 text-white"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeConfirmation();
+            }}
+            role="dialog"
+          >
+            <div className="w-full max-w-sm rounded-xl border border-white/15 bg-sky-950 p-5 shadow-2xl sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                    Gameweek chip
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold" id="chip-confirmation-title">
+                    {chipToConfirm.label}
+                  </h2>
+                </div>
+                <button
+                  aria-label="Close chip confirmation"
+                  className="rounded-md px-3 py-1 text-2xl text-sky-100/60 hover:bg-white/10 hover:text-white"
+                  onClick={closeConfirmation}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-sky-100/75">
+                {chipToConfirm.description}
+              </p>
+
+              <div className="mt-4 rounded-md border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-5 text-amber-100">
+                Only one chip can be used per gameweek. Each chip can be used once during the season.
+              </div>
+
+              {currentSelection && currentSelection.chip !== chipToConfirm.value ? (
+                <p className="mt-3 text-xs leading-5 text-sky-100/60">
+                  This will replace your selected {getChipLabel(currentSelection.chip)} chip for {upcomingGameweek.name}.
+                </p>
+              ) : null}
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <button
+                  autoFocus
+                  className="h-12 rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-50 hover:border-white/50 hover:bg-white/10"
+                  onClick={closeConfirmation}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <form
+                  action={selectGameweekChip}
+                  onSubmit={() => setPendingChip(null)}
+                >
+                  <input
+                    name="gameweek_id"
+                    type="hidden"
+                    value={upcomingGameweek.id}
+                  />
+                  <input name="chip" type="hidden" value={chipToConfirm.value} />
+                  <button className="h-12 w-full rounded-md bg-emerald-300 px-4 text-sm font-bold text-sky-950 hover:bg-emerald-200">
+                    Use chip
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+        : null}
     </section>
   );
 }
