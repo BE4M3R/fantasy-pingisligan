@@ -59,10 +59,8 @@ type PreviousPlayer = {
 };
 
 type TransferSummary = {
-  detail: string;
   penaltyPoints: number;
   remainingLabel: string;
-  transferCount: number | null;
 };
 
 function formatMoney(value: number | string) {
@@ -132,10 +130,8 @@ function getTransferSummary({
 
   if (!previousSnapshot) {
     return {
-      detail: "Initial squad selection is free before the first gameweek deadline.",
       penaltyPoints: 0,
       remainingLabel: "Unlimited",
-      transferCount: null,
     };
   }
 
@@ -150,10 +146,8 @@ function getTransferSummary({
 
   if (currentChipSelection?.chip === "wildcard") {
     return {
-      detail: `${transferCount} net transfers planned. Wildcard removes transfer penalties.`,
       penaltyPoints: 0,
       remainingLabel: "Unlimited",
-      transferCount,
     };
   }
 
@@ -161,24 +155,9 @@ function getTransferSummary({
   const penaltyPoints = Math.max(transferCount - availableTransfers, 0) * -4;
 
   return {
-    detail:
-      penaltyPoints < 0
-        ? `${transferCount} net transfers planned, including ${Math.abs(
-            penaltyPoints / 4,
-          )} extra transfer${penaltyPoints === -4 ? "" : "s"}.`
-        : `${transferCount} net transfers planned for ${upcomingTransferCopy(
-            availableTransfers,
-          )}.`,
     penaltyPoints,
     remainingLabel: String(remainingTransfers),
-    transferCount,
   };
-}
-
-function upcomingTransferCopy(availableTransfers: number) {
-  return `${availableTransfers} available free transfer${
-    availableTransfers === 1 ? "" : "s"
-  }`;
 }
 
 function ClubLogoBadge({ clubName }: { clubName: string }) {
@@ -444,7 +423,17 @@ export default async function SquadPage({
           </div>
         </div>
 
-        <div className="mb-6">
+        <section className="table-panel min-w-0 rounded-lg border p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+              {fantasyTeam?.name ?? "Your fantasy team"}
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight">My squad</h1>
+            <p className="mt-2 text-sm text-sky-100/60">
+              Pick four main players, two bench players, and one captain. Maximum two players per club.
+            </p>
+          </div>
+
           <ChipSelector
             currentSelection={currentChipSelection}
             migrationMissing={chipMigrationMissing}
@@ -452,58 +441,50 @@ export default async function SquadPage({
             transfersLocked={transfersLocked}
             upcomingGameweek={upcomingGameweek}
           />
-        </div>
 
-        <section className="table-panel min-w-0 rounded-lg border p-6">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">
-                {fantasyTeam?.name ?? "Your fantasy team"}
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight">My squad</h1>
-              <p className="mt-2 text-sm text-sky-100/60">
-                Pick four main players, two bench players, and one captain. Maximum two players per club.
-              </p>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-3 text-sm sm:min-w-80">
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <dt className="text-xs text-sky-100/50">Squad value</dt>
-                <dd className="mt-1 font-bold">{formatMoney(usedBudget)}</dd>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <dt className="text-xs text-sky-100/50">Budget left</dt>
-                <dd className="mt-1 font-bold">{formatMoney(remainingBudget)}</dd>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <dt className="text-xs text-sky-100/50">Free transfers</dt>
-                <dd className="mt-1 font-bold">
-                  {transferSummaryMigrationMissing
-                    ? "Migration needed"
-                    : transferSummary.remainingLabel}
-                </dd>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <dt className="text-xs text-sky-100/50">Transfer cost</dt>
-                <dd className="mt-1 font-bold">
-                  {transferSummary.penaltyPoints < 0
-                    ? `${transferSummary.penaltyPoints} pts`
-                    : "0 pts"}
-                </dd>
-              </div>
-            </dl>
+          <div className="mt-6 flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="h-px flex-1 bg-white/10"
+            />
+            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-sky-100/50 sm:text-sm">
+              Player selection
+            </h2>
+            <span
+              aria-hidden="true"
+              className="h-px flex-1 bg-white/10"
+            />
           </div>
 
-          <p className="mt-4 rounded-md border border-white/10 bg-sky-950/35 px-4 py-3 text-sm leading-6 text-sky-100/65">
-            {transferSummaryMigrationMissing
-              ? "Run the latest supabase/chips-migration.sql to enable transfer banking."
-              : transferSummary.detail}
-          </p>
+          <dl className="mt-4 grid gap-1.5 text-sm text-sky-100/60 sm:flex sm:flex-wrap sm:gap-x-7 sm:text-base">
+            <div className="flex items-baseline gap-1">
+              <dt>Budget left:</dt>
+              <dd className="font-bold text-sky-100">
+                {formatMoney(remainingBudget)}
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <dt>Number transfers left:</dt>
+              <dd className="font-bold text-sky-100">
+                {transferSummaryMigrationMissing
+                  ? "Migration needed"
+                  : transferSummary.remainingLabel}
+              </dd>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <dt>Transfer cost:</dt>
+              <dd className="font-bold text-sky-100">
+                {transferSummary.penaltyPoints < 0
+                  ? `${transferSummary.penaltyPoints} pts`
+                  : "0 pts"}
+              </dd>
+            </div>
+          </dl>
 
-          <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-3 lg:gap-3">
+          <div className="mt-5 grid min-w-0 gap-6 lg:grid-cols-3 lg:gap-3">
             <div className="min-w-0 lg:col-span-2">
               <div className="mb-3 flex items-center justify-between gap-4">
-                <h2 className="text-sm font-bold text-sky-100">Main players</h2>
+                <h3 className="text-sm font-bold text-sky-100">Main players</h3>
                 <span className="text-xs font-semibold text-sky-100/55">
                   {starters.length} / {STARTER_SIZE}
                 </span>
@@ -544,7 +525,7 @@ export default async function SquadPage({
 
             <div className="min-w-0">
               <div className="mb-3 flex items-center justify-between gap-4">
-                <h2 className="text-sm font-bold text-sky-100">Bench</h2>
+                <h3 className="text-sm font-bold text-sky-100">Bench</h3>
                 <span className="text-xs font-semibold text-sky-100/55">
                   {bench.length} / {BENCH_SIZE}
                 </span>
