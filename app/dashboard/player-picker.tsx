@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addPlayerToTeam, swapPlayerIntoTeam } from "@/app/dashboard/actions";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
 
 type PlayerPickerProps = {
+  onSelect: (player: DashboardPlayer) => void;
   position: SquadPosition;
   remainingBudget: number;
   selectedClubIds: string[];
@@ -52,6 +52,7 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
 }
 
 export function PlayerPicker({
+  onSelect,
   position,
   remainingBudget,
   selectedClubIds,
@@ -284,14 +285,17 @@ export function PlayerPicker({
                         <p className="truncate text-sm font-semibold">{player.first_name} {player.last_name}</p>
                         <p className="mt-1 truncate text-xs text-sky-100/55">{getClubName(player)} · {formatMoney(player.price)}</p>
                       </div>
-                      <form action={isReplacement ? swapPlayerIntoTeam : addPlayerToTeam}>
-                        <input name="player_id" type="hidden" value={player.id} />
-                        <input name="position" type="hidden" value={position} />
-                        {outgoingPlayerId ? <input name="outgoing_player_id" type="hidden" value={outgoingPlayerId} /> : null}
-                        <button className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400" disabled={selected || tooExpensive || clubLimitReached || transfersLocked}>
+                      <button
+                        className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+                        disabled={selected || tooExpensive || clubLimitReached || transfersLocked}
+                        onClick={() => {
+                          onSelect(player);
+                          dialogRef.current?.close();
+                        }}
+                        type="button"
+                      >
                           {selected ? "Selected" : tooExpensive ? "Over budget" : clubLimitReached ? "Club limit" : "Add"}
-                        </button>
-                      </form>
+                      </button>
                     </div>
                   );
                 })}

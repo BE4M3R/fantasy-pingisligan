@@ -59,6 +59,7 @@ Apply these migrations once, in this order:
 1. `supabase/transfer-window-lock-migration.sql`
 2. `supabase/squad-snapshot-cron-migration.sql`
 3. `supabase/chips-migration.sql`
+4. `supabase/save-squad-draft-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the

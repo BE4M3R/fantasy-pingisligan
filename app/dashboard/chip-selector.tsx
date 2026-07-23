@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { selectGameweekChip } from "@/app/dashboard/actions";
 
 export type Chip = "wildcard" | "triple_captain" | "bench_boost";
 
@@ -88,14 +87,16 @@ function ChipIcon({ chip }: { chip: Chip }) {
 }
 
 export function ChipSelector({
-  currentSelection,
   migrationMissing,
+  onChange,
+  selectedChip,
   selections,
   transfersLocked,
   upcomingGameweek,
 }: {
-  currentSelection: ChipSelection | null;
   migrationMissing: boolean;
+  onChange: (chip: Chip | null) => void;
+  selectedChip: Chip | null;
   selections: ChipSelection[];
   transfersLocked: boolean;
   upcomingGameweek: UpcomingGameweek | null;
@@ -160,7 +161,7 @@ export function ChipSelector({
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         {chips.map((chip) => {
-          const isSelected = currentSelection?.chip === chip.value;
+          const isSelected = selectedChip === chip.value;
           const isUsed = usedChips.has(chip.value);
           const disabled =
             migrationMissing || transfersLocked || !upcomingGameweek || isUsed;
@@ -217,17 +218,16 @@ export function ChipSelector({
         })}
       </div>
 
-      {currentSelection && !transfersLocked ? (
-        <form action={selectGameweekChip} className="mt-3 text-right">
-          <input
-            name="gameweek_id"
-            type="hidden"
-            value={upcomingGameweek?.id ?? ""}
-          />
-          <button className="text-xs font-semibold text-sky-100/65 underline decoration-white/25 underline-offset-4 transition hover:text-white">
+      {selectedChip && !transfersLocked ? (
+        <div className="mt-3 text-right">
+          <button
+            className="text-xs font-semibold text-sky-100/65 underline decoration-white/25 underline-offset-4 transition hover:text-white"
+            onClick={() => onChange(null)}
+            type="button"
+          >
             Clear selected chip
           </button>
-        </form>
+        </div>
       ) : null}
 
       {chipToConfirm && upcomingGameweek
@@ -269,9 +269,9 @@ export function ChipSelector({
                 Only one chip can be used per gameweek. Each chip can be used once during the season.
               </div>
 
-              {currentSelection && currentSelection.chip !== chipToConfirm.value ? (
+              {selectedChip && selectedChip !== chipToConfirm.value ? (
                 <p className="mt-3 text-xs leading-5 text-sky-100/60">
-                  This will replace your selected {getChipLabel(currentSelection.chip)} chip for {upcomingGameweek.name}.
+                  This will replace your selected {getChipLabel(selectedChip)} chip for {upcomingGameweek.name}.
                 </p>
               ) : null}
 
@@ -284,20 +284,16 @@ export function ChipSelector({
                 >
                   Cancel
                 </button>
-                <form
-                  action={selectGameweekChip}
-                  onSubmit={() => setPendingChip(null)}
+                <button
+                  className="h-12 w-full rounded-md bg-emerald-300 px-4 text-sm font-bold text-sky-950 hover:bg-emerald-200"
+                  onClick={() => {
+                    onChange(chipToConfirm.value);
+                    closeConfirmation();
+                  }}
+                  type="button"
                 >
-                  <input
-                    name="gameweek_id"
-                    type="hidden"
-                    value={upcomingGameweek.id}
-                  />
-                  <input name="chip" type="hidden" value={chipToConfirm.value} />
-                  <button className="h-12 w-full rounded-md bg-emerald-300 px-4 text-sm font-bold text-sky-950 hover:bg-emerald-200">
-                    Use chip
-                  </button>
-                </form>
+                  Select chip
+                </button>
               </div>
             </div>
           </div>,

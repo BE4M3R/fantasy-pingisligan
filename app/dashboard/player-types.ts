@@ -12,3 +12,7 @@ export type SquadPosition = "starter" | "bench";
 export type SquadPlayerOption = DashboardPlayer & {
   position: SquadPosition;
 };
+
+export type DraftSquadPlayer = SquadPlayerOption & {
+  is_captain: boolean;
+};

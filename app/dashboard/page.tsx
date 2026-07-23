@@ -1,20 +1,15 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
+import { type ChipSelection } from "@/app/dashboard/chip-selector";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
-import {
-  ChipSelector,
-  type ChipSelection,
-} from "@/app/dashboard/chip-selector";
-import { getClubLogo } from "@/app/dashboard/club-logos";
-import { PlayerPicker } from "@/app/dashboard/player-picker";
-import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
-import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
+import type {
+  DashboardPlayer,
+  DraftSquadPlayer,
+  SquadPosition,
+} from "@/app/dashboard/player-types";
+import { SquadEditor } from "@/app/dashboard/squad-editor";
 import { createClient } from "@/lib/supabase/server";
 
-const STARTER_SIZE = 4;
-const BENCH_SIZE = 2;
 const DEFAULT_BUDGET = 100000000;
-const MAX_FREE_TRANSFERS = 4;
 
 type FantasyTeam = {
   id: string;
@@ -27,11 +22,6 @@ type SquadRow = {
   player_id: string;
   position: SquadPosition;
   players: DashboardPlayer | DashboardPlayer[] | null;
-};
-
-type SquadPlayer = DashboardPlayer & {
-  is_captain: boolean;
-  position: SquadPosition;
 };
 
 type TransferLock = {
@@ -58,19 +48,8 @@ type PreviousPlayer = {
   player_id: string;
 };
 
-type TransferSummary = {
-  penaltyPoints: number;
-  remainingLabel: string;
-};
-
-function formatMoney(value: number | string) {
-  return `${(Number(value) / 1000000).toFixed(1)}m`;
-}
-
 function formatDateTime(value: string | null) {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
 
   return new Intl.DateTimeFormat("sv-SE", {
     dateStyle: "medium",
@@ -79,24 +58,10 @@ function formatDateTime(value: string | null) {
   }).format(new Date(value));
 }
 
-function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name
-    : player.clubs?.name ?? "Free agent";
-}
-
-function getClubId(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.id ?? null
-    : player.clubs?.id ?? null;
-}
-
-function getSquadPlayer(row: SquadRow) {
+function getSquadPlayer(row: SquadRow): DraftSquadPlayer | null {
   const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
-  if (!player) {
-    return null;
-  }
+  if (!player) return null;
 
   return {
     ...player,
@@ -106,132 +71,11 @@ function getSquadPlayer(row: SquadRow) {
 }
 
 function getPreviousSnapshot(row: PreviousGameweek | null) {
-  if (!row) {
-    return null;
-  }
+  if (!row) return null;
 
   return Array.isArray(row.fantasy_team_gameweek_snapshots)
     ? row.fantasy_team_gameweek_snapshots[0] ?? null
     : row.fantasy_team_gameweek_snapshots;
-}
-
-function getTransferSummary({
-  currentChipSelection,
-  previousGameweek,
-  previousPlayers,
-  selectedPlayerIds,
-}: {
-  currentChipSelection: ChipSelection | null;
-  previousGameweek: PreviousGameweek | null;
-  previousPlayers: PreviousPlayer[];
-  selectedPlayerIds: string[];
-}): TransferSummary {
-  const previousSnapshot = getPreviousSnapshot(previousGameweek);
-
-  if (!previousSnapshot) {
-    return {
-      penaltyPoints: 0,
-      remainingLabel: "Unlimited",
-    };
-  }
-
-  const previousPlayerIds = new Set(previousPlayers.map((row) => row.player_id));
-  const transferCount = selectedPlayerIds.filter(
-    (playerId) => !previousPlayerIds.has(playerId),
-  ).length;
-  const availableTransfers = Math.min(
-    Number(previousSnapshot.free_transfers_after_lock ?? 1) + 1,
-    MAX_FREE_TRANSFERS,
-  );
-
-  if (currentChipSelection?.chip === "wildcard") {
-    return {
-      penaltyPoints: 0,
-      remainingLabel: "Unlimited",
-    };
-  }
-
-  const remainingTransfers = Math.max(availableTransfers - transferCount, 0);
-  const penaltyPoints = Math.max(transferCount - availableTransfers, 0) * -4;
-
-  return {
-    penaltyPoints,
-    remainingLabel: String(remainingTransfers),
-  };
-}
-
-function ClubLogoBadge({ clubName }: { clubName: string }) {
-  const logo = getClubLogo(clubName);
-
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white p-1">
-      {logo ? (
-        <Image
-          alt={logo.alt}
-          className="max-h-9 max-w-9 object-contain"
-          height={36}
-          src={logo.src}
-          width={36}
-        />
-      ) : (
-        <span className="text-xs font-bold text-zinc-500">
-          {clubName.slice(0, 1)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function SquadCard({
-  player,
-  remainingBudget,
-  selectedClubIds,
-  selectedPlayerIds,
-  swapTargets,
-  transfersLocked,
-}: {
-  player: SquadPlayer;
-  remainingBudget: number;
-  selectedClubIds: string[];
-  selectedPlayerIds: string[];
-  swapTargets: SquadPlayer[];
-  transfersLocked: boolean;
-}) {
-  const clubName = getClubName(player);
-
-  return (
-    <SquadCardActions
-      player={player}
-      remainingBudget={remainingBudget}
-      selectedClubIds={selectedClubIds}
-      selectedPlayerIds={selectedPlayerIds}
-      swapTargets={swapTargets}
-      transfersLocked={transfersLocked}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <ClubLogoBadge clubName={clubName} />
-        <div className="min-w-0">
-          <h3 className="flex min-w-0 items-center gap-2 font-semibold">
-            <span className="truncate">
-              {player.first_name} {player.last_name}
-            </span>
-            {player.is_captain ? (
-              <span
-                aria-label="Captain"
-                className="inline-flex shrink-0 items-center justify-center rounded-sm bg-emerald-400 px-2 py-0.5 text-sm font-black uppercase leading-none text-zinc-950 sm:px-1.5 sm:text-[10px]"
-              >
-                <span aria-hidden="true" className="sm:hidden">C</span>
-                <span aria-hidden="true" className="hidden sm:inline">Captain</span>
-              </span>
-            ) : null}
-          </h3>
-          <p className="mt-1 truncate text-sm text-sky-100/55">
-            {clubName} · {formatMoney(player.price)}
-          </p>
-        </div>
-      </div>
-    </SquadCardActions>
-  );
 }
 
 export default async function SquadPage({
@@ -243,9 +87,7 @@ export default async function SquadPage({
   const { data: claimsResult } = await supabase.auth.getClaims();
   const userId = claimsResult?.claims?.sub;
 
-  if (!userId) {
-    redirect("/login");
-  }
+  if (!userId) redirect("/login");
 
   const { data: existingTeam } = await supabase
     .from("fantasy_teams")
@@ -298,16 +140,20 @@ export default async function SquadPage({
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
   ]);
+
   const { message } = await searchParams;
   const transferLockRows = transferLockResult.data;
   const transferLock = (
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
-  const upcomingGameweek = upcomingGameweekResult.data as UpcomingGameweek | null;
+  const upcomingGameweek =
+    upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
   const chipMigrationMissing = Boolean(
-    chipSelectionsResult.error?.message.includes("fantasy_team_chip_selections"),
+    chipSelectionsResult.error?.message.includes(
+      "fantasy_team_chip_selections",
+    ),
   );
   const currentChipSelection = upcomingGameweek
     ? chipSelections.find(
@@ -318,19 +164,7 @@ export default async function SquadPage({
     : null;
   const squad = ((squadResult.data ?? []) as SquadRow[])
     .map(getSquadPlayer)
-    .filter((player): player is SquadPlayer => Boolean(player));
-  const starters = squad.filter((player) => player.position === "starter");
-  const bench = squad.filter((player) => player.position === "bench");
-  const selectedClubIds = squad
-    .map(getClubId)
-    .filter((clubId): clubId is string => Boolean(clubId));
-  const selectedPlayerIds = squad.map((player) => player.id);
-  const usedBudget = squad.reduce(
-    (total, player) => total + Number(player.price),
-    0,
-  );
-  const remainingBudget =
-    Number(fantasyTeam?.budget ?? DEFAULT_BUDGET) - usedBudget;
+    .filter((player): player is DraftSquadPlayer => Boolean(player));
   let previousGameweek: PreviousGameweek | null = null;
   let previousPlayers: PreviousPlayer[] = [];
   let transferSummaryMigrationMissing = false;
@@ -339,8 +173,13 @@ export default async function SquadPage({
     const { data: previousGameweekRow, error: previousGameweekError } =
       await supabase
         .from("fantasy_gameweeks")
-        .select("id, fantasy_team_gameweek_snapshots!inner(free_transfers_after_lock)")
-        .eq("fantasy_team_gameweek_snapshots.fantasy_team_id", fantasyTeam.id)
+        .select(
+          "id, fantasy_team_gameweek_snapshots!inner(free_transfers_after_lock)",
+        )
+        .eq(
+          "fantasy_team_gameweek_snapshots.fantasy_team_id",
+          fantasyTeam.id,
+        )
         .lt("lock_at", upcomingGameweek.lock_at)
         .order("lock_at", { ascending: false })
         .limit(1)
@@ -363,19 +202,16 @@ export default async function SquadPage({
 
       if (previousPlayersError) {
         transferSummaryMigrationMissing =
-          previousPlayersError.message.includes("fantasy_team_gameweek_players");
+          previousPlayersError.message.includes(
+            "fantasy_team_gameweek_players",
+          );
       } else {
         previousPlayers = (previousPlayerRows ?? []) as PreviousPlayer[];
       }
     }
   }
 
-  const transferSummary = getTransferSummary({
-    currentChipSelection,
-    previousGameweek,
-    previousPlayers,
-    selectedPlayerIds,
-  });
+  const previousSnapshot = getPreviousSnapshot(previousGameweek);
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
@@ -422,148 +258,23 @@ export default async function SquadPage({
           </div>
         </div>
 
-        <section className="table-panel min-w-0 rounded-lg border p-6">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">
-              {fantasyTeam?.name ?? "Your fantasy team"}
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">My squad</h1>
-            <p className="mt-2 text-sm text-sky-100/60">
-              Pick four main players, two bench players, and one captain. Maximum two players per club.
-            </p>
-          </div>
-
-          <ChipSelector
-            currentSelection={currentChipSelection}
-            migrationMissing={chipMigrationMissing}
-            selections={chipSelections}
-            transfersLocked={transfersLocked}
-            upcomingGameweek={upcomingGameweek}
-          />
-
-          <div className="mt-6 flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="h-px flex-1 bg-white/10"
-            />
-            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-sky-100/50 sm:text-sm">
-              Player selection
-            </h2>
-            <span
-              aria-hidden="true"
-              className="h-px flex-1 bg-white/10"
-            />
-          </div>
-
-          <dl className="mt-4 grid gap-1.5 text-sm text-sky-100/60 sm:flex sm:flex-wrap sm:gap-x-7 sm:text-base">
-            <div className="flex items-baseline gap-1">
-              <dt>Budget left:</dt>
-              <dd className="font-bold text-sky-100">
-                {formatMoney(remainingBudget)}
-              </dd>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <dt>Number transfers left:</dt>
-              <dd className="font-bold text-sky-100">
-                {transferSummaryMigrationMissing
-                  ? "Migration needed"
-                  : transferSummary.remainingLabel}
-              </dd>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <dt>Transfer cost:</dt>
-              <dd className="font-bold text-sky-100">
-                {transferSummary.penaltyPoints < 0
-                  ? `${transferSummary.penaltyPoints} pts`
-                  : "0 pts"}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-5 grid min-w-0 gap-6 lg:grid-cols-3 lg:gap-3">
-            <div className="min-w-0 lg:col-span-2">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <h3 className="text-sm font-bold text-sky-100">Main players</h3>
-                <span className="text-xs font-semibold text-sky-100/55">
-                  {starters.length} / {STARTER_SIZE}
-                </span>
-              </div>
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2">
-                {starters.map((player) => (
-                  <SquadCard
-                    key={player.id}
-                    player={player}
-                    remainingBudget={remainingBudget}
-                    selectedClubIds={selectedClubIds}
-                    selectedPlayerIds={selectedPlayerIds}
-                    swapTargets={bench}
-                    transfersLocked={transfersLocked}
-                  />
-                ))}
-                {starters.length < STARTER_SIZE ? (
-                  <PlayerPicker
-                    position="starter"
-                    remainingBudget={remainingBudget}
-                    selectedClubIds={selectedClubIds}
-                    selectedPlayerIds={selectedPlayerIds}
-                    transfersLocked={transfersLocked}
-                  />
-                ) : null}
-                {Array.from(
-                  { length: Math.max(0, STARTER_SIZE - starters.length - 1) },
-                  (_, index) => (
-                    <div
-                      aria-label="Empty main player slot"
-                      className="h-28 min-w-0 rounded-md border border-dashed border-white/10 bg-sky-950/20"
-                      key={`starter-empty-${index}`}
-                    />
-                  ),
-                )}
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <h3 className="text-sm font-bold text-sky-100">Bench</h3>
-                <span className="text-xs font-semibold text-sky-100/55">
-                  {bench.length} / {BENCH_SIZE}
-                </span>
-              </div>
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
-                {bench.map((player) => (
-                  <SquadCard
-                    key={player.id}
-                    player={player}
-                    remainingBudget={remainingBudget}
-                    selectedClubIds={selectedClubIds}
-                    selectedPlayerIds={selectedPlayerIds}
-                    swapTargets={starters}
-                    transfersLocked={transfersLocked}
-                  />
-                ))}
-                {bench.length < BENCH_SIZE ? (
-                  <PlayerPicker
-                    position="bench"
-                    remainingBudget={remainingBudget}
-                    selectedClubIds={selectedClubIds}
-                    selectedPlayerIds={selectedPlayerIds}
-                    transfersLocked={transfersLocked}
-                  />
-                ) : null}
-                {Array.from(
-                  { length: Math.max(0, BENCH_SIZE - bench.length - 1) },
-                  (_, index) => (
-                    <div
-                      aria-label="Empty bench player slot"
-                      className="h-28 min-w-0 rounded-md border border-dashed border-white/10 bg-sky-950/20"
-                      key={`bench-empty-${index}`}
-                    />
-                  ),
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
+        <SquadEditor
+          availableTransfersAfterPreviousGameweek={
+            previousSnapshot
+              ? Number(previousSnapshot.free_transfers_after_lock ?? 1)
+              : null
+          }
+          budget={fantasyTeam?.budget ?? DEFAULT_BUDGET}
+          chipMigrationMissing={chipMigrationMissing}
+          chipSelections={chipSelections}
+          initialChip={currentChipSelection?.chip ?? null}
+          initialSquad={squad}
+          previousPlayerIds={previousPlayers.map((row) => row.player_id)}
+          teamName={fantasyTeam?.name ?? "Your fantasy team"}
+          transferSummaryMigrationMissing={transferSummaryMigrationMissing}
+          transfersLocked={transfersLocked}
+          upcomingGameweek={upcomingGameweek}
+        />
       </section>
     </main>
   );

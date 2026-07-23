@@ -14,6 +14,21 @@ const MAX_PLAYERS_PER_CLUB = 2;
 type SquadPosition = "starter" | "bench";
 type Chip = "wildcard" | "triple_captain" | "bench_boost";
 
+export type SaveSquadDraftInput = {
+  chip: Chip | null;
+  gameweekId: string | null;
+  players: {
+    is_captain: boolean;
+    player_id: string;
+    position: SquadPosition;
+  }[];
+};
+
+export type SaveSquadDraftResult = {
+  error?: string;
+  saved?: boolean;
+};
+
 type TeamPlayer = {
   players:
     | { club_id: string | null; price: number | string }
@@ -144,6 +159,38 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
       `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens ${formatDateTime(lock.unlock_at)}.`,
     );
   }
+}
+
+export async function saveSquadDraft(
+  input: SaveSquadDraftInput,
+): Promise<SaveSquadDraftResult> {
+  if (
+    !Array.isArray(input.players) ||
+    input.players.length > SQUAD_SIZE ||
+    (input.chip !== null && !isChip(input.chip))
+  ) {
+    return { error: "The squad draft is invalid." };
+  }
+
+  const { supabase } = await getUserId();
+  const { error } = await supabase.rpc("save_my_fantasy_team", {
+    p_chip: input.chip,
+    p_gameweek_id: input.gameweekId,
+    p_squad: input.players,
+  });
+
+  if (error) {
+    return {
+      error: error.message.includes("save_my_fantasy_team")
+        ? "Database migration needed: run supabase/save-squad-draft-migration.sql."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/overview");
+
+  return { saved: true };
 }
 
 export async function addPlayerToTeam(formData: FormData) {
