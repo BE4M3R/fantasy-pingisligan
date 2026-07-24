@@ -37,12 +37,17 @@ export default async function LoginPage({
             </div>
           ) : null}
 
-          <form action={signIn} className="mt-8 space-y-5">
+          <form
+            action={signIn}
+            className="mt-8 space-y-5"
+            suppressHydrationWarning
+          >
             <label className="block text-sm font-medium text-sky-100">
               Email
               <input
                 className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
                 name="email"
+                suppressHydrationWarning
                 type="email"
                 autoComplete="email"
                 required
@@ -54,6 +59,7 @@ export default async function LoginPage({
               <input
                 className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
                 name="password"
+                suppressHydrationWarning
                 type="password"
                 autoComplete="current-password"
                 required
@@ -75,6 +81,7 @@ export default async function LoginPage({
           <form
             action={sendPasswordReset}
             className="mt-6 border-t border-white/10 pt-6"
+            suppressHydrationWarning
           >
             <label className="block text-sm font-medium text-sky-100">
               Forgot password?
@@ -84,6 +91,7 @@ export default async function LoginPage({
                 name="email"
                 placeholder="Email"
                 required
+                suppressHydrationWarning
                 type="email"
               />
             </label>

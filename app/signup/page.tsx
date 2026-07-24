@@ -40,12 +40,17 @@ export default async function SignupPage({
             </div>
           ) : null}
 
-          <form action={signUp} className="mt-8 space-y-5">
+          <form
+            action={signUp}
+            className="mt-8 space-y-5"
+            suppressHydrationWarning
+          >
             <label className="block text-sm font-medium text-sky-100">
               Email
               <input
                 className="mt-2 w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-3 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
                 name="email"
+                suppressHydrationWarning
                 type="email"
                 autoComplete="email"
                 required
@@ -61,6 +66,7 @@ export default async function SignupPage({
                 autoComplete="new-password"
                 minLength={6}
                 required
+                suppressHydrationWarning
               />
             </label>
 
@@ -72,6 +78,7 @@ export default async function SignupPage({
                 type="password"
                 autoComplete="off"
                 required
+                suppressHydrationWarning
               />
             </label>
 

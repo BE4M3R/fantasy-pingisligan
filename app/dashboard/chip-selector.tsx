@@ -40,6 +40,32 @@ function getChipLabel(value: Chip) {
   return chips.find((chip) => chip.value === value)?.label ?? value;
 }
 
+function getChipBallClassName({
+  compact,
+  isActive,
+  isUsed,
+}: {
+  compact: boolean;
+  isActive: boolean;
+  isUsed: boolean;
+}) {
+  const sizeClass = compact ? "max-w-14" : "max-w-16 sm:max-w-20";
+  let stateClass =
+    "border-white/80 bg-white text-sky-950 group-hover:-translate-y-1 group-hover:bg-white group-focus-visible:ring-4 group-focus-visible:ring-sky-200/35";
+
+  if (isActive) {
+    stateClass = compact
+      ? "border-emerald-200 bg-emerald-100 text-sky-950 ring-4 ring-emerald-300/30"
+      : "border-emerald-100 bg-emerald-300 text-sky-950 ring-4 ring-emerald-300/20";
+  } else if (isUsed) {
+    stateClass = compact
+      ? "border-white/60 bg-white text-slate-600 opacity-60 grayscale"
+      : "border-slate-300/30 bg-slate-400 text-slate-700 opacity-40 grayscale";
+  }
+
+  return `chip-ball relative flex aspect-square w-full flex-col items-center justify-center rounded-full border-2 px-1.5 transition ${sizeClass} ${stateClass}`;
+}
+
 function ChipIcon({ chip }: { chip: Chip }) {
   if (chip === "wildcard") {
     return (
@@ -87,6 +113,7 @@ function ChipIcon({ chip }: { chip: Chip }) {
 }
 
 export function ChipSelector({
+  compact = false,
   migrationMissing,
   onChange,
   selectedChip,
@@ -94,6 +121,7 @@ export function ChipSelector({
   transfersLocked,
   upcomingGameweek,
 }: {
+  compact?: boolean;
   migrationMissing: boolean;
   onChange: (chip: Chip | null) => void;
   selectedChip: Chip | null;
@@ -137,98 +165,110 @@ export function ChipSelector({
 
   return (
     <section
-      aria-labelledby="gameweek-chips-title"
-      className="mt-5 border-t border-white/10 pt-5"
+      aria-label="Gameweek chips"
+      className={compact ? "py-3" : "mt-4"}
     >
-      <h2
-        className="text-sm font-bold text-sky-100"
-        id="gameweek-chips-title"
-      >
-        Gameweek chips
-      </h2>
-
       {migrationMissing ? (
-        <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <div className="mb-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
           Run supabase/chips-migration.sql in Supabase to enable chips.
         </div>
       ) : null}
 
       {lockedChip ? (
-        <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
+        <div className="mb-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-xs text-emerald-100">
           {getChipLabel(lockedChip.chip)} is locked in for this gameweek.
         </div>
       ) : null}
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 place-items-center gap-3">
         {chips.map((chip) => {
           const isSelected = selectedChip === chip.value;
-          const isUsed = usedChips.has(chip.value);
+          const isLocked = lockedChip?.chip === chip.value;
+          const isActive = isSelected || isLocked;
+          const isUsed = usedChips.has(chip.value) && !isLocked;
           const disabled =
-            migrationMissing || transfersLocked || !upcomingGameweek || isUsed;
-          const status = isSelected
-            ? "Selected"
-            : isUsed
-              ? "Used"
-              : "Available";
+            migrationMissing ||
+            transfersLocked ||
+            !upcomingGameweek ||
+            isLocked ||
+            isUsed;
+          const accessibleState = isLocked
+            ? "Activated and locked for this gameweek."
+            : isSelected
+              ? "Activated. Press again to deactivate."
+              : isUsed
+                ? "Already used this season."
+                : "Not activated.";
 
           return (
             <button
               aria-label={`${chip.label}. ${
-                isUsed ? "Used this season." : chip.description
-              } ${status}.`}
-              aria-pressed={isSelected}
-              className={`flex h-full min-h-24 w-full flex-col items-center rounded-md border px-2 py-3 text-center transition disabled:cursor-not-allowed sm:min-h-28 sm:px-3 ${
-                isSelected
-                  ? "border-emerald-300/70 bg-emerald-300/15"
-                  : `border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 ${
-                      disabled ? "opacity-45" : ""
-                    }`
-              }`}
-              disabled={disabled || isSelected}
+                isUsed ? "" : chip.description
+              } ${accessibleState}`}
+              aria-pressed={isActive}
+              className="group flex w-full flex-col items-center rounded-full p-1 text-center focus-visible:outline-none disabled:cursor-not-allowed"
+              disabled={disabled}
               key={chip.value}
               onClick={(event) => {
                 chipTriggerRef.current = event.currentTarget;
+
+                if (isSelected) {
+                  onChange(null);
+                  return;
+                }
+
                 setPendingChip(chip.value);
               }}
               title={chip.description}
               type="button"
             >
               <span
-                className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                  isSelected
-                    ? "bg-emerald-300 text-sky-950"
-                    : "bg-white/10 text-emerald-300"
-                }`}
+                className={getChipBallClassName({
+                  compact,
+                  isActive,
+                  isUsed,
+                })}
+                style={
+                  compact
+                    ? {
+                        backgroundColor:
+                          isActive
+                            ? "#d1fae5"
+                            : isUsed
+                              ? "#f8fafc"
+                              : "#ffffff",
+                      }
+                    : undefined
+                }
               >
                 <ChipIcon chip={chip.value} />
-              </span>
-              <span className="mt-2 text-xs font-bold leading-tight text-white sm:text-sm">
-                <span className="sm:hidden">
-                  {chip.value === "triple_captain"
-                    ? "3× Captain"
-                    : chip.label}
+                <span className="mt-0.5 text-[0.55rem] font-black leading-tight sm:text-[0.65rem]">
+                  <span className="sm:hidden">
+                    {chip.value === "triple_captain"
+                      ? "3× Captain"
+                      : chip.label}
+                  </span>
+                  <span className="hidden sm:inline">{chip.label}</span>
                 </span>
-                <span className="hidden sm:inline">{chip.label}</span>
-              </span>
-              <span className="mt-auto pt-1 text-[0.65rem] font-semibold leading-tight text-sky-100/55 sm:text-xs">
-                {status}
+                {isActive ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-950 text-[0.55rem] font-black text-emerald-200 sm:right-1 sm:top-1"
+                  >
+                    {isLocked ? "●" : "✓"}
+                  </span>
+                ) : null}
+                {isUsed ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-3 right-3 top-1/2 h-0.5 -rotate-45 bg-slate-700/70"
+                  />
+                ) : null}
               </span>
             </button>
           );
         })}
       </div>
-
-      {selectedChip && !transfersLocked ? (
-        <div className="mt-3 text-right">
-          <button
-            className="text-xs font-semibold text-sky-100/65 underline decoration-white/25 underline-offset-4 transition hover:text-white"
-            onClick={() => onChange(null)}
-            type="button"
-          >
-            Clear selected chip
-          </button>
-        </div>
-      ) : null}
 
       {chipToConfirm && upcomingGameweek
         ? createPortal(

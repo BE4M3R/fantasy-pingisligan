@@ -66,16 +66,16 @@ export function SquadCardActions({
     <>
       <button
         aria-label={`Open actions for ${playerName}`}
-        className="group h-28 min-w-0 w-full touch-manipulation cursor-pointer overflow-hidden rounded-md border border-white/15 bg-sky-950/70 p-4 text-left shadow-sm shadow-slate-950/20 transition hover:border-sky-100/60 hover:bg-sky-900/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
+        className="group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border border-white/25 bg-slate-950/75 px-2.5 py-3 text-center shadow-lg shadow-slate-950/30 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-white/70 hover:bg-slate-900/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-4 sm:py-4"
         onClick={() => setIsOpen(true)}
         ref={triggerRef}
         type="button"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col items-center">
           {children}
           <span
             aria-hidden="true"
-            className="text-xl leading-none text-sky-100/40 transition group-hover:text-sky-100"
+            className="absolute right-2 top-1 text-base leading-none tracking-[-0.16em] text-sky-100/45 transition group-hover:text-white"
           >
             •••
           </span>

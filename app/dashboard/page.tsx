@@ -212,51 +212,25 @@ export default async function SquadPage({
   }
 
   const previousSnapshot = getPreviousSnapshot(previousGameweek);
+  const transferWindowMessage = transfersLocked
+    ? `Transfer window opens ${
+        formatDateTime(transferLock?.unlock_at ?? null) ||
+        "after the round finishes"
+      }.`
+    : upcomingGameweek
+      ? `Transfer window closes ${formatDateTime(upcomingGameweek.lock_at)}.`
+      : "Transfer window closing time is not scheduled.";
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="squad" />
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
+      <section className="mx-auto max-w-6xl px-6 pb-10 pt-1 sm:py-10">
         {message ? (
           <div className="mb-6 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
             {message}
           </div>
         ) : null}
-
-        <div
-          className={`mb-6 rounded-lg border px-4 py-4 ${
-            transfersLocked
-              ? "border-red-300/30 text-red-100"
-              : "border-emerald-300/30 text-emerald-100"
-          }`}
-          style={{
-            backgroundColor: transfersLocked
-              ? "rgba(248, 113, 113, 0.12)"
-              : "rgba(52, 211, 153, 0.14)",
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden="true"
-              className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                transfersLocked ? "bg-red-300" : "bg-emerald-300"
-              }`}
-            />
-            <div>
-              <p className="font-bold">
-                Transfer window {transfersLocked ? "closed" : "open"}
-              </p>
-              <p className="mt-1 text-sm opacity-80">
-                {transfersLocked
-                  ? `Squad changes reopen ${formatDateTime(transferLock?.unlock_at ?? null) || "after the round finishes"}.`
-                  : upcomingGameweek
-                    ? `You can change your squad until ${formatDateTime(upcomingGameweek.lock_at)} before ${upcomingGameweek.name}.`
-                    : "You can change your squad. No closing time is currently scheduled."}
-              </p>
-            </div>
-          </div>
-        </div>
 
         <SquadEditor
           availableTransfersAfterPreviousGameweek={
@@ -270,7 +244,7 @@ export default async function SquadPage({
           initialChip={currentChipSelection?.chip ?? null}
           initialSquad={squad}
           previousPlayerIds={previousPlayers.map((row) => row.player_id)}
-          teamName={fantasyTeam?.name ?? "Your fantasy team"}
+          transferWindowMessage={transferWindowMessage}
           transferSummaryMigrationMissing={transferSummaryMigrationMissing}
           transfersLocked={transfersLocked}
           upcomingGameweek={upcomingGameweek}

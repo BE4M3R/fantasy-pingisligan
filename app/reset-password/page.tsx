@@ -43,7 +43,11 @@ export default async function ResetPasswordPage({
             </div>
           ) : null}
 
-          <form action={updatePassword} className="mt-8 space-y-5">
+          <form
+            action={updatePassword}
+            className="mt-8 space-y-5"
+            suppressHydrationWarning
+          >
             <label className="block text-sm font-medium text-sky-100">
               New password
               <input
@@ -52,6 +56,7 @@ export default async function ResetPasswordPage({
                 minLength={6}
                 name="password"
                 required
+                suppressHydrationWarning
                 type="password"
               />
             </label>

@@ -14,7 +14,7 @@ type PlayerPickerProps = {
   transfersLocked: boolean;
   outgoingClubId?: string;
   outgoingPlayerId?: string;
-  trigger?: "slot" | "replace";
+  trigger: "court" | "replace";
 };
 
 type PriceSort = "default" | "low-to-high" | "high-to-low";
@@ -43,7 +43,13 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white p-1">
       {logo ? (
-        <Image alt={logo.alt} className="max-h-8 max-w-8 object-contain" height={32} src={logo.src} width={32} />
+        <Image
+          alt={logo.alt}
+          className="h-auto w-auto max-h-8 max-w-8 object-contain"
+          height={32}
+          src={logo.src}
+          width={32}
+        />
       ) : (
         <span className="text-xs font-bold text-zinc-500">{clubName.slice(0, 1)}</span>
       )}
@@ -60,7 +66,7 @@ export function PlayerPicker({
   transfersLocked,
   outgoingClubId,
   outgoingPlayerId,
-  trigger = "slot",
+  trigger,
 }: PlayerPickerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [players, setPlayers] = useState<DashboardPlayer[] | null>(null);
@@ -178,15 +184,31 @@ export function PlayerPicker({
   return (
     <>
       <button
-        className={trigger === "replace"
-          ? "h-12 w-full rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-          : "group flex h-28 min-w-0 w-full flex-col items-center justify-center rounded-md border border-dashed border-sky-200/35 bg-sky-950/35 px-4 py-6 text-sky-100/70 transition hover:border-sky-100 hover:bg-sky-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"}
+        className={
+          trigger === "replace"
+            ? "h-12 w-full rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-white/50 bg-slate-950/20 px-2 py-4 text-white/80 shadow-sm transition hover:-translate-y-0.5 hover:border-white hover:bg-slate-950/35 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        }
         disabled={transfersLocked}
         onClick={openPicker}
         type="button"
       >
-        {trigger === "slot" ? <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-2xl leading-none transition group-hover:scale-105">+</span> : null}
-        <span className={trigger === "slot" ? "mt-3 text-sm font-semibold" : ""}>{isReplacement ? "Replace player" : `Add ${slotLabel}`}</span>
+        {trigger !== "replace" ? (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-current text-xl leading-none transition group-hover:scale-105 sm:h-10 sm:w-10 sm:text-2xl">
+            +
+          </span>
+        ) : null}
+        <span
+          className={
+            trigger === "replace"
+              ? ""
+              : "mt-2 text-xs font-semibold sm:mt-3 sm:text-sm"
+          }
+        >
+          {isReplacement
+            ? "Replace player"
+            : "Add player"}
+        </span>
       </button>
 
       <dialog
@@ -205,7 +227,14 @@ export function PlayerPicker({
 
           <div className="shrink-0 border-b border-white/10 p-5 sm:p-6">
             <div className="flex gap-3">
-              <input aria-label="Search players" className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm" onChange={(event) => setQuery(event.target.value)} placeholder="Search player or club…" value={query} />
+              <input
+                aria-label="Search players"
+                className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search player or club…"
+                suppressHydrationWarning
+                value={query}
+              />
               <button
                 aria-controls={`player-picker-filters-${position}`}
                 aria-expanded={filtersOpen}
@@ -257,6 +286,7 @@ export function PlayerPicker({
                     checked={affordableOnly}
                     className="h-4 w-4 shrink-0 accent-emerald-400"
                     onChange={(event) => setAffordableOnly(event.target.checked)}
+                    suppressHydrationWarning
                     type="checkbox"
                   />
                   <span className="whitespace-nowrap">Only affordable</span>

@@ -48,7 +48,11 @@ function TeamNameForm({
   const inputId = isOnboarding ? "team-name-onboarding" : "team-name-settings";
 
   return (
-    <form action={updateTeamName} className="space-y-3">
+    <form
+      action={updateTeamName}
+      className="space-y-3"
+      suppressHydrationWarning
+    >
       <label className="block text-sm font-medium text-sky-100" htmlFor={inputId}>
         Team name
       </label>
@@ -62,6 +66,7 @@ function TeamNameForm({
         name="team_name"
         placeholder="For example, Spin Doctors"
         required
+        suppressHydrationWarning
         type="text"
       />
       <button className="w-full rounded-md bg-sky-100 px-4 py-2.5 text-sm font-bold text-sky-950 transition hover:bg-white">
@@ -162,7 +167,11 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
                 />
               </div>
 
-              <form action={signOut} className="mt-5 border-t border-white/10 pt-5">
+              <form
+                action={signOut}
+                className="mt-5 border-t border-white/10 pt-5"
+                suppressHydrationWarning
+              >
                 <button className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
                   Log out
                 </button>
