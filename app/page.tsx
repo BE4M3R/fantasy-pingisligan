@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CLUB_LOGOS } from "@/app/dashboard/club-logos";
-import { SeasonBanner } from "@/app/season-banner";
 import { createClient } from "@/lib/supabase/server";
 
 export default function Home() {
@@ -73,17 +72,13 @@ async function HomeContent() {
         </div>
 
         <div>
-          <div className="mb-6 max-w-2xl">
-            <SeasonBanner />
-          </div>
-
           <h1 className="max-w-3xl text-5xl font-black tracking-tight sm:text-6xl">
-            Fantasy Pingisligan
+            Build your Pingisligan dream team
           </h1>
 
           <div className="mt-8">
             <Link
-              className="block w-full rounded-lg bg-amber-300 px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-amber-100/80 transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
+              className="block w-full rounded-lg bg-[#fbc025] px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-[#ffe49a]/80 transition hover:bg-[#ffd04a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
               href="/signup"
             >
               Get started
@@ -100,21 +95,33 @@ async function HomeContent() {
               height={443}
               priority
               sizes="(max-width: 640px) 42vw, 176px"
-              src="/squad.jpg"
+              src="/features/squad.jpg"
               width={365}
             />
           </div>
 
-          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6">
-            <h2 className="text-lg font-black">Set your lineup</h2>
-          </div>
-
-          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6">
+          <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <h2 className="text-lg font-black">Follow the season</h2>
+            <Image
+              alt="Round-by-round fantasy points overview"
+              className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
+              height={1186}
+              sizes="(max-width: 640px) 42vw, 176px"
+              src="/features/progress.png"
+              width={1326}
+            />
           </div>
 
-          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6 sm:col-span-2">
+          <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <h2 className="text-lg font-black">Compete for bragging rights</h2>
+            <Image
+              alt="Fantasy league leaderboard"
+              className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
+              height={1111}
+              sizes="(max-width: 640px) 42vw, 176px"
+              src="/features/brag-to-friends.png"
+              width={1415}
+            />
           </div>
         </div>
 
