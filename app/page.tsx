@@ -55,40 +55,45 @@ async function HomeContent() {
       </header>
 
       <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-x-10 gap-y-8 overflow-hidden px-5 py-8 sm:min-h-[calc(100vh-85px)] sm:px-6 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none grid grid-cols-7 items-center gap-2 px-1 opacity-70 sm:gap-5 sm:px-8 sm:opacity-75 lg:col-span-2 lg:px-16"
-        >
-          {CLUB_LOGOS.map((logo) => (
-            <Image
-              alt=""
-              className="mx-auto h-8 w-8 object-contain sm:h-12 sm:w-12 lg:h-14 lg:w-14"
-              height={64}
-              key={logo.src}
-              src={logo.src}
-              width={64}
-            />
-          ))}
-        </div>
-
         <div>
-          <h1 className="max-w-3xl text-5xl font-black tracking-tight sm:text-6xl">
-            Build your Pingisligan dream team
+          <h1 className="max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+            Build your Pingisligan <span className="text-[#FFC329]">Fantasy team</span>
           </h1>
 
           <div className="mt-8">
             <Link
-              className="block w-full rounded-lg bg-[#fbc025] px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-[#ffe49a]/80 transition hover:bg-[#ffd04a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
+              className="block w-full rounded-lg bg-[#FFC329] px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-[#ffe49a]/80 transition hover:bg-[#ffd04a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
               href="/signup"
             >
               Get started
             </Link>
           </div>
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none mt-8 grid grid-cols-7 items-center gap-2 px-1 opacity-70 sm:gap-5 sm:px-8 sm:opacity-75 lg:px-16"
+          >
+            {CLUB_LOGOS.map((logo) => (
+              <Image
+                alt=""
+                className="mx-auto h-8 w-8 object-contain sm:h-12 sm:w-12 lg:h-14 lg:w-14"
+                height={64}
+                key={logo.src}
+                src={logo.src}
+                width={64}
+              />
+            ))}
+          </div>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="table-panel grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
-            <h2 className="text-xl font-black sm:text-2xl">Build your squad</h2>
+            <div>
+              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">Build your squad</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+                Pick your favourites from across Pingisligan.
+              </p>
+            </div>
             <Image
               alt="Example fantasy squad on a table tennis court"
               className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
@@ -101,7 +106,12 @@ async function HomeContent() {
           </div>
 
           <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
-            <h2 className="text-lg font-black">Follow the season</h2>
+            <div>
+              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">Follow the season</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+                Track your points as every round unfolds.
+              </p>
+            </div>
             <Image
               alt="Round-by-round fantasy points overview"
               className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
@@ -113,7 +123,14 @@ async function HomeContent() {
           </div>
 
           <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
-            <h2 className="text-lg font-black">Compete for bragging rights</h2>
+            <div>
+              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">
+                Compete for bragging rights
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+                Challenge friends and climb the leaderboard.
+              </p>
+            </div>
             <Image
               alt="Fantasy league leaderboard"
               className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
