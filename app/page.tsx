@@ -21,44 +21,49 @@ async function HomeContent() {
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <header className="border-b border-white/15 bg-sky-950/70 backdrop-blur">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link className="font-bold text-sky-100" href="/">
-            Fantasy Pingisligan
+        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5">
+          <Link
+            aria-label="Fantasy Pingisligan"
+            className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100"
+            href="/"
+          >
+            <Image
+              alt=""
+              className="h-10 w-10 shrink-0 sm:h-11 sm:w-11"
+              height={44}
+              priority
+              src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
+              unoptimized
+              width={44}
+            />
+            <Image
+              alt=""
+              className="h-auto w-[132px] shrink-0 sm:w-[154px]"
+              height={35}
+              priority
+              src="/branding/pingisligan-fantasy-wordmark-transparent-v2.png"
+              unoptimized
+              width={154}
+            />
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
-              href="/rules"
-            >
-              Rules
-            </Link>
-            <Link
-              className="rounded-md px-3 py-2 text-sm font-semibold text-sky-100/75 transition hover:text-white"
-              href="/login"
-            >
-              Log in
-            </Link>
-            <Link
-              className="rounded-md bg-sky-100 px-4 py-2 text-sm font-bold text-sky-950 transition hover:bg-white"
-              href="/signup"
-            >
-              Sign up
-            </Link>
-          </div>
+          <Link
+            className="shrink-0 whitespace-nowrap rounded-md border border-white/25 bg-white/5 px-3 py-2 text-sm font-bold text-sky-50 transition hover:border-white/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:px-4"
+            href="/login"
+          >
+            Log in
+          </Link>
         </nav>
       </header>
 
-      <section className="relative mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-10 overflow-hidden px-6 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+      <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-x-10 gap-y-8 overflow-hidden px-5 py-8 sm:min-h-[calc(100vh-85px)] sm:px-6 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-6 top-6 flex items-center justify-between opacity-25 sm:top-8 sm:opacity-35"
+          className="pointer-events-none grid grid-cols-7 items-center gap-2 px-1 opacity-70 sm:gap-5 sm:px-8 sm:opacity-75 lg:col-span-2 lg:px-16"
         >
-          {CLUB_LOGOS.map((logo, index) => (
+          {CLUB_LOGOS.map((logo) => (
             <Image
               alt=""
-              className={`h-10 w-10 object-contain sm:h-14 sm:w-14 lg:h-16 lg:w-16 ${
-                index % 2 === 0 ? "translate-y-2" : "-translate-y-2"
-              }`}
+              className="mx-auto h-8 w-8 object-contain sm:h-12 sm:w-12 lg:h-14 lg:w-14"
               height={64}
               key={logo.src}
               src={logo.src}
@@ -67,7 +72,7 @@ async function HomeContent() {
           ))}
         </div>
 
-        <div className="relative z-10">
+        <div>
           <div className="mb-6 max-w-2xl">
             <SeasonBanner />
           </div>
@@ -76,59 +81,50 @@ async function HomeContent() {
             Fantasy Pingisligan
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-sky-100/75">
-            Build a fantasy table tennis squad, track Pingisligan results, and score
-            points from real performances to compete on the global leaderboard.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8">
             <Link
-              className="rounded-md bg-sky-100 px-5 py-3 text-center text-sm font-bold text-sky-950 transition hover:bg-white"
+              className="block w-full rounded-lg bg-amber-300 px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-amber-100/80 transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
               href="/signup"
             >
-              Create account
-            </Link>
-            <Link
-              className="rounded-md border border-white/20 bg-white/5 px-5 py-3 text-center text-sm font-bold text-sky-50 transition hover:border-white/60 hover:bg-white/10"
-              href="/login"
-            >
-              Log in
+              Get started
             </Link>
           </div>
         </div>
 
-        <div className="relative z-10 grid gap-4 sm:grid-cols-2">
-          <div className="table-panel rounded-lg border p-5">
-            <h2 className="font-bold">Build your squad</h2>
-            <p className="mt-2 text-sm leading-6 text-sky-100/65">
-              Pick six Pingisligan players while staying inside your fantasy
-              budget.
-            </p>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="table-panel grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
+            <h2 className="text-xl font-black sm:text-2xl">Build your squad</h2>
+            <Image
+              alt="Example fantasy squad on a table tennis court"
+              className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
+              height={443}
+              priority
+              sizes="(max-width: 640px) 42vw, 176px"
+              src="/squad.jpg"
+              width={365}
+            />
           </div>
 
-          <div className="table-panel rounded-lg border p-5">
-            <h2 className="font-bold">Set your lineup</h2>
-            <p className="mt-2 text-sm leading-6 text-sky-100/65">
-              Choose four main players, two bench players, and name your team
-              captain.
-            </p>
+          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6">
+            <h2 className="text-lg font-black">Set your lineup</h2>
           </div>
 
-          <div className="table-panel rounded-lg border p-5">
-            <h2 className="font-bold">Follow the season</h2>
-            <p className="mt-2 text-sm leading-6 text-sky-100/65">
-              Track real Pingisligan results and watch your fantasy picks come
-              alive.
-            </p>
+          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6">
+            <h2 className="text-lg font-black">Follow the season</h2>
           </div>
 
-          <div className="table-panel rounded-lg border p-5">
-            <h2 className="font-bold">Compete for bragging rights</h2>
-            <p className="mt-2 text-sm leading-6 text-sky-100/65">
-              Challenge friends, compare squads, and chase the top of the
-              table.
-            </p>
+          <div className="table-panel flex min-h-28 items-center rounded-lg border p-6 sm:col-span-2">
+            <h2 className="text-lg font-black">Compete for bragging rights</h2>
           </div>
+        </div>
+
+        <div className="flex justify-center pt-2 lg:col-span-2">
+          <Link
+            className="rounded-md border border-white/25 bg-white/5 px-5 py-3 text-sm font-bold text-sky-50 transition hover:border-white/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950"
+            href="/rules"
+          >
+            Read the rules
+          </Link>
         </div>
       </section>
     </main>
