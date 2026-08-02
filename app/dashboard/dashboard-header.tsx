@@ -5,20 +5,10 @@ import { updateTeamName } from "@/app/dashboard/actions";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { createClient } from "@/lib/supabase/server";
 
-type DashboardTab = "overview" | "squad" | "leaderboard" | "progress" | "rules";
-
 type TeamSettings = {
   name: string;
   onboarding_completed: boolean;
 };
-
-const tabs: { href: string; label: string; value: DashboardTab }[] = [
-  { href: "/dashboard/overview", label: "Home", value: "overview" },
-  { href: "/dashboard", label: "Squad", value: "squad" },
-  { href: "/dashboard/leaderboard", label: "Leaderboard", value: "leaderboard" },
-  { href: "/dashboard/progress", label: "Progress", value: "progress" },
-  { href: "/dashboard/rules", label: "Rules", value: "rules" },
-];
 
 function SettingsIcon() {
   return (
@@ -107,7 +97,7 @@ function TeamOnboarding() {
   );
 }
 
-export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }) {
+export async function DashboardHeader() {
   const supabase = await createClient();
   const { data: claimsResult } = await supabase.auth.getClaims();
   const userId = claimsResult?.claims?.sub;
@@ -125,34 +115,33 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
       {!team?.onboarding_completed ? <TeamOnboarding /> : null}
 
       <header className="relative z-40 border-b border-[var(--pf-card-border)] bg-[var(--pf-navy)]">
-        <div className="mx-auto max-w-6xl px-2 py-1 min-[360px]:px-4 sm:px-6 sm:pb-3 sm:pt-2">
-          <div className="flex min-h-9 items-center justify-between gap-4 sm:min-h-10">
-            <Link
-              aria-label="Fantasy Pingisligan home"
-              className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-              href="/dashboard/overview"
-            >
-              <Image
-                alt=""
-                className="h-7 w-7 shrink-0 sm:h-9 sm:w-9"
-                height={36}
-                priority
-                src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
-                unoptimized
-                width={36}
-              />
-              <Image
-                alt=""
-                className="h-auto w-[114px] shrink-0 sm:w-[138px]"
-                height={31}
-                priority
-                src="/branding/pingisligan-fantasy-wordmark-transparent-v2.png"
-                unoptimized
-                width={138}
-              />
-            </Link>
+        <div className="relative mx-auto flex min-h-12 max-w-6xl items-center px-4 py-1 sm:min-h-14 sm:px-6">
+          <Link
+            aria-label="Fantasy Pingisligan home"
+            className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+            href="/dashboard/overview"
+          >
+            <Image
+              alt=""
+              className="h-7 w-7 shrink-0 sm:h-9 sm:w-9"
+              height={36}
+              priority
+              src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
+              unoptimized
+              width={36}
+            />
+            <Image
+              alt=""
+              className="h-auto w-[114px] shrink-0 sm:w-[138px]"
+              height={31}
+              priority
+              src="/branding/pingisligan-fantasy-wordmark-transparent-v2.png"
+              unoptimized
+              width={138}
+            />
+          </Link>
 
-            <details className="group relative">
+          <details className="group relative ml-auto">
               <summary
                 aria-label="Open settings"
                 className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
@@ -186,29 +175,10 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
 
                 <DeleteAccountForm />
               </div>
-            </details>
-          </div>
-
-          <nav
-            aria-label="Dashboard"
-            className="mt-0.5 grid w-full grid-cols-5 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-0.5 text-[10px] font-semibold leading-none tracking-[-0.04em] min-[400px]:text-xs sm:mt-2 sm:p-1 sm:text-sm sm:tracking-normal"
-          >
-            {tabs.map((tab) => (
-              <Link
-                className={`flex min-h-[34px] min-w-0 items-center justify-center rounded-sm px-0.5 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pf-brand-blue-hover)] sm:min-h-9 sm:px-3 ${
-                  activeTab === tab.value
-                    ? "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)]"
-                    : "text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)]"
-                }`}
-                href={tab.href}
-                key={tab.value}
-              >
-                {tab.label}
-              </Link>
-            ))}
-          </nav>
+          </details>
         </div>
       </header>
+
     </>
   );
 }

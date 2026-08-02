@@ -171,7 +171,7 @@ export default async function OverviewPage() {
 
   return (
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
-      <DashboardHeader activeTab="overview" />
+      <DashboardHeader />
 
       <section className="mx-auto max-w-6xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
         <div className="grid gap-3 lg:grid-cols-[1.35fr_0.65fr] lg:gap-6">

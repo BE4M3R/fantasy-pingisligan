@@ -72,6 +72,7 @@ body {
 }
 
 .dashboard-shell.table-tennis-surface {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
   background-color: var(--pf-page-blue);
   background-image:
     linear-gradient(to right, transparent calc(50% - 0.5px), rgb(var(--pf-court-line-rgb) / 0.26) calc(50% - 0.5px), rgb(var(--pf-court-line-rgb) / 0.26) calc(50% + 0.5px), transparent calc(50% + 0.5px)),

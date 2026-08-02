@@ -19,7 +19,7 @@ export default async function DashboardRulesPage() {
 
   return (
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
-      <DashboardHeader activeTab="rules" />
+      <DashboardHeader />
       <RulesContent />
     </main>
   );

@@ -20,7 +20,7 @@ export default async function ProgressPage() {
 
   return (
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
-      <DashboardHeader activeTab="progress" />
+      <DashboardHeader />
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <section className="table-panel rounded-lg border p-4 sm:p-6">

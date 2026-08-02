@@ -223,7 +223,7 @@ export default async function SquadPage({
 
   return (
     <main className="dashboard-shell squad-page table-tennis-surface min-h-screen text-white">
-      <DashboardHeader activeTab="squad" />
+      <DashboardHeader />
 
       <section className="mx-auto max-w-6xl px-3 pb-8 pt-2 min-[390px]:px-4 sm:px-6 sm:py-8">
         {message ? (
