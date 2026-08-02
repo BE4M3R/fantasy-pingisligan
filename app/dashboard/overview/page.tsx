@@ -170,14 +170,14 @@ export default async function OverviewPage() {
   );
 
   return (
-    <main className="dashboard-home table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="overview" />
 
       <section className="mx-auto max-w-6xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
         <div className="grid gap-3 lg:grid-cols-[1.35fr_0.65fr] lg:gap-6">
           <div className="space-y-3 sm:space-y-5">
             <section className="table-panel overflow-hidden rounded-lg border p-3.5 sm:p-6">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300 sm:text-xs">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--pf-brand-blue)] sm:text-xs">
                 Welcome back
               </p>
               <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
@@ -189,17 +189,19 @@ export default async function OverviewPage() {
             </section>
 
             <section
-              className={`overflow-hidden rounded-lg border bg-[#03172a] p-3.5 sm:p-5 ${
+              className={`overflow-hidden rounded-lg border bg-[var(--pf-navy)] p-3.5 sm:p-5 ${
                 isSquadReady
-                  ? "border-emerald-300/30"
-                  : "border-[#ff8b8e]/60"
+                  ? "border-[var(--pf-brand-blue-border)]"
+                  : "border-[var(--pf-coral)]"
               }`}
             >
               <div className="flex flex-col items-start gap-1.5 min-[390px]:flex-row min-[390px]:justify-between min-[390px]:gap-3">
                 <div className="min-w-0">
                   <p
                     className={`text-xs font-bold uppercase tracking-[0.16em] ${
-                      isSquadReady ? "text-emerald-300" : "text-[#ff9ea0]"
+                      isSquadReady
+                        ? "text-[var(--pf-brand-blue)]"
+                        : "text-[var(--pf-coral)]"
                     }`}
                   >
                     {isSquadReady ? "Squad complete" : "Action needed"}
@@ -213,8 +215,8 @@ export default async function OverviewPage() {
                 <span
                   className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
                     isSquadReady
-                      ? "border-emerald-300/25 bg-[#123a38] text-emerald-200"
-                      : "border-[#ff9ea0]/35 bg-[#3a2130] text-[#ffcaca]"
+                      ? "border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] text-[var(--pf-brand-blue-hover)]"
+                      : "border-[var(--pf-coral)] bg-[var(--pf-coral-soft)] text-[var(--pf-coral-text)]"
                   }`}
                 >
                   {squad.length} / {SQUAD_SIZE} players
@@ -233,12 +235,14 @@ export default async function OverviewPage() {
                 aria-valuemax={SQUAD_SIZE}
                 aria-valuemin={0}
                 aria-valuenow={squad.length}
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-700"
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--pf-navy-elevated)]"
                 role="progressbar"
               >
                 <div
                   className={`h-full rounded-full transition-all ${
-                    isSquadReady ? "bg-emerald-400" : "bg-[#ff6568]"
+                    isSquadReady
+                      ? "bg-[var(--pf-brand-blue)]"
+                      : "bg-[var(--pf-coral)]"
                   }`}
                   style={{ width: `${squadCompletion}%` }}
                 />
@@ -256,10 +260,10 @@ export default async function OverviewPage() {
               </div>
 
               <Link
-                className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-md px-4 py-2.5 text-center text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-md px-4 py-2.5 text-center text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] ${
                   isSquadReady
-                    ? "bg-sky-100 text-sky-950 hover:bg-white"
-                    : "bg-[#ff6568] text-slate-950 hover:bg-[#ff7c7f]"
+                    ? "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)]"
+                    : "bg-[var(--pf-coral)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-coral-hover)]"
                 }`}
                 href="/dashboard"
               >
@@ -272,7 +276,13 @@ export default async function OverviewPage() {
                 <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
                   Overall rank
                 </dt>
-                <dd className="mt-2 text-2xl font-black">
+                <dd
+                  className={`mt-2 text-2xl font-black ${
+                    rank
+                      ? "text-[var(--pf-fantasy-yellow)]"
+                      : "text-sky-100/45"
+                  }`}
+                >
                   {rank ? `#${rank}` : "—"}
                 </dd>
               </div>
@@ -324,7 +334,7 @@ export default async function OverviewPage() {
             </dl>
 
             <section className="table-panel rounded-lg border p-3.5 sm:p-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-200/55">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
                 Next deadline
               </p>
               <div className="mt-1.5 flex flex-col gap-1 min-[390px]:flex-row min-[390px]:items-baseline min-[390px]:justify-between min-[390px]:gap-4">
@@ -338,7 +348,7 @@ export default async function OverviewPage() {
             </section>
 
             <a
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-white/25 bg-[#03172a] px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-4 py-2.5 text-sm font-semibold text-[var(--pf-brand-blue)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)]"
               href={STUPA_RESULTS_URL}
               rel="noreferrer"
               target="_blank"
@@ -351,13 +361,13 @@ export default async function OverviewPage() {
           <aside className="table-panel self-start rounded-lg border p-3.5 sm:p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-sky-200/60">
+                <p className="text-xs font-bold uppercase tracking-widest text-[var(--pf-brand-blue)]">
                   Global
                 </p>
                 <h2 className="mt-1 text-xl font-bold">Leaderboard</h2>
               </div>
               <Link
-                className="inline-flex min-h-10 items-center text-sm font-semibold text-sky-200 hover:text-white"
+                className="inline-flex min-h-10 items-center rounded-sm text-sm font-semibold text-[var(--pf-brand-blue)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
                 href="/dashboard/leaderboard"
               >
                 View all
@@ -369,8 +379,8 @@ export default async function OverviewPage() {
                 <li
                   className={`grid grid-cols-[1.5rem_minmax(0,1fr)_2.25rem_auto] items-center gap-2 rounded-md border px-2.5 py-2.5 text-sm sm:py-3 ${
                     row.user_id === userId
-                      ? "border-emerald-300/30 bg-[#103b3b]"
-                      : "border-transparent bg-[#08243a]"
+                      ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)]"
+                      : "border-transparent bg-[var(--pf-navy-elevated)]"
                   }`}
                   key={row.user_id}
                 >
@@ -380,7 +390,7 @@ export default async function OverviewPage() {
                   <span className="min-w-0 truncate font-semibold">
                     {row.team_name}
                     {row.user_id === userId ? (
-                      <span className="ml-1.5 text-[10px] font-black uppercase text-emerald-300">
+                      <span className="ml-1.5 text-[10px] font-black uppercase text-[var(--pf-brand-blue-hover)]">
                         You
                       </span>
                     ) : null}
@@ -400,7 +410,7 @@ export default async function OverviewPage() {
               {leaderboard.length > 5 ? (
                 <li
                   aria-label={`${leaderboard.length - 5} more ranked teams`}
-                  className="flex justify-center py-1 text-sm font-black tracking-[0.35em] text-sky-100/35"
+                  className="flex justify-center py-1 text-sm font-black tracking-[0.35em] text-[var(--pf-brand-blue)]/45"
                 >
                   <span aria-hidden="true">•••</span>
                 </li>

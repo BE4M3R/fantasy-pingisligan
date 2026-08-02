@@ -222,7 +222,7 @@ export default async function SquadPage({
       : "Transfer window closing time is not scheduled.";
 
   return (
-    <main className="table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="squad" />
 
       <section className="mx-auto max-w-6xl px-6 pb-10 pt-1 sm:py-10">

@@ -23,7 +23,7 @@ export default async function LeaderboardPage() {
   const leaderboard = (leaderboardRows ?? []) as LeaderboardRow[];
 
   return (
-    <main className="table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="leaderboard" />
 
       <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">

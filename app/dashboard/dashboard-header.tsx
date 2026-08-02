@@ -54,13 +54,16 @@ function TeamNameForm({
       className="space-y-3"
       suppressHydrationWarning
     >
-      <label className="block text-sm font-medium text-sky-100" htmlFor={inputId}>
+      <label
+        className="block text-sm font-medium text-[var(--pf-text)]"
+        htmlFor={inputId}
+      >
         Team name
       </label>
       <input
         autoComplete="organization"
         autoFocus={isOnboarding}
-        className="w-full rounded-md border border-white/15 bg-sky-950/70 px-3 py-2.5 text-white outline-none transition placeholder:text-sky-100/30 focus:border-sky-100"
+        className="w-full rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-deep)] px-3 py-2.5 text-[var(--pf-text)] outline-none transition placeholder:text-[var(--pf-text-muted)]/40 focus:border-[var(--pf-brand-blue)] focus:ring-2 focus:ring-[var(--pf-brand-blue)]/30"
         defaultValue={defaultValue}
         id={inputId}
         maxLength={40}
@@ -70,7 +73,7 @@ function TeamNameForm({
         suppressHydrationWarning
         type="text"
       />
-      <button className="w-full rounded-md bg-sky-100 px-4 py-2.5 text-sm font-bold text-sky-950 transition hover:bg-white">
+      <button className="w-full rounded-md bg-[var(--pf-brand-blue)] px-4 py-2.5 text-sm font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)]">
         {submitLabel}
       </button>
     </form>
@@ -86,7 +89,7 @@ function TeamOnboarding() {
       role="dialog"
     >
       <div className="table-panel w-full max-w-md rounded-xl border p-6 shadow-2xl sm:p-8">
-        <p className="text-sm font-bold uppercase tracking-widest text-emerald-300">
+        <p className="text-sm font-bold uppercase tracking-widest text-[var(--pf-brand-blue)]">
           One last step
         </p>
         <h1 className="mt-3 text-3xl font-black tracking-tight" id="team-onboarding-title">
@@ -121,12 +124,12 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
     <>
       {!team?.onboarding_completed ? <TeamOnboarding /> : null}
 
-      <header className="relative z-40 border-b border-white/15 bg-sky-950">
+      <header className="relative z-40 border-b border-[var(--pf-card-border)] bg-[var(--pf-navy)]">
         <div className="mx-auto max-w-6xl px-2 py-1 min-[360px]:px-4 sm:px-6 sm:pb-3 sm:pt-2">
           <div className="flex min-h-9 items-center justify-between gap-4 sm:min-h-10">
             <Link
               aria-label="Fantasy Pingisligan home"
-              className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100"
+              className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
               href="/dashboard/overview"
             >
               <Image
@@ -152,11 +155,11 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
             <details className="group relative">
               <summary
                 aria-label="Open settings"
-                className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-white/20 bg-slate-900 text-sky-50 transition hover:border-white/60 hover:bg-slate-800 sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
+                className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
               >
                 <SettingsIcon />
               </summary>
-              <div className="absolute right-0 top-10 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-white/15 bg-slate-950 p-5 shadow-2xl sm:top-12">
+              <div className="absolute right-0 top-10 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:top-12">
                 <div>
                   <h2 className="font-bold text-white">Settings</h2>
                   <p className="mt-1 truncate text-sm text-sky-100/55">
@@ -176,7 +179,7 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
                   className="mt-5 border-t border-white/10 pt-5"
                   suppressHydrationWarning
                 >
-                  <button className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
+                  <button className="w-full rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]">
                     Log out
                   </button>
                 </form>
@@ -188,14 +191,14 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
 
           <nav
             aria-label="Dashboard"
-            className="mt-0.5 grid w-full grid-cols-5 rounded-md border border-white/15 bg-slate-900 p-0.5 text-[10px] font-semibold leading-none tracking-[-0.04em] min-[400px]:text-xs sm:mt-2 sm:p-1 sm:text-sm sm:tracking-normal"
+            className="mt-0.5 grid w-full grid-cols-5 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-0.5 text-[10px] font-semibold leading-none tracking-[-0.04em] min-[400px]:text-xs sm:mt-2 sm:p-1 sm:text-sm sm:tracking-normal"
           >
             {tabs.map((tab) => (
               <Link
-                className={`flex min-h-9 min-w-0 items-center justify-center rounded-sm px-0.5 text-center transition sm:min-h-10 sm:px-3 ${
+                className={`flex min-h-[34px] min-w-0 items-center justify-center rounded-sm px-0.5 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--pf-brand-blue-hover)] sm:min-h-9 sm:px-3 ${
                   activeTab === tab.value
-                    ? "bg-sky-100 text-sky-950"
-                    : "text-sky-100 hover:bg-white/10 hover:text-white"
+                    ? "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)]"
+                    : "text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)]"
                 }`}
                 href={tab.href}
                 key={tab.value}
