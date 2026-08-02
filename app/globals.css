@@ -74,6 +74,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* iOS zooms the viewport when a focused form control is smaller than 16px. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 .table-tennis-surface {
   background-color: var(--pf-public-blue);
   background-image:
