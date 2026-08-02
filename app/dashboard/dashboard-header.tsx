@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 import { updateTeamName } from "@/app/dashboard/actions";
@@ -120,19 +121,78 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
     <>
       {!team?.onboarding_completed ? <TeamOnboarding /> : null}
 
-      <header className="relative z-40 border-b border-white/15 bg-sky-950/70 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link className="font-bold text-sky-100" href="/dashboard/overview">
-            Fantasy Pingisligan
-          </Link>
+      <header className="relative z-40 border-b border-white/15 bg-sky-950">
+        <div className="mx-auto max-w-6xl px-2 py-1 min-[360px]:px-4 sm:px-6 sm:pb-3 sm:pt-2">
+          <div className="flex min-h-9 items-center justify-between gap-4 sm:min-h-10">
+            <Link
+              aria-label="Fantasy Pingisligan home"
+              className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100"
+              href="/dashboard/overview"
+            >
+              <Image
+                alt=""
+                className="h-7 w-7 shrink-0 sm:h-9 sm:w-9"
+                height={36}
+                priority
+                src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
+                unoptimized
+                width={36}
+              />
+              <Image
+                alt=""
+                className="h-auto w-[114px] shrink-0 sm:w-[138px]"
+                height={31}
+                priority
+                src="/branding/pingisligan-fantasy-wordmark-transparent-v2.png"
+                unoptimized
+                width={138}
+              />
+            </Link>
+
+            <details className="group relative">
+              <summary
+                aria-label="Open settings"
+                className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-white/20 bg-slate-900 text-sky-50 transition hover:border-white/60 hover:bg-slate-800 sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
+              >
+                <SettingsIcon />
+              </summary>
+              <div className="absolute right-0 top-10 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-white/15 bg-slate-950 p-5 shadow-2xl sm:top-12">
+                <div>
+                  <h2 className="font-bold text-white">Settings</h2>
+                  <p className="mt-1 truncate text-sm text-sky-100/55">
+                    {team?.name ?? "Your fantasy team"}
+                  </p>
+                </div>
+
+                <div className="mt-5">
+                  <TeamNameForm
+                    defaultValue={team?.name === "My team" ? "" : team?.name}
+                    submitLabel="Save team name"
+                  />
+                </div>
+
+                <form
+                  action={signOut}
+                  className="mt-5 border-t border-white/10 pt-5"
+                  suppressHydrationWarning
+                >
+                  <button className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
+                    Log out
+                  </button>
+                </form>
+
+                <DeleteAccountForm />
+              </div>
+            </details>
+          </div>
 
           <nav
             aria-label="Dashboard"
-            className="order-last flex w-full rounded-md border border-white/15 bg-white/5 p-1 text-xs font-semibold sm:order-none sm:w-auto sm:text-sm"
+            className="mt-0.5 grid w-full grid-cols-5 rounded-md border border-white/15 bg-slate-900 p-0.5 text-[10px] font-semibold leading-none tracking-[-0.04em] min-[400px]:text-xs sm:mt-2 sm:p-1 sm:text-sm sm:tracking-normal"
           >
             {tabs.map((tab) => (
               <Link
-                className={`flex-1 rounded-sm px-2 py-1.5 text-center transition sm:flex-none sm:px-3 ${
+                className={`flex min-h-9 min-w-0 items-center justify-center rounded-sm px-0.5 text-center transition sm:min-h-10 sm:px-3 ${
                   activeTab === tab.value
                     ? "bg-sky-100 text-sky-950"
                     : "text-sky-100 hover:bg-white/10 hover:text-white"
@@ -144,42 +204,6 @@ export async function DashboardHeader({ activeTab }: { activeTab: DashboardTab }
               </Link>
             ))}
           </nav>
-
-          <details className="group relative">
-            <summary
-              aria-label="Open settings"
-              className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-white/20 bg-white/5 text-sky-50 transition hover:border-white/60 hover:bg-white/10 [&::-webkit-details-marker]:hidden"
-            >
-              <SettingsIcon />
-            </summary>
-            <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-white/15 bg-slate-950 p-5 shadow-2xl">
-              <div>
-                <h2 className="font-bold text-white">Settings</h2>
-                <p className="mt-1 truncate text-sm text-sky-100/55">
-                  {team?.name ?? "Your fantasy team"}
-                </p>
-              </div>
-
-              <div className="mt-5">
-                <TeamNameForm
-                  defaultValue={team?.name === "My team" ? "" : team?.name}
-                  submitLabel="Save team name"
-                />
-              </div>
-
-              <form
-                action={signOut}
-                className="mt-5 border-t border-white/10 pt-5"
-                suppressHydrationWarning
-              >
-                <button className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10">
-                  Log out
-                </button>
-              </form>
-
-              <DeleteAccountForm />
-            </div>
-          </details>
         </div>
       </header>
     </>

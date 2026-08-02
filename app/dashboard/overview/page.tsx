@@ -50,9 +50,7 @@ function formatPoints(value: number | string) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
 
   return new Intl.DateTimeFormat("sv-SE", {
     dateStyle: "medium",
@@ -89,9 +87,7 @@ export default async function OverviewPage() {
   const { data: claimsResult } = await supabase.auth.getClaims();
   const userId = claimsResult?.claims?.sub;
 
-  if (!userId) {
-    redirect("/login");
-  }
+  if (!userId) redirect("/login");
 
   const { data: existingTeam } = await supabase
     .from("fantasy_teams")
@@ -142,7 +138,8 @@ export default async function OverviewPage() {
     (total, row) => total + Number(getPlayer(row)?.price ?? 0),
     0,
   );
-  const remainingBudget = Number(fantasyTeam?.budget ?? DEFAULT_BUDGET) - usedBudget;
+  const remainingBudget =
+    Number(fantasyTeam?.budget ?? DEFAULT_BUDGET) - usedBudget;
   const totalPoints = progress.reduce(
     (total, row) => total + Number(row.points),
     0,
@@ -153,125 +150,205 @@ export default async function OverviewPage() {
   const upcomingGameweek = progress.find((row) => row.status === "Upcoming");
   const rankIndex = leaderboard.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
+  const miniLeaderboard = leaderboard
+    .slice(0, 5)
+    .map((row, index) => ({ rank: index + 1, row }));
+
   const isSquadReady = squad.length === SQUAD_SIZE;
-  const squadCompletion = Math.round((squad.length / SQUAD_SIZE) * 100);
-  const squadStatusColor = isSquadReady ? "#5ee9b5" : "#ffa3a3";
-  const squadCountColor = isSquadReady
-    ? "rgba(223, 242, 254, 0.6)"
-    : "rgba(255, 202, 202, 0.8)";
-  const squadProgressColor = isSquadReady ? "#00d294" : "#ff6568";
+  const remainingPlayers = Math.max(SQUAD_SIZE - squad.length, 0);
+  const squadCompletion = Math.min(
+    Math.round((squad.length / SQUAD_SIZE) * 100),
+    100,
+  );
+  const deadlineLabel = transfersLocked
+    ? "Transfer window reopens"
+    : "Transfer window closes";
+  const deadline = formatDateTime(
+    transfersLocked
+      ? transferLock?.unlock_at ?? null
+      : upcomingGameweek?.lock_at ?? null,
+  );
 
   return (
-    <main className="table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-home table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="overview" />
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <section className="table-panel overflow-hidden rounded-lg border p-6 sm:p-8">
-            <p className="text-sm font-bold uppercase tracking-widest text-emerald-300">
-              Welcome back
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-              {fantasyTeam?.name ?? "Your fantasy club"}
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-sky-100/70">
-              Follow your season, climb the global table, and keep your
-              Pingisligan squad ready for the next round.
-            </p>
+      <section className="mx-auto max-w-6xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
+        <div className="grid gap-3 lg:grid-cols-[1.35fr_0.65fr] lg:gap-6">
+          <div className="space-y-3 sm:space-y-5">
+            <section className="table-panel overflow-hidden rounded-lg border p-3.5 sm:p-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300 sm:text-xs">
+                Welcome back
+              </p>
+              <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
+                {fantasyTeam?.name ?? "Your fantasy club"}
+              </h1>
+              <p className="mt-2 text-sm text-sky-100/60">
+                Your season at a glance.
+              </p>
+            </section>
 
-            <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
-                  Overall rank
-                </dt>
-                <dd className="mt-2 text-2xl font-black">{rank ? `#${rank}` : "—"}</dd>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
-                  Total points
-                </dt>
-                <dd className="mt-2 text-2xl font-black">{formatPoints(totalPoints)}</dd>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
-                  Latest round
-                </dt>
-                <dd className="mt-2 text-2xl font-black">
-                  {latestRound ? `${formatPoints(latestRound.points)} pts` : "—"}
-                </dd>
-                <p className="mt-1 truncate text-xs text-sky-100/45">
-                  {latestRound?.gameweek_name ?? "No results yet"}
-                </p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-4">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-sky-100/50">
-                  Budget left
-                </dt>
-                <dd className="mt-2 text-2xl font-black">{formatMoney(remainingBudget)}</dd>
-              </div>
-            </dl>
-
-            <div className="mt-6 rounded-md border border-white/10 bg-sky-950/35 p-4">
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="font-semibold" style={{ color: squadStatusColor }}>
-                  {isSquadReady ? "Squad ready" : "Squad not ready"}
-                </span>
-                <span style={{ color: squadCountColor }}>
+            <section
+              className={`overflow-hidden rounded-lg border bg-[#03172a] p-3.5 sm:p-5 ${
+                isSquadReady
+                  ? "border-emerald-300/30"
+                  : "border-[#ff8b8e]/60"
+              }`}
+            >
+              <div className="flex flex-col items-start gap-1.5 min-[390px]:flex-row min-[390px]:justify-between min-[390px]:gap-3">
+                <div className="min-w-0">
+                  <p
+                    className={`text-xs font-bold uppercase tracking-[0.16em] ${
+                      isSquadReady ? "text-emerald-300" : "text-[#ff9ea0]"
+                    }`}
+                  >
+                    {isSquadReady ? "Squad complete" : "Action needed"}
+                  </p>
+                  <h2 className="mt-0.5 text-xl font-black leading-tight sm:text-2xl">
+                    {isSquadReady
+                      ? "Your squad is ready"
+                      : "Complete your squad"}
+                  </h2>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
+                    isSquadReady
+                      ? "border-emerald-300/25 bg-[#123a38] text-emerald-200"
+                      : "border-[#ff9ea0]/35 bg-[#3a2130] text-[#ffcaca]"
+                  }`}
+                >
                   {squad.length} / {SQUAD_SIZE} players
                 </span>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+
+              <p className="mt-1.5 text-sm text-sky-50/70">
+                {isSquadReady
+                  ? "All six player slots are filled."
+                  : `${remainingPlayers} ${
+                      remainingPlayers === 1 ? "player" : "players"
+                    } remaining`}
+              </p>
+              <div
+                aria-label={`${squad.length} of ${SQUAD_SIZE} squad places filled`}
+                aria-valuemax={SQUAD_SIZE}
+                aria-valuemin={0}
+                aria-valuenow={squad.length}
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-700"
+                role="progressbar"
+              >
                 <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    backgroundColor: squadProgressColor,
-                    width: `${squadCompletion}%`,
-                  }}
+                  className={`h-full rounded-full transition-all ${
+                    isSquadReady ? "bg-emerald-400" : "bg-[#ff6568]"
+                  }`}
+                  style={{ width: `${squadCompletion}%` }}
                 />
               </div>
-              <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 text-xs sm:flex-row sm:items-end sm:justify-between">
-                <p className="text-sky-100/55">
-                  Captain: {captainPlayer
-                    ? `${captainPlayer.first_name} ${captainPlayer.last_name}`
-                    : "not selected"}
-                </p>
-                <div className="sm:text-right">
-                  <p className="font-bold uppercase tracking-wide text-sky-100/45">
-                    {transfersLocked
-                      ? "Transfer window reopens"
-                      : "Transfer window closes"}
-                  </p>
-                  <p className="mt-1 font-semibold text-sky-50">
-                    {formatDateTime(
-                      transfersLocked
-                        ? transferLock?.unlock_at ?? null
-                        : upcomingGameweek?.lock_at ?? null,
-                    ) || "No deadline scheduled"}
-                  </p>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-2.5 flex items-baseline gap-2">
+                <p className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-sky-100/45">
+                  Captain
+                </p>
+                <p className="min-w-0 truncate text-sm font-semibold text-sky-50">
+                  {captainPlayer
+                    ? `${captainPlayer.first_name} ${captainPlayer.last_name}`
+                    : "Not selected"}
+                </p>
+              </div>
+
               <Link
-                className="rounded-md bg-sky-100 px-4 py-2.5 text-center text-sm font-bold text-sky-950 transition hover:bg-white"
+                className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-md px-4 py-2.5 text-center text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                  isSquadReady
+                    ? "bg-sky-100 text-sky-950 hover:bg-white"
+                    : "bg-[#ff6568] text-slate-950 hover:bg-[#ff7c7f]"
+                }`}
                 href="/dashboard"
               >
-                Manage squad
+                {isSquadReady ? "Manage squad" : "Complete squad"}
               </Link>
-              <a
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-white/10"
-                href={STUPA_RESULTS_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Pingisligan results
-                <ExternalLinkIcon />
-              </a>
-            </div>
-          </section>
+            </section>
 
-          <aside className="table-panel rounded-lg border p-6">
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
+                  Overall rank
+                </dt>
+                <dd className="mt-2 text-2xl font-black">
+                  {rank ? `#${rank}` : "—"}
+                </dd>
+              </div>
+              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
+                  Total points
+                </dt>
+                <dd className="mt-2 text-2xl font-black">
+                  {formatPoints(totalPoints)}
+                </dd>
+              </div>
+              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
+                  Latest round
+                </dt>
+                <dd
+                  className={`mt-2 ${
+                    latestRound
+                      ? "text-2xl font-black text-sky-50"
+                      : "text-xs font-semibold leading-4 text-sky-100/55"
+                  }`}
+                >
+                  {latestRound
+                    ? `${formatPoints(latestRound.points)} pts`
+                    : null}
+                  {!latestRound ? (
+                    <>
+                      <span className="min-[360px]:hidden">Not started yet</span>
+                      <span className="hidden min-[360px]:inline">
+                        Season hasn&apos;t started
+                      </span>
+                    </>
+                  ) : null}
+                </dd>
+                {latestRound ? (
+                  <p className="mt-1 truncate text-xs text-sky-100/45">
+                    {latestRound.gameweek_name}
+                  </p>
+                ) : null}
+              </div>
+              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
+                  Budget left
+                </dt>
+                <dd className="mt-2 text-2xl font-black">
+                  {formatMoney(remainingBudget)}
+                </dd>
+              </div>
+            </dl>
+
+            <section className="table-panel rounded-lg border p-3.5 sm:p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-200/55">
+                Next deadline
+              </p>
+              <div className="mt-1.5 flex flex-col gap-1 min-[390px]:flex-row min-[390px]:items-baseline min-[390px]:justify-between min-[390px]:gap-4">
+                <h2 className="text-sm font-semibold text-sky-100/70">
+                  {deadlineLabel}
+                </h2>
+                <p className="text-base font-bold text-sky-50 min-[390px]:text-right">
+                  {deadline || "No deadline scheduled"}
+                </p>
+              </div>
+            </section>
+
+            <a
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-white/25 bg-[#03172a] px-4 py-2.5 text-sm font-semibold text-sky-50 transition hover:border-white/60 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100"
+              href={STUPA_RESULTS_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Pingisligan results
+              <ExternalLinkIcon />
+            </a>
+          </div>
+
+          <aside className="table-panel self-start rounded-lg border p-3.5 sm:p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-sky-200/60">
@@ -280,37 +357,60 @@ export default async function OverviewPage() {
                 <h2 className="mt-1 text-xl font-bold">Leaderboard</h2>
               </div>
               <Link
-                className="text-sm font-semibold text-sky-200 hover:text-white"
+                className="inline-flex min-h-10 items-center text-sm font-semibold text-sky-200 hover:text-white"
                 href="/dashboard/leaderboard"
               >
                 View all
               </Link>
             </div>
 
-            <ol className="mt-5 divide-y divide-white/10">
-              {leaderboard.slice(0, 5).map((row, index) => (
+            <ol className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
+              {miniLeaderboard.map(({ rank: rowRank, row }) => (
                 <li
-                  className={`flex items-center gap-3 py-3 ${
-                    row.user_id === userId ? "text-emerald-300" : ""
+                  className={`grid grid-cols-[1.5rem_minmax(0,1fr)_2.25rem_auto] items-center gap-2 rounded-md border px-2.5 py-2.5 text-sm sm:py-3 ${
+                    row.user_id === userId
+                      ? "border-emerald-300/30 bg-[#103b3b]"
+                      : "border-transparent bg-[#08243a]"
                   }`}
                   key={row.user_id}
                 >
-                  <span className="w-6 text-sm font-black text-sky-100/50">
-                    {index + 1}
+                  <span className="font-black text-sky-100/50">
+                    {rowRank}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                  <span className="min-w-0 truncate font-semibold">
                     {row.team_name}
+                    {row.user_id === userId ? (
+                      <span className="ml-1.5 text-[10px] font-black uppercase text-emerald-300">
+                        You
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="text-sm font-bold">
-                    {formatPoints(row.total_points)}
+                  <span
+                    aria-label="Rank movement not available"
+                    className="text-center text-xs font-semibold text-sky-100/35"
+                    title="Rank movement"
+                  >
+                    —
+                  </span>
+                  <span className="whitespace-nowrap text-right font-bold text-sky-50">
+                    {formatPoints(row.total_points)} pts
                   </span>
                 </li>
               ))}
+              {leaderboard.length > 5 ? (
+                <li
+                  aria-label={`${leaderboard.length - 5} more ranked teams`}
+                  className="flex justify-center py-1 text-sm font-black tracking-[0.35em] text-sky-100/35"
+                >
+                  <span aria-hidden="true">•••</span>
+                </li>
+              ) : null}
               {!leaderboard.length ? (
-                <li className="py-5 text-sm text-sky-100/55">No ranked teams yet.</li>
+                <li className="py-5 text-sm text-sky-100/55">
+                  No ranked teams yet.
+                </li>
               ) : null}
             </ol>
-
           </aside>
         </div>
       </section>
