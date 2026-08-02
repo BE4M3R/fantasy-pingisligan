@@ -121,7 +121,7 @@ export default async function SquadPage({
       ? supabase
           .from("fantasy_team_players")
           .select(
-            "player_id, position, is_captain, players(id, first_name, last_name, birth_year, price, clubs(id, name))",
+            "player_id, position, is_captain, players(id, first_name, last_name, birth_year, price, active, clubs(id, name))",
           )
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [] }),
@@ -222,10 +222,10 @@ export default async function SquadPage({
       : "Transfer window closing time is not scheduled.";
 
   return (
-    <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-shell squad-page table-tennis-surface min-h-screen text-white">
       <DashboardHeader activeTab="squad" />
 
-      <section className="mx-auto max-w-6xl px-6 pb-10 pt-1 sm:py-10">
+      <section className="mx-auto max-w-6xl px-3 pb-8 pt-2 min-[390px]:px-4 sm:px-6 sm:py-8">
         {message ? (
           <div className="mb-6 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
             {message}

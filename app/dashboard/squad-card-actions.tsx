@@ -66,7 +66,16 @@ export function SquadCardActions({
     <>
       <button
         aria-label={`Open actions for ${playerName}`}
-        className="group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border border-white/25 bg-slate-950/75 px-2.5 py-3 text-center shadow-lg shadow-slate-950/30 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-white/70 hover:bg-slate-900/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-4 sm:py-4"
+        aria-expanded={isOpen}
+        className={`group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border bg-[var(--pf-navy)] px-2 py-3 text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)] sm:px-4 sm:py-4 ${
+          isOpen
+            ? "border-[var(--pf-brand-blue)] ring-2 ring-[var(--pf-brand-blue)]/35"
+            : player.active === false
+              ? "border-[var(--pf-coral)]"
+              : player.is_captain
+                ? "border-[var(--pf-fantasy-yellow)]/70"
+                : "border-[var(--pf-card-border)]"
+        }`}
         onClick={() => setIsOpen(true)}
         ref={triggerRef}
         type="button"
@@ -75,7 +84,7 @@ export function SquadCardActions({
           {children}
           <span
             aria-hidden="true"
-            className="absolute right-2 top-1 text-base leading-none tracking-[-0.16em] text-sky-100/45 transition group-hover:text-white"
+            className="absolute right-2 top-1 text-base leading-none tracking-[-0.16em] text-[var(--pf-text-muted)]/55 transition group-hover:text-[var(--pf-brand-blue-hover)]"
           >
             •••
           </span>
@@ -87,19 +96,19 @@ export function SquadCardActions({
             <div
               aria-labelledby={`squad-actions-${player.id}`}
               aria-modal="true"
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 text-white"
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--pf-navy-deep)]/80 p-4 text-white"
               onClick={(event) => {
                 if (event.target === event.currentTarget) closeActions();
               }}
               role="dialog"
             >
               <div
-                className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-white/15 bg-sky-950 p-5 shadow-2xl sm:p-6"
+                className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:p-6"
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-sky-200/60">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--pf-brand-blue)]">
                       Player actions
                     </p>
                     <h2
@@ -112,7 +121,7 @@ export function SquadCardActions({
                   <button
                     aria-label="Close player actions"
                     autoFocus
-                    className="touch-manipulation rounded-md px-3 py-1 text-2xl text-sky-100/60 hover:bg-white/10 hover:text-white"
+                    className="touch-manipulation rounded-md px-3 py-1 text-2xl text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
                     onClick={closeActions}
                     type="button"
                   >
@@ -121,7 +130,7 @@ export function SquadCardActions({
                 </div>
 
                 {transfersLocked ? (
-                  <div className="mt-5 rounded-md border border-red-300/30 bg-red-400/10 p-3 text-sm text-red-100">
+                  <div className="mt-5 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-3 text-sm text-[var(--pf-coral-text)]">
                     Player changes are unavailable while the transfer window is
                     closed.
                   </div>
@@ -130,7 +139,7 @@ export function SquadCardActions({
                 <div className="mt-5 grid gap-3">
                   {!player.is_captain ? (
                     <button
-                      className="h-12 w-full rounded-md border border-sky-200/30 bg-sky-200/10 px-4 text-sm font-semibold text-sky-50 transition hover:border-sky-100 hover:bg-sky-100/15 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="h-12 w-full rounded-md border border-[var(--pf-fantasy-yellow)]/50 bg-[var(--pf-fantasy-yellow)]/10 px-4 text-sm font-semibold text-[#ffe8a3] transition hover:border-[var(--pf-fantasy-yellow)] hover:bg-[var(--pf-fantasy-yellow)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-fantasy-yellow)] disabled:cursor-not-allowed disabled:opacity-40"
                       disabled={transfersLocked}
                       onClick={() => {
                         onMakeCaptain();
@@ -141,7 +150,7 @@ export function SquadCardActions({
                       Make captain
                     </button>
                   ) : (
-                    <div className="flex h-12 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/10 px-4 text-center text-sm font-semibold text-emerald-100">
+                    <div className="flex h-12 items-center justify-center rounded-md border border-[var(--pf-fantasy-yellow)]/45 bg-[var(--pf-fantasy-yellow)]/10 px-4 text-center text-sm font-semibold text-[#ffe8a3]">
                       Current captain
                     </div>
                   )}
@@ -192,7 +201,7 @@ export function SquadCardActions({
                   ) : null}
 
                   <button
-                    className="h-12 w-full rounded-md border border-red-300/35 bg-red-400/10 px-4 text-sm font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-12 w-full rounded-md border border-[var(--pf-coral)]/55 bg-[var(--pf-coral-soft)] px-4 text-sm font-semibold text-[var(--pf-coral-text)] transition hover:border-[var(--pf-coral)] hover:bg-[var(--pf-coral)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-coral)] disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={transfersLocked}
                     onClick={() => {
                       if (

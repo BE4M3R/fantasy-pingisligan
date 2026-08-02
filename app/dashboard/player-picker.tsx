@@ -41,7 +41,7 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
   const logo = getClubLogo(clubName);
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white p-1">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-[#fffaf0] p-1">
       {logo ? (
         <Image
           alt={logo.alt}
@@ -186,8 +186,8 @@ export function PlayerPicker({
       <button
         className={
           trigger === "replace"
-            ? "h-12 w-full rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-100 transition hover:border-white/60 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-white/50 bg-slate-950/20 px-2 py-4 text-white/80 shadow-sm transition hover:-translate-y-0.5 hover:border-white hover:bg-slate-950/35 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            ? "h-12 w-full rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
+            : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-white/45 bg-[var(--pf-navy)]/25 px-2 py-4 text-white/80 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy)]/45 hover:text-white active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
         }
         disabled={transfersLocked}
         onClick={openPicker}
@@ -309,14 +309,29 @@ export function PlayerPicker({
                       && (clubCounts.get(playerClubId) ?? 0) >= MAX_PLAYERS_PER_CLUB,
                   );
                   return (
-                    <div className="flex items-center gap-3 rounded-md border border-white/15 bg-white/5 p-3" key={player.id}>
+                    <div
+                      className={`flex items-center gap-3 rounded-md border p-3 transition ${
+                        selected
+                          ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)]"
+                          : tooExpensive || clubLimitReached
+                            ? "border-[var(--pf-coral)]/35 bg-[var(--pf-coral-soft)]/55"
+                            : "border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)]"
+                      }`}
+                      key={player.id}
+                    >
                       <ClubLogo player={player} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{player.first_name} {player.last_name}</p>
-                        <p className="mt-1 truncate text-xs text-sky-100/55">{getClubName(player)} · {formatMoney(player.price)}</p>
+                        <p className="line-clamp-2 text-sm font-bold leading-tight">{player.first_name} {player.last_name}</p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-tight text-[var(--pf-text-muted)]">{getClubName(player)} · {formatMoney(player.price)}</p>
                       </div>
                       <button
-                        className="rounded-md bg-sky-100 px-3 py-2 text-xs font-bold text-sky-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+                        className={`rounded-md px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] ${
+                          selected
+                            ? "bg-[var(--pf-brand-blue-soft)] text-[var(--pf-brand-blue-hover)]"
+                            : tooExpensive || clubLimitReached
+                              ? "bg-[var(--pf-coral-soft)] text-[var(--pf-coral-text)]"
+                              : "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] disabled:bg-[var(--pf-navy-deep)] disabled:text-[var(--pf-text-muted)]/55"
+                        }`}
                         disabled={selected || tooExpensive || clubLimitReached || transfersLocked}
                         onClick={() => {
                           onSelect(player);
