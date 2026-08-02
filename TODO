@@ -17,6 +17,18 @@
 - Run round scoring automatically after completed results are imported.
 - Add monitoring for failed Cron runs or locked gameweeks without squad snapshots.
 - Add an admin workflow for reconciling unmatched Stupa players before scoring.
+- Configure the password recovery email in the hosted Supabase dashboard:
+  - Go to Authentication -> Emails -> Templates -> Reset password.
+  - Change the subject to `Your Fantasy Pingisligan verification code`.
+  - Replace the link-based template with the following code-based template and
+    save it. The password reset modal will not work until this is configured.
+
+    ```html
+    <h2>Reset your Fantasy Pingisligan password</h2>
+    <p>Enter this verification code in Fantasy Pingisligan:</p>
+    <h1 style="letter-spacing: 6px;">{{ .Token }}</h1>
+    <p>If you did not request this password reset, you can safely ignore this email.</p>
+    ```
 
 ## Product features
 
