@@ -49,3 +49,9 @@ After making code changes:
 - Prefer server components for database reads when possible.
 - Use client components only when interactivity is needed.
 - Keep UI clean and mobile-friendly.
+
+## Visual design
+- Read `docs/design-system.md` before making visual or color changes.
+- Treat the `--pf-*` variables in `app/globals.css` as the source of truth for colors.
+- Use tokens according to their documented roles instead of adding raw hex values or sampling colors from the raster logo.
+- If the palette changes, update both `app/globals.css` and `docs/design-system.md` in the same change.

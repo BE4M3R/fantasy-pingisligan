@@ -63,6 +63,7 @@ Useful routes:
 
 - [Repository guide](docs/README.md) — where code lives and where to start
 - [Architecture](docs/architecture.md) — application boundaries and request flows
+- [Design system](docs/design-system.md) — brand colors, UI tokens and usage rules
 - [Database](docs/database.md) — main tables and relationships
 - [Data imports](docs/data-imports.md) — importer order, operation and troubleshooting
 - [Updating a checkout](docs/updating.md) — pull, migrate and verify safely

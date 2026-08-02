@@ -57,12 +57,13 @@ async function HomeContent() {
       <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl content-center gap-x-10 gap-y-8 overflow-hidden px-5 py-8 sm:min-h-[calc(100vh-85px)] sm:px-6 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
           <h1 className="max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
-            Build your Pingisligan <span className="text-[#FFC329]">Fantasy team</span>
+            Build your Pingisligan{" "}
+            <span className="text-[var(--pf-logo-gold)]">Fantasy team</span>
           </h1>
 
           <div className="mt-8">
             <Link
-              className="block w-full rounded-lg bg-[#FFC329] px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-[#ffe49a]/80 transition hover:bg-[#ffd04a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
+              className="block w-full rounded-lg bg-[var(--pf-logo-gold)] px-6 py-4 text-center text-base font-black text-sky-950 shadow-lg shadow-sky-950/30 ring-2 ring-[var(--pf-logo-gold-ring)]/80 transition hover:bg-[var(--pf-logo-gold-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-sky-950 sm:inline-block sm:w-auto"
               href="/signup"
             >
               Get started
@@ -89,8 +90,8 @@ async function HomeContent() {
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="table-panel grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <div>
-              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">Build your squad</h2>
-              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+              <h2 className="text-base font-semibold text-[var(--pf-text)] sm:text-lg">Build your squad</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[var(--pf-text-muted)]">
                 Pick your favourites from across Pingisligan.
               </p>
             </div>
@@ -107,8 +108,8 @@ async function HomeContent() {
 
           <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <div>
-              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">Follow the season</h2>
-              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+              <h2 className="text-base font-semibold text-[var(--pf-text)] sm:text-lg">Follow the season</h2>
+              <p className="mt-1 text-sm leading-relaxed text-[var(--pf-text-muted)]">
                 Track your points as every round unfolds.
               </p>
             </div>
@@ -124,10 +125,10 @@ async function HomeContent() {
 
           <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
             <div>
-              <h2 className="text-base font-semibold text-[#F2F6F8] sm:text-lg">
+              <h2 className="text-base font-semibold text-[var(--pf-text)] sm:text-lg">
                 Compete for bragging rights
               </h2>
-              <p className="mt-1 text-sm leading-relaxed text-[#9FB8C6]">
+              <p className="mt-1 text-sm leading-relaxed text-[var(--pf-text-muted)]">
                 Challenge friends and climb the leaderboard.
               </p>
             </div>

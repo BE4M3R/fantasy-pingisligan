@@ -18,9 +18,10 @@ Start with the root [README](../README.md) to install and run the application.
 ## Reading order
 
 1. [Architecture](architecture.md)
-2. [Database](database.md)
-3. [Data imports](data-imports.md)
-4. [Updating a checkout](updating.md)
+2. [Design system](design-system.md)
+3. [Database](database.md)
+4. [Data imports](data-imports.md)
+5. [Updating a checkout](updating.md)
 
 ## Important rules
 
