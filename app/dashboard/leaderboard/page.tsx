@@ -30,10 +30,10 @@ export default async function LeaderboardPage() {
         <section className="table-panel rounded-lg border p-4 sm:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-base sm:font-bold">
+              <h1 className="text-2xl font-black tracking-tight text-[var(--pf-text)]">
                 Leaderboard
               </h1>
-              <p className="mt-1 text-sm text-sky-100/60">
+              <p className="mt-1 text-sm text-[var(--pf-text-muted)]">
                 Fantasy teams sorted by total points.
               </p>
             </div>

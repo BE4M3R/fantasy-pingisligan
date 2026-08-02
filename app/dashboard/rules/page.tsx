@@ -18,7 +18,7 @@ export default async function DashboardRulesPage() {
   }
 
   return (
-    <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
+    <main className="dashboard-shell table-tennis-surface min-h-screen text-[var(--pf-text)]">
       <DashboardHeader />
       <RulesContent />
     </main>

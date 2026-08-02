@@ -56,7 +56,7 @@ function getStatusClass(status: string) {
     return "border-amber-300/25 bg-amber-300/10 text-amber-100";
   }
 
-  return "border-sky-200/20 bg-sky-200/10 text-sky-100";
+  return "border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] text-[var(--pf-brand-blue-hover)]";
 }
 
 export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
@@ -66,17 +66,19 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
         {rows.length ? (
           rows.map((row) => (
             <article
-              className="rounded-lg border border-white/10 bg-sky-950/50 p-4"
+              className="rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-4"
               key={row.gameweek_id}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="truncate font-bold">{row.gameweek_name}</h2>
-                  <p className="mt-1 text-xs leading-5 text-sky-100/55">
+                  <h2 className="truncate font-bold text-[var(--pf-text)]">
+                    {row.gameweek_name}
+                  </h2>
+                  <p className="mt-1 text-xs leading-5 text-[var(--pf-text-muted)]">
                     {formatMatchDates(row)}
                   </p>
                   {row.active_chip ? (
-                    <p className="mt-2 text-xs font-semibold text-emerald-200">
+                    <p className="mt-2 text-xs font-semibold text-[var(--pf-fantasy-yellow)]">
                       {chipLabels[row.active_chip] ?? row.active_chip}
                     </p>
                   ) : null}
@@ -87,15 +89,15 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                   ) : null}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-xl font-black text-sky-100">
+                  <p className="text-xl font-black text-[var(--pf-text)]">
                     {formatPoints(row.points)}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-sky-100/40">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
                     Points
                   </p>
                 </div>
               </div>
-              <div className="mt-4 border-t border-white/10 pt-3">
+              <div className="mt-4 border-t border-[var(--pf-card-border)] pt-3">
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
                     row.status,
@@ -107,15 +109,15 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
             </article>
           ))
         ) : (
-          <div className="rounded-lg border border-white/10 bg-sky-950/50 px-4 py-6 text-sm text-sky-100/60">
+          <div className="rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-6 text-sm text-[var(--pf-text-muted)]">
             No gameweeks imported yet.
           </div>
         )}
       </div>
 
-      <div className="mt-5 hidden overflow-hidden rounded-md border border-white/15 bg-sky-950/50 md:block">
+      <div className="mt-5 hidden overflow-hidden rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] md:block">
         <table className="w-full text-left text-sm">
-          <thead className="bg-white/10 text-xs uppercase text-sky-100/60">
+          <thead className="bg-[var(--pf-navy-deep)] text-xs uppercase text-[var(--pf-text-muted)]">
             <tr>
               <th className="px-4 py-3">Gameweek</th>
               <th className="px-4 py-3">Matches</th>
@@ -123,14 +125,17 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
               <th className="px-4 py-3 text-right">Points</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/10">
+          <tbody className="divide-y divide-[var(--pf-card-border)]">
             {rows.length ? (
               rows.map((row) => (
-                <tr className="transition hover:bg-white/5" key={row.gameweek_id}>
-                  <td className="px-4 py-3 font-medium">
+                <tr
+                  className="transition hover:bg-[var(--pf-brand-blue-soft)]"
+                  key={row.gameweek_id}
+                >
+                  <td className="px-4 py-3 font-medium text-[var(--pf-text)]">
                     {row.gameweek_name}
                     {row.active_chip ? (
-                      <p className="mt-1 text-xs font-semibold text-emerald-200">
+                      <p className="mt-1 text-xs font-semibold text-[var(--pf-fantasy-yellow)]">
                         {chipLabels[row.active_chip] ?? row.active_chip}
                       </p>
                     ) : null}
@@ -140,18 +145,29 @@ export function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-sky-100/70">
+                  <td className="px-4 py-3 text-[var(--pf-text-muted)]">
                     {formatMatchDates(row)}
                   </td>
-                  <td className="px-4 py-3 text-sky-100/70">{row.status}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-sky-100">
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                        row.status,
+                      )}`}
+                    >
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-[var(--pf-text)]">
                     {formatPoints(row.points)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td className="px-4 py-6 text-sky-100/60" colSpan={4}>
+                <td
+                  className="px-4 py-6 text-[var(--pf-text-muted)]"
+                  colSpan={4}
+                >
                   No gameweeks imported yet.
                 </td>
               </tr>
