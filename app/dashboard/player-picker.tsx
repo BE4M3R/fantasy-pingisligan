@@ -15,9 +15,10 @@ type PlayerPickerProps = {
   outgoingClubId?: string;
   outgoingPlayerId?: string;
   trigger: "court" | "replace";
+  triggerLabel?: string;
 };
 
-type PriceSort = "default" | "low-to-high" | "high-to-low";
+type PriceSort = "low-to-high" | "high-to-low";
 const MAX_PLAYERS_PER_CLUB = 2;
 
 function formatMoney(value: number | string) {
@@ -41,7 +42,7 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
   const logo = getClubLogo(clubName);
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-[#fffaf0] p-1">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-text)] p-1">
       {logo ? (
         <Image
           alt={logo.alt}
@@ -51,7 +52,7 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
           width={32}
         />
       ) : (
-        <span className="text-xs font-bold text-zinc-500">{clubName.slice(0, 1)}</span>
+        <span className="text-xs font-bold text-[var(--pf-navy)]">{clubName.slice(0, 1)}</span>
       )}
     </div>
   );
@@ -67,13 +68,14 @@ export function PlayerPicker({
   outgoingClubId,
   outgoingPlayerId,
   trigger,
+  triggerLabel,
 }: PlayerPickerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [players, setPlayers] = useState<DashboardPlayer[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [club, setClub] = useState("all");
-  const [priceSort, setPriceSort] = useState<PriceSort>("default");
+  const [priceSort, setPriceSort] = useState<PriceSort>("high-to-low");
   const [affordableOnly, setAffordableOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -167,8 +169,6 @@ export function PlayerPicker({
       return matchesQuery && matchesClub && (!affordableOnly || isAffordable);
     });
 
-    if (priceSort === "default") return filteredPlayers;
-
     return filteredPlayers.toSorted((firstPlayer, secondPlayer) => {
       const priceDifference = Number(firstPlayer.price) - Number(secondPlayer.price);
       return priceSort === "low-to-high" ? priceDifference : -priceDifference;
@@ -178,7 +178,6 @@ export function PlayerPicker({
   const slotLabel = position === "starter" ? "main player" : "bench player";
   const isReplacement = Boolean(outgoingPlayerId);
   const activeFilterCount = Number(club !== "all")
-    + Number(priceSort !== "default")
     + Number(affordableOnly);
 
   return (
@@ -186,8 +185,8 @@ export function PlayerPicker({
       <button
         className={
           trigger === "replace"
-            ? "h-12 w-full rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
-            : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-white/45 bg-[var(--pf-navy)]/25 px-2 py-4 text-white/80 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy)]/45 hover:text-white active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
+            ? "h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
+            : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-[var(--pf-text-muted)]/45 bg-[var(--pf-navy)]/25 px-2 py-4 text-[var(--pf-text)]/80 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy)]/45 hover:text-[var(--pf-text)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
         }
         disabled={transfersLocked}
         onClick={openPicker}
@@ -205,31 +204,30 @@ export function PlayerPicker({
               : "mt-2 text-xs font-semibold sm:mt-3 sm:text-sm"
           }
         >
-          {isReplacement
-            ? "Replace player"
-            : "Add player"}
+          {triggerLabel ??
+            (isReplacement ? "Replace player" : "Add player")}
         </span>
       </button>
 
       <dialog
         aria-labelledby={`player-picker-title-${position}`}
-        className="m-auto h-[100dvh] max-h-none w-full max-w-none overflow-hidden bg-transparent p-0 text-white backdrop:bg-slate-950/75 sm:h-auto sm:max-h-[85dvh] sm:w-[min(56rem,calc(100%-2rem))] sm:rounded-xl"
+        className="m-auto h-[100dvh] max-h-none w-full max-w-none overflow-hidden bg-transparent p-0 text-[var(--pf-text)] backdrop:bg-[var(--pf-navy-deep)]/80 sm:h-auto sm:max-h-[85dvh] sm:w-[min(56rem,calc(100%-2rem))] sm:rounded-xl"
         ref={dialogRef}
       >
-        <div className="flex h-full min-h-0 max-h-[100dvh] flex-col overflow-hidden border border-white/15 bg-sky-950 shadow-2xl sm:max-h-[85dvh] sm:rounded-xl">
-          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-6">
+        <div className="flex h-full min-h-0 max-h-[100dvh] flex-col overflow-hidden border border-[var(--pf-card-border)] bg-[var(--pf-navy)] shadow-2xl sm:max-h-[85dvh] sm:rounded-xl">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--pf-card-border)] p-5 sm:p-6">
             <div>
               <h2 className="text-xl font-bold" id={`player-picker-title-${position}`}>{isReplacement ? "Replace player" : `Add ${slotLabel}`}</h2>
-              <p className="mt-1 text-sm text-sky-100/60">Remaining budget: {formatMoney(remainingBudget)}</p>
+              <p className="mt-1 text-sm text-[var(--pf-text-muted)]">Remaining budget: {formatMoney(remainingBudget)}</p>
             </div>
-            <button aria-label="Close player picker" className="rounded-md px-3 py-1 text-2xl text-sky-100/60 hover:bg-white/10 hover:text-white" onClick={() => dialogRef.current?.close()} type="button">×</button>
+            <button aria-label="Close player picker" className="rounded-md px-3 py-1 text-2xl text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)]" onClick={() => dialogRef.current?.close()} type="button">×</button>
           </div>
 
-          <div className="shrink-0 border-b border-white/10 p-5 sm:p-6">
+          <div className="shrink-0 border-b border-[var(--pf-card-border)] p-5 sm:p-6">
             <div className="flex gap-3">
               <input
                 aria-label="Search players"
-                className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-base outline-none placeholder:text-sky-100/40 focus:border-sky-100 sm:text-sm"
+                className="min-w-0 flex-1 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-base text-[var(--pf-text)] outline-none placeholder:text-[var(--pf-text-muted)]/60 focus:border-[var(--pf-brand-blue)] sm:text-sm"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search player or club…"
                 suppressHydrationWarning
@@ -238,7 +236,7 @@ export function PlayerPicker({
               <button
                 aria-controls={`player-picker-filters-${position}`}
                 aria-expanded={filtersOpen}
-                className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-sky-50 transition hover:border-white/30 hover:bg-white/10"
+                className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)]"
                 onClick={() => setFiltersOpen((open) => !open)}
                 type="button"
               >
@@ -247,7 +245,7 @@ export function PlayerPicker({
                 </svg>
                 <span>Filters</span>
                 {activeFilterCount > 0 ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-100 px-1 text-xs text-sky-950">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--pf-brand-blue)] px-1 text-xs text-[var(--pf-navy-deep)]">
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -267,24 +265,23 @@ export function PlayerPicker({
                 className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
                 id={`player-picker-filters-${position}`}
               >
-                <select aria-label="Filter by club" className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm" onChange={(event) => setClub(event.target.value)} value={club}>
+                <select aria-label="Filter by club" className="rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-base text-[var(--pf-text)] outline-none focus:border-[var(--pf-brand-blue)] sm:text-sm" onChange={(event) => setClub(event.target.value)} value={club}>
                   <option value="all">All clubs</option>
                   {clubs.map((clubName) => <option key={clubName} value={clubName}>{clubName}</option>)}
                 </select>
                 <select
                   aria-label="Sort players by price"
-                  className="rounded-md border border-white/15 bg-sky-950 px-3 py-2 text-base outline-none focus:border-sky-100 sm:text-sm"
+                  className="rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-base text-[var(--pf-text)] outline-none focus:border-[var(--pf-brand-blue)] sm:text-sm"
                   onChange={(event) => setPriceSort(event.target.value as PriceSort)}
                   value={priceSort}
                 >
-                  <option value="default">Default order</option>
                   <option value="low-to-high">Price: Low to high</option>
                   <option value="high-to-low">Price: High to low</option>
                 </select>
-                <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-sky-50 sm:col-span-2 lg:col-span-1">
+                <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-sm text-[var(--pf-text)] sm:col-span-2 lg:col-span-1">
                   <input
                     checked={affordableOnly}
-                    className="h-4 w-4 shrink-0 accent-emerald-400"
+                    className="h-4 w-4 shrink-0 accent-[var(--pf-brand-blue)]"
                     onChange={(event) => setAffordableOnly(event.target.checked)}
                     suppressHydrationWarning
                     type="checkbox"
@@ -296,8 +293,8 @@ export function PlayerPicker({
           </div>
 
           <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-5 [-webkit-overflow-scrolling:touch] sm:p-6">
-            {!players && !error ? <p className="py-12 text-center text-sm text-sky-100/60">Loading players…</p> : null}
-            {error ? <div className="rounded-md border border-red-300/30 bg-red-400/10 p-4 text-sm text-red-100">{error}</div> : null}
+            {!players && !error ? <p className="py-12 text-center text-sm text-[var(--pf-text-muted)]">Loading players…</p> : null}
+            {error ? <div className="rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-4 text-sm text-[var(--pf-coral-text)]">{error}</div> : null}
             {players ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {visiblePlayers.map((player) => {
@@ -308,28 +305,34 @@ export function PlayerPicker({
                     playerClubId
                       && (clubCounts.get(playerClubId) ?? 0) >= MAX_PLAYERS_PER_CLUB,
                   );
+                  const unavailable =
+                    !selected && (tooExpensive || clubLimitReached);
                   return (
                     <div
                       className={`flex items-center gap-3 rounded-md border p-3 transition ${
                         selected
                           ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)]"
-                          : tooExpensive || clubLimitReached
-                            ? "border-[var(--pf-coral)]/35 bg-[var(--pf-coral-soft)]/55"
+                          : unavailable
+                            ? "border-[var(--pf-card-border)] bg-[var(--pf-navy-deep)] opacity-50"
                             : "border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)]"
                       }`}
                       key={player.id}
                     >
                       <ClubLogo player={player} />
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-bold leading-tight">{player.first_name} {player.last_name}</p>
+                        <p className={`line-clamp-2 text-sm font-bold leading-tight ${
+                          unavailable
+                            ? "text-[var(--pf-text-muted)]"
+                            : "text-[var(--pf-text)]"
+                        }`}>{player.first_name} {player.last_name}</p>
                         <p className="mt-1 line-clamp-2 text-xs leading-tight text-[var(--pf-text-muted)]">{getClubName(player)} · {formatMoney(player.price)}</p>
                       </div>
                       <button
                         className={`rounded-md px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] ${
                           selected
                             ? "bg-[var(--pf-brand-blue-soft)] text-[var(--pf-brand-blue-hover)]"
-                            : tooExpensive || clubLimitReached
-                              ? "bg-[var(--pf-coral-soft)] text-[var(--pf-coral-text)]"
+                            : unavailable
+                              ? "cursor-not-allowed bg-[var(--pf-card-border)] text-[var(--pf-text-muted)]"
                               : "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] disabled:bg-[var(--pf-navy-deep)] disabled:text-[var(--pf-text-muted)]/55"
                         }`}
                         disabled={selected || tooExpensive || clubLimitReached || transfersLocked}
@@ -344,7 +347,7 @@ export function PlayerPicker({
                     </div>
                   );
                 })}
-                {!visiblePlayers.length ? <p className="py-10 text-center text-sm text-sky-100/60 sm:col-span-2">No players match your filters.</p> : null}
+                {!visiblePlayers.length ? <p className="py-10 text-center text-sm text-[var(--pf-text-muted)] sm:col-span-2">No players match your filters.</p> : null}
               </div>
             ) : null}
           </div>

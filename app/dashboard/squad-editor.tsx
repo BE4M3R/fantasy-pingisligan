@@ -350,25 +350,32 @@ export function SquadEditor({
     );
   }
 
-  function swapPositions(playerId: string, targetPlayerId: string) {
+  function swapPlayers(playerId: string, targetPlayerId: string) {
     setSaveMessage("");
     setDraftSquad((currentSquad) => {
-      const player = currentSquad.find((row) => row.id === playerId);
-      const targetPlayer = currentSquad.find(
-        (row) => row.id === targetPlayerId,
+      const playerIndex = currentSquad.findIndex(
+        (player) => player.id === playerId,
+      );
+      const targetIndex = currentSquad.findIndex(
+        (player) => player.id === targetPlayerId,
       );
 
-      if (!player || !targetPlayer) return currentSquad;
+      if (playerIndex < 0 || targetIndex < 0) return currentSquad;
 
-      return currentSquad.map((row) => {
-        if (row.id === playerId) {
-          return { ...row, position: targetPlayer.position };
-        }
-        if (row.id === targetPlayerId) {
-          return { ...row, position: player.position };
-        }
-        return row;
-      });
+      const player = currentSquad[playerIndex];
+      const targetPlayer = currentSquad[targetIndex];
+      if (player.position === targetPlayer.position) return currentSquad;
+
+      const nextSquad = [...currentSquad];
+      nextSquad[playerIndex] = {
+        ...targetPlayer,
+        position: player.position,
+      };
+      nextSquad[targetIndex] = {
+        ...player,
+        position: targetPlayer.position,
+      };
+      return nextSquad;
     });
   }
 
@@ -598,7 +605,7 @@ export function SquadEditor({
                             replacePlayer(player.id, incomingPlayer)
                           }
                           onSwapPosition={(targetPlayerId) =>
-                            swapPositions(player.id, targetPlayerId)
+                            swapPlayers(player.id, targetPlayerId)
                           }
                           player={player}
                           remainingBudget={remainingBudget}
@@ -699,7 +706,7 @@ export function SquadEditor({
                       replacePlayer(player.id, incomingPlayer)
                     }
                     onSwapPosition={(targetPlayerId) =>
-                      swapPositions(player.id, targetPlayerId)
+                      swapPlayers(player.id, targetPlayerId)
                     }
                     player={player}
                     remainingBudget={remainingBudget}

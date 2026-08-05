@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
@@ -22,6 +24,39 @@ type SquadCardActionsProps = {
   transfersLocked: boolean;
 };
 
+function formatMoney(value: number | string) {
+  return `${(Number(value) / 1000000).toFixed(1)}m`;
+}
+
+function getClubName(player: DashboardPlayer) {
+  return Array.isArray(player.clubs)
+    ? player.clubs[0]?.name ?? "Free agent"
+    : player.clubs?.name ?? "Free agent";
+}
+
+function ClubLogo({ player }: { player: DashboardPlayer }) {
+  const clubName = getClubName(player);
+  const logo = getClubLogo(clubName);
+
+  return (
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-[var(--pf-text)] p-1.5">
+      {logo ? (
+        <Image
+          alt={logo.alt}
+          className="h-auto w-auto max-h-12 max-w-12 object-contain"
+          height={48}
+          src={logo.src}
+          width={48}
+        />
+      ) : (
+        <span className="text-base font-black text-[var(--pf-navy)]">
+          {clubName.slice(0, 1)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function SquadCardActions({
   children,
   onMakeCaptain,
@@ -37,15 +72,18 @@ export function SquadCardActions({
 }: SquadCardActionsProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [swapPickerOpen, setSwapPickerOpen] = useState(false);
   const playerName = `${player.first_name} ${player.last_name}`;
-  const canReplacePlayer = selectedPlayerIds.length >= 6;
 
   useEffect(() => {
     if (!isOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
+      if (event.key === "Escape") {
+        setSwapPickerOpen(false);
+        setIsOpen(false);
+      }
     };
 
     document.body.style.overflow = "hidden";
@@ -58,6 +96,7 @@ export function SquadCardActions({
   }, [isOpen]);
 
   function closeActions() {
+    setSwapPickerOpen(false);
     setIsOpen(false);
     window.requestAnimationFrame(() => triggerRef.current?.focus());
   }
@@ -107,16 +146,19 @@ export function SquadCardActions({
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--pf-brand-blue)]">
-                      Player actions
-                    </p>
-                    <h2
-                      className="mt-1 text-xl font-bold"
-                      id={`squad-actions-${player.id}`}
-                    >
-                      {playerName}
-                    </h2>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ClubLogo player={player} />
+                    <div className="min-w-0">
+                      <h2
+                        className="text-xl font-bold leading-tight"
+                        id={`squad-actions-${player.id}`}
+                      >
+                        {playerName}
+                      </h2>
+                      <p className="mt-1 text-sm font-bold text-[var(--pf-text-muted)]">
+                        {formatMoney(player.price)}
+                      </p>
+                    </div>
                   </div>
                   <button
                     aria-label="Close player actions"
@@ -137,10 +179,15 @@ export function SquadCardActions({
                 ) : null}
 
                 <div className="mt-5 grid gap-3">
-                  {!player.is_captain ? (
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <button
-                      className="h-12 w-full rounded-md border border-[var(--pf-fantasy-yellow)]/50 bg-[var(--pf-fantasy-yellow)]/10 px-4 text-sm font-semibold text-[#ffe8a3] transition hover:border-[var(--pf-fantasy-yellow)] hover:bg-[var(--pf-fantasy-yellow)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-fantasy-yellow)] disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={transfersLocked}
+                      aria-label={
+                        player.is_captain
+                          ? `${playerName} is already captain`
+                          : `Make ${playerName} captain`
+                      }
+                      className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
+                      disabled={transfersLocked || player.is_captain}
                       onClick={() => {
                         onMakeCaptain();
                         closeActions();
@@ -149,37 +196,7 @@ export function SquadCardActions({
                     >
                       Make captain
                     </button>
-                  ) : (
-                    <div className="flex h-12 items-center justify-center rounded-md border border-[var(--pf-fantasy-yellow)]/45 bg-[var(--pf-fantasy-yellow)]/10 px-4 text-center text-sm font-semibold text-[#ffe8a3]">
-                      Current captain
-                    </div>
-                  )}
 
-                  {swapTargets.length ? (
-                    <select
-                      aria-label="Player to swap position with"
-                      className="h-12 w-full min-w-0 rounded-md border border-white/20 bg-white/5 px-4 text-sm font-semibold text-sky-50 outline-none hover:border-white/60 hover:bg-white/10 focus:border-sky-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      defaultValue=""
-                      disabled={transfersLocked}
-                      onChange={(event) => {
-                        onSwapPosition(event.target.value);
-                        closeActions();
-                      }}
-                    >
-                      <option disabled value="">
-                        {player.position === "starter"
-                          ? "Swap with a bench player…"
-                          : "Swap with a main player…"}
-                      </option>
-                      {swapTargets.map((target) => (
-                        <option key={target.id} value={target.id}>
-                          {target.first_name} {target.last_name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-
-                  {canReplacePlayer ? (
                     <PlayerPicker
                       onSelect={(selectedPlayer) => {
                         onReplace(selectedPlayer);
@@ -197,11 +214,62 @@ export function SquadCardActions({
                       selectedPlayerIds={selectedPlayerIds}
                       transfersLocked={transfersLocked}
                       trigger="replace"
+                      triggerLabel="Transfer player"
                     />
+
+                    <button
+                      aria-controls={`swap-picker-${player.id}`}
+                      aria-expanded={swapPickerOpen}
+                      className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
+                      disabled={transfersLocked || swapTargets.length === 0}
+                      onClick={() => setSwapPickerOpen((open) => !open)}
+                      title={
+                        swapTargets.length
+                          ? undefined
+                          : `No ${player.position === "starter" ? "bench" : "main"} players available to swap`
+                      }
+                      type="button"
+                    >
+                      Swap
+                    </button>
+                  </div>
+
+                  {swapPickerOpen ? (
+                    <div
+                      className="rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] p-3"
+                      id={`swap-picker-${player.id}`}
+                    >
+                      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--pf-text-muted)]">
+                        Swap with
+                      </p>
+                      <div className="grid gap-2">
+                        {swapTargets.map((target) => (
+                          <button
+                            className="flex w-full items-center gap-3 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-2 text-left transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                            key={target.id}
+                            onClick={() => {
+                              onSwapPosition(target.id);
+                              closeActions();
+                            }}
+                            type="button"
+                          >
+                            <ClubLogo player={target} />
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-[var(--pf-text)]">
+                                {target.first_name} {target.last_name}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-[var(--pf-text-muted)]">
+                                {getClubName(target)}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ) : null}
 
                   <button
-                    className="h-12 w-full rounded-md border border-[var(--pf-coral)]/55 bg-[var(--pf-coral-soft)] px-4 text-sm font-semibold text-[var(--pf-coral-text)] transition hover:border-[var(--pf-coral)] hover:bg-[var(--pf-coral)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-coral)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mx-auto mt-1 rounded-md border border-white/60 px-3 py-2 text-xs font-semibold text-[var(--pf-text-muted)] transition hover:border-white hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={transfersLocked}
                     onClick={() => {
                       if (
@@ -216,7 +284,7 @@ export function SquadCardActions({
                     }}
                     type="button"
                   >
-                    Remove from squad
+                    Remove from team
                   </button>
                 </div>
               </div>
