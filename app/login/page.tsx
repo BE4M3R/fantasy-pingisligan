@@ -8,17 +8,20 @@ import { createClient } from "@/lib/supabase/server";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{ message?: string; next?: string }>;
 }) {
+  const { message, next } = await searchParams;
+  const nextPath =
+    next === "/dashboard" || next?.startsWith("/dashboard/")
+      ? next
+      : "/dashboard/overview";
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
 
   if (claims?.sub) {
-    redirect("/dashboard/overview");
+    redirect(nextPath);
   }
-
-  const { message } = await searchParams;
 
   return (
     <main className="table-tennis-surface min-h-screen text-white">
@@ -65,6 +68,7 @@ export default async function LoginPage({
             className="mt-8 space-y-5"
             suppressHydrationWarning
           >
+            <input name="next" type="hidden" value={nextPath} />
             <label className="block text-sm font-medium text-[var(--pf-text)]">
               Email
               <input

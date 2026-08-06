@@ -91,6 +91,12 @@ Apply `supabase/club-player-limit-migration.sql` once to enforce the maximum of
 two players per club. The migration stops without changing the database if an
 existing squad already exceeds the limit; correct that squad and run it again.
 
+## Private leaderboards
+
+Apply `supabase/private-leaderboards-migration.sql` once to enable creating
+invite-only leaderboards, joining with invitation codes and member-only ranking
+queries. The migration also adds existing league owners as members.
+
 ## Environment checklist
 
 Local `.env.local` needs the public URL and anonymous key for the application.

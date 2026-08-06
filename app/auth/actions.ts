@@ -12,25 +12,39 @@ function getString(formData: FormData, key: string) {
 }
 
 function redirectWithMessage(path: string, message: string) {
-  redirect(`${path}?message=${encodeURIComponent(message)}`);
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}message=${encodeURIComponent(message)}`);
+}
+
+function getSafeDashboardPath(value: string) {
+  return value === "/dashboard" || value.startsWith("/dashboard/")
+    ? value
+    : "/dashboard/overview";
 }
 
 export async function signIn(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
+  const nextPath = getSafeDashboardPath(getString(formData, "next"));
 
   if (!email || !password) {
-    redirectWithMessage("/login", "Email and password are required.");
+    redirectWithMessage(
+      `/login?next=${encodeURIComponent(nextPath)}`,
+      "Email and password are required.",
+    );
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirectWithMessage("/login", error.message);
+    redirectWithMessage(
+      `/login?next=${encodeURIComponent(nextPath)}`,
+      error.message,
+    );
   }
 
-  redirect("/dashboard/overview");
+  redirect(nextPath);
 }
 
 export async function sendPasswordReset(formData: FormData) {
