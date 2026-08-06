@@ -8,6 +8,7 @@ const STOCKHOLM_TIME_ZONE = "Europe/Stockholm";
 
 type GameweekRow = {
   id: string;
+  lock_at: string;
   name: string;
   round_order: number | null;
 };
@@ -43,6 +44,16 @@ function formatTime(value: string | null) {
   return new Intl.DateTimeFormat("sv-SE", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: STOCKHOLM_TIME_ZONE,
+  }).format(new Date(value));
+}
+
+function formatTransferDeadline(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
     timeZone: STOCKHOLM_TIME_ZONE,
   }).format(new Date(value));
 }
@@ -115,7 +126,7 @@ export default async function FixturesPage() {
     supabase.auth.getClaims(),
     supabase
       .from("fantasy_gameweeks")
-      .select("id, name, round_order")
+      .select("id, name, round_order, lock_at")
       .order("round_order", { ascending: true })
       .order("first_match_starts_at", { ascending: true }),
     supabase
@@ -181,10 +192,18 @@ export default async function FixturesPage() {
                   className="table-panel overflow-hidden rounded-lg border"
                   key={gameweek.id}
                 >
-                  <header className="border-b border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-3 sm:px-6 sm:py-4">
+                  <header className="flex items-start justify-between gap-3 border-b border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-3 sm:gap-6 sm:px-6 sm:py-4">
                     <h2 className="text-xl font-black text-[var(--pf-text)] sm:text-2xl">
                       Gameweek {gameweek.round_order ?? gameweek.name}
                     </h2>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)] sm:text-[10px]">
+                        Transfer deadline
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-[var(--pf-text)] sm:text-xs">
+                        {formatTransferDeadline(gameweek.lock_at)}
+                      </p>
+                    </div>
                   </header>
 
                   {fixtureGroups.length ? (
@@ -198,7 +217,7 @@ export default async function FixturesPage() {
                             <p className="text-sm font-bold text-[var(--pf-text)]">
                               {formatDate(group.startsAt)}
                             </p>
-                            <p className="mt-0.5 text-lg font-black tabular-nums text-[var(--pf-fantasy-yellow)]">
+                            <p className="mt-0.5 text-base font-black tabular-nums text-[var(--pf-fantasy-yellow)]">
                               {formatTime(group.startsAt)}
                             </p>
                           </div>
