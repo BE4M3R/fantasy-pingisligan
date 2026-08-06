@@ -19,14 +19,18 @@ reference. Use the solid companion colors below when building UI.
 | `--pf-logo-gold` | `#ffc329` | Logo companion gold, landing-page primary CTA and headline accent |
 | `--pf-logo-gold-hover` | `#ffd04a` | Hover state for gold actions |
 | `--pf-fantasy-yellow` | `#febe1f` | Rank, captain and special fantasy highlights in the logged-in app |
+| `--pf-rank-gold` | `#ffe45e` | Bright first-place leaderboard rank treatment |
+| `--pf-rank-silver` | `#cbd5e1` | Second-place leaderboard rank treatment |
+| `--pf-rank-bronze` | `#b8662f` | Third-place leaderboard rank treatment |
 | `--pf-text` | `#f2f6f8` | Main text on dark backgrounds |
 | `--pf-text-muted` | `#9fb8c6` | Secondary descriptions and metadata |
 
 Gold is intentionally prominent on the public landing page. The closely
 related fantasy yellow records the slightly warmer highlight already used in
-the logged-in app. Use it sparingly: the app's normal interactive color is
-brand blue, keeping yellow available for rank, captain, or other special
-fantasy moments.
+the logged-in app. Silver and bronze complete the leaderboard medal hierarchy.
+Use these rank colors sparingly: the app's normal interactive color is brand
+blue, keeping medal colors available for rank and other special fantasy
+moments.
 
 ## Public landing page
 

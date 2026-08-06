@@ -6,10 +6,10 @@ import {
   type LeaderboardRow,
 } from "@/app/dashboard/leaderboard-table";
 import {
-  createPrivateLeaderboard,
   joinPrivateLeaderboard,
 } from "@/app/dashboard/leaderboard/actions";
-import { InviteControls } from "@/app/dashboard/leaderboard/invite-controls";
+import { InviteCode } from "@/app/dashboard/leaderboard/invite-code";
+import { LeaderboardActions } from "@/app/dashboard/leaderboard/leaderboard-actions";
 import { createClient } from "@/lib/supabase/server";
 
 type PrivateLeague = {
@@ -18,6 +18,7 @@ type PrivateLeague = {
   league_id: string;
   league_name: string;
   member_count: number | string;
+  current_rank: number | string | null;
 };
 
 function privateLeaderboardHref(leagueId: string) {
@@ -54,6 +55,11 @@ export default async function LeaderboardPage({
   }
 
   const privateLeagues = (privateLeaguesResult.data ?? []) as PrivateLeague[];
+  const globalLeaderboard = (globalResult.data ?? []) as LeaderboardRow[];
+  const globalRankIndex = globalLeaderboard.findIndex(
+    (row) => row.user_id === userId,
+  );
+  const globalRank = globalRankIndex >= 0 ? globalRankIndex + 1 : null;
   const selectedLeague = params.league
     ? privateLeagues.find((league) => league.league_id === params.league) ?? null
     : null;
@@ -62,7 +68,9 @@ export default async function LeaderboardPage({
         p_league_id: selectedLeague.league_id,
       })
     : globalResult;
-  const leaderboard = (selectedResult.data ?? []) as LeaderboardRow[];
+  const leaderboard = selectedLeague
+    ? ((selectedResult.data ?? []) as LeaderboardRow[])
+    : globalLeaderboard;
   const leaderboardError = selectedResult.error;
   const privateMigrationMissing = Boolean(privateLeaguesResult.error);
 
@@ -75,9 +83,6 @@ export default async function LeaderboardPage({
           <h1 className="text-2xl font-black tracking-tight text-[var(--pf-text)]">
             Leaderboards
           </h1>
-          <p className="mt-1 text-sm text-[var(--pf-text-muted)]">
-            Compete globally or create a private leaderboard for your friends.
-          </p>
         </div>
 
         {params.message ? (
@@ -117,6 +122,10 @@ export default async function LeaderboardPage({
           </section>
         ) : null}
 
+        {!privateMigrationMissing ? (
+          <LeaderboardActions inviteCode={inviteCode} />
+        ) : null}
+
         <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="table-panel h-fit rounded-lg border p-4">
             <h2 className="font-bold text-[var(--pf-text)]">Your leaderboards</h2>
@@ -124,14 +133,24 @@ export default async function LeaderboardPage({
             <nav aria-label="Leaderboard selection" className="mt-3 space-y-1.5">
               <Link
                 aria-current={!selectedLeague ? "page" : undefined}
-                className={`flex items-center justify-between rounded-md border px-3 py-2.5 text-sm font-semibold transition ${
+                className={`flex items-center justify-between gap-3 rounded-md border px-3 py-3 text-sm transition ${
                   !selectedLeague
                     ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)] text-[var(--pf-text)]"
-                    : "border-transparent text-[var(--pf-text-muted)] hover:border-[var(--pf-card-border)] hover:bg-[var(--pf-navy-elevated)] hover:text-[var(--pf-text)]"
+                    : "border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)]"
                 }`}
                 href="/dashboard/leaderboard"
               >
-                Global
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    Global leaderboard
+                  </span>
+                  <span className="mt-0.5 block text-xs font-normal text-[var(--pf-text-muted)]">
+                    All fantasy teams
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
+                  {globalRank ? `#${globalRank}` : "—"}
+                </span>
               </Link>
 
               {privateLeagues.map((league) => (
@@ -141,74 +160,33 @@ export default async function LeaderboardPage({
                       ? "page"
                       : undefined
                   }
-                  className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2.5 text-sm font-semibold transition ${
+                  className={`flex items-center justify-between gap-3 rounded-md border px-3 py-3 text-sm transition ${
                     selectedLeague?.league_id === league.league_id
                       ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)] text-[var(--pf-text)]"
-                      : "border-transparent text-[var(--pf-text-muted)] hover:border-[var(--pf-card-border)] hover:bg-[var(--pf-navy-elevated)] hover:text-[var(--pf-text)]"
+                      : "border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)]"
                   }`}
                   href={privateLeaderboardHref(league.league_id)}
                   key={league.league_id}
                 >
-                  <span className="truncate">{league.league_name}</span>
-                  <span className="shrink-0 text-xs font-normal">
-                    {Number(league.member_count)}
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">
+                      {league.league_name}
+                    </span>
+                    <span className="mt-0.5 block text-xs font-normal text-[var(--pf-text-muted)]">
+                      Private leaderboard
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
+                    {league.current_rank ? `#${league.current_rank}` : "—"}
                   </span>
                 </Link>
               ))}
             </nav>
-
-            {!privateMigrationMissing ? (
-              <div className="mt-5 space-y-3 border-t border-[var(--pf-card-border)] pt-4">
-                <details>
-                  <summary className="cursor-pointer text-sm font-semibold text-[var(--pf-brand-blue)] hover:text-[var(--pf-brand-blue-hover)]">
-                    Create private leaderboard
-                  </summary>
-                  <form action={createPrivateLeaderboard} className="mt-3 space-y-2">
-                    <label className="block text-xs text-[var(--pf-text-muted)]">
-                      Name
-                      <input
-                        className="mt-1.5 w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 text-[var(--pf-text)] outline-none placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)]"
-                        maxLength={50}
-                        name="name"
-                        placeholder="Friends league"
-                        required
-                      />
-                    </label>
-                    <button className="w-full rounded-md bg-[var(--pf-brand-blue)] px-3 py-2.5 text-sm font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)]">
-                      Create
-                    </button>
-                  </form>
-                </details>
-
-                <details open={Boolean(inviteCode)}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[var(--pf-brand-blue)] hover:text-[var(--pf-brand-blue-hover)]">
-                    Join with a code
-                  </summary>
-                  <form action={joinPrivateLeaderboard} className="mt-3 space-y-2">
-                    <label className="block text-xs text-[var(--pf-text-muted)]">
-                      Invitation code
-                      <input
-                        autoCapitalize="characters"
-                        className="mt-1.5 w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 font-mono uppercase tracking-[0.16em] text-[var(--pf-text)] outline-none placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)]"
-                        defaultValue={inviteCode}
-                        maxLength={8}
-                        name="invite_code"
-                        placeholder="AB12CD34"
-                        required
-                      />
-                    </label>
-                    <button className="w-full rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] px-3 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)]">
-                      Join
-                    </button>
-                  </form>
-                </details>
-              </div>
-            ) : null}
           </aside>
 
           <section className="table-panel min-w-0 rounded-lg border p-4 sm:p-6">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-              <div>
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
                   {selectedLeague ? "Private leaderboard" : "Overall"}
                 </p>
@@ -223,17 +201,7 @@ export default async function LeaderboardPage({
               </div>
 
               {selectedLeague?.is_owner && selectedLeague.invite_code ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pf-text-muted)]">
-                      Invite code
-                    </p>
-                    <p className="mt-0.5 font-mono text-sm font-bold tracking-[0.16em] text-[var(--pf-text)]">
-                      {selectedLeague.invite_code}
-                    </p>
-                  </div>
-                  <InviteControls inviteCode={selectedLeague.invite_code} />
-                </div>
+                <InviteCode code={selectedLeague.invite_code} />
               ) : null}
             </div>
 
