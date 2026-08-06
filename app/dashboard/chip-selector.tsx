@@ -203,13 +203,11 @@ export function ChipSelector({
             isUnavailable ||
             isLocked ||
             isUsed;
-          const stateLabel = isLocked
-            ? "Locked"
+          const stateLabel = isActive
+            ? "Selected"
             : isUsed
               ? "Used"
-              : isUnavailable
-                ? "Unavailable"
-                : null;
+              : "Available";
           const accessibleState = isLocked
             ? "Activated and locked for this gameweek."
             : isSelected
@@ -267,17 +265,17 @@ export function ChipSelector({
               <span className="mt-2 min-h-7 text-[0.62rem] font-black leading-[1.15] text-[var(--pf-text)] min-[390px]:text-[0.68rem] sm:text-xs">
                 {chip.value === "triple_captain" ? "3× Captain" : chip.label}
               </span>
-              {stateLabel ? (
-                <span
-                  className={`mt-0.5 text-[0.55rem] font-semibold leading-none sm:text-[0.62rem] ${
-                    isLocked
-                      ? "text-[var(--pf-brand-blue-hover)]"
-                      : "text-[var(--pf-text-muted)]/55"
-                  }`}
-                >
-                  {stateLabel}
-                </span>
-              ) : null}
+              <span
+                className={`mt-0.5 text-[0.55rem] font-semibold leading-none sm:text-[0.62rem] ${
+                  isActive
+                    ? "text-[var(--pf-brand-blue-hover)]"
+                    : isUsed
+                      ? "text-[var(--pf-text-muted)]/55"
+                      : "text-[var(--pf-text-muted)]/80"
+                }`}
+              >
+                {stateLabel}
+              </span>
             </button>
           );
         })}

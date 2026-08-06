@@ -437,7 +437,9 @@ export function SquadEditor({
 
           <div className="shrink-0 text-right">
             <button
-              aria-describedby={saveHint ? "save-disabled-reason" : undefined}
+              aria-label={
+                saveHint ? `${saveButtonLabel}: ${saveHint}` : saveButtonLabel
+              }
               className="h-10 min-w-24 rounded-md bg-[var(--pf-brand-blue)] px-3 text-xs font-black text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:border disabled:border-[var(--pf-card-border)] disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)]/55"
               disabled={saveDisabled}
               onClick={saveChanges}
@@ -445,14 +447,6 @@ export function SquadEditor({
             >
               {saveButtonLabel}
             </button>
-            {saveHint ? (
-              <p
-                className="mt-1 max-w-24 text-center text-[0.62rem] font-semibold leading-3 text-[var(--pf-text-muted)]"
-                id="save-disabled-reason"
-              >
-                {saveHint}
-              </p>
-            ) : null}
           </div>
         </div>
 
