@@ -248,11 +248,11 @@ export default async function OverviewPage() {
                         : "text-[var(--pf-coral)]"
                     }`}
                   >
-                    {isSquadReady ? "Squad complete" : "Action needed"}
+                    {isSquadReady ? "Squad status" : "Action needed"}
                   </p>
                   <h2 className="mt-0.5 text-xl font-black leading-tight sm:text-2xl">
                     {isSquadReady
-                      ? "Your squad is ready"
+                      ? "Fantasy team ready"
                       : "Complete your squad"}
                   </h2>
                 </div>
@@ -267,13 +267,12 @@ export default async function OverviewPage() {
                 </span>
               </div>
 
-              <p className="mt-1.5 text-sm text-sky-50/70">
-                {isSquadReady
-                  ? "All six player slots are filled."
-                  : `${remainingPlayers} ${
-                      remainingPlayers === 1 ? "player" : "players"
-                    } remaining`}
-              </p>
+              {!isSquadReady && (
+                <p className="mt-1.5 text-sm text-sky-50/70">
+                  {remainingPlayers}{" "}
+                  {remainingPlayers === 1 ? "player" : "players"} remaining
+                </p>
+              )}
               <div
                 aria-label={`${squad.length} of ${SQUAD_SIZE} squad places filled`}
                 aria-valuemax={SQUAD_SIZE}
