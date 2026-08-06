@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   saveSquadDraft,
   type SaveSquadDraftInput,
@@ -198,6 +199,9 @@ export function SquadEditor({
   transfersLocked,
   upcomingGameweek,
 }: SquadEditorProps) {
+  const router = useRouter();
+  const leaveDialogRef = useRef<HTMLDialogElement>(null);
+  const allowNavigationRef = useRef(false);
   const [draftSquad, setDraftSquad] =
     useState<DraftSquadPlayer[]>(initialSquad);
   const [selectedChip, setSelectedChip] = useState<Chip | null>(initialChip);
@@ -205,6 +209,9 @@ export function SquadEditor({
     useState<DraftSquadPlayer[]>(initialSquad);
   const [savedChip, setSavedChip] = useState<Chip | null>(initialChip);
   const [saveMessage, setSaveMessage] = useState("");
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
   const [isSaving, startSaving] = useTransition();
   const draftSignature = useMemo(
     () => getDraftSignature(draftSquad, selectedChip),
@@ -281,13 +288,77 @@ export function SquadEditor({
     if (!isDirty) return;
 
     const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {
+      if (allowNavigationRef.current) return;
       event.preventDefault();
     };
 
+    const guardLinkNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      const link =
+        target instanceof Element ? target.closest("a[href]") : null;
+
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        link.target === "_blank" ||
+        link.hasAttribute("download") ||
+        link.href === window.location.href
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingNavigation(link.href);
+    };
+
     window.addEventListener("beforeunload", warnAboutUnsavedChanges);
-    return () =>
+    document.addEventListener("click", guardLinkNavigation, true);
+
+    return () => {
       window.removeEventListener("beforeunload", warnAboutUnsavedChanges);
+      document.removeEventListener("click", guardLinkNavigation, true);
+    };
   }, [isDirty]);
+
+  useEffect(() => {
+    if (pendingNavigation && !leaveDialogRef.current?.open) {
+      leaveDialogRef.current?.showModal();
+    }
+  }, [pendingNavigation]);
+
+  function closeLeaveDialog() {
+    leaveDialogRef.current?.close();
+    setPendingNavigation(null);
+  }
+
+  function leaveWithoutSaving() {
+    if (!pendingNavigation) return;
+
+    const destination = new URL(pendingNavigation);
+    allowNavigationRef.current = true;
+    leaveDialogRef.current?.close();
+    setPendingNavigation(null);
+
+    if (destination.origin === window.location.origin) {
+      router.push(
+        `${destination.pathname}${destination.search}${destination.hash}`,
+      );
+      return;
+    }
+
+    window.location.assign(destination.href);
+  }
 
   function addPlayer(player: DashboardPlayer, position: SquadPosition) {
     setSaveMessage("");
@@ -748,6 +819,48 @@ export function SquadEditor({
           })}
         </div>
       </section>
+
+      <dialog
+        aria-labelledby="unsaved-changes-title"
+        className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80"
+        onClick={(event) => {
+          if (event.target === leaveDialogRef.current) closeLeaveDialog();
+        }}
+        onClose={() => setPendingNavigation(null)}
+        ref={leaveDialogRef}
+      >
+        <div className="p-5 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-fantasy-yellow)]">
+            Unsaved changes
+          </p>
+          <h2
+            className="mt-2 text-xl font-black tracking-tight"
+            id="unsaved-changes-title"
+          >
+            Leave without saving?
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--pf-text-muted)]">
+            Your squad changes will be lost if you leave this page.
+          </p>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              className="h-11 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 text-sm font-semibold transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+              onClick={closeLeaveDialog}
+              type="button"
+            >
+              Stay
+            </button>
+            <button
+              className="h-11 rounded-md bg-[var(--pf-coral)] px-3 text-sm font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-coral-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-coral)]"
+              onClick={leaveWithoutSaving}
+              type="button"
+            >
+              Leave without saving
+            </button>
+          </div>
+        </div>
+      </dialog>
     </section>
   );
 }
