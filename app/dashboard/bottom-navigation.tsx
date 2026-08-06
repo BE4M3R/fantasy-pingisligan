@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type DashboardTab = "overview" | "squad" | "leaderboard" | "progress" | "rules";
+type DashboardTab = "overview" | "squad" | "leaderboard" | "fixtures" | "rules";
 
 const tabs: { href: string; label: string; value: DashboardTab }[] = [
   { href: "/dashboard/overview", label: "Home", value: "overview" },
   { href: "/dashboard", label: "Squad", value: "squad" },
   { href: "/dashboard/leaderboard", label: "Leaderboard", value: "leaderboard" },
-  { href: "/dashboard/progress", label: "Progress", value: "progress" },
+  { href: "/dashboard/fixtures", label: "Fixtures", value: "fixtures" },
   { href: "/dashboard/rules", label: "Rules", value: "rules" },
 ];
 
@@ -46,12 +46,12 @@ function TabIcon({ tab }: { tab: DashboardTab }) {
           <path d="M8 21v-7H3v7M21 21V10h-5v11M16 21V3h-5v18M2 21h20" />
         </svg>
       );
-    case "progress":
+    case "fixtures":
       return (
         <svg {...commonProps}>
-          <path d="M4 19V5M4 19h16" />
-          <path d="m7 15 4-4 3 2 5-6" />
-          <path d="M16 7h3v3" />
+          <rect height="17" rx="2" width="18" x="3" y="4" />
+          <path d="M8 2v4M16 2v4M3 9h18" />
+          <path d="M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2" />
         </svg>
       );
     case "rules":

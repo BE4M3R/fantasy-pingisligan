@@ -8,19 +8,15 @@ const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
 const SQUAD_SIZE = STARTER_SIZE + BENCH_SIZE;
 const DEFAULT_BUDGET = 100000000;
-const STUPA_RESULTS_URL =
-  "https://sbtfeventsott.stupaevents.com/events/417/1118/0/1/1";
 
 type FantasyTeam = {
   id: string;
   name: string;
-  budget: number | string;
 };
 
 type PlayerSummary = {
   first_name: string;
   last_name: string;
-  price: number | string;
 };
 
 type SquadRow = {
@@ -36,14 +32,11 @@ type TransferLock = {
 
 type ProgressRow = {
   gameweek_name: string;
+  round_order: number | null;
   lock_at: string;
   points: number | string;
   status: string;
 };
-
-function formatMoney(value: number | string) {
-  return `${(Number(value) / 1000000).toFixed(1)}m`;
-}
 
 function formatPoints(value: number | string) {
   return new Intl.NumberFormat("sv-SE").format(Number(value));
@@ -63,25 +56,6 @@ function getPlayer(row: SquadRow) {
   return Array.isArray(row.players) ? row.players[0] : row.players;
 }
 
-function ExternalLinkIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-    </svg>
-  );
-}
-
 export default async function OverviewPage() {
   const supabase = await createClient();
   const { data: claimsResult } = await supabase.auth.getClaims();
@@ -91,7 +65,7 @@ export default async function OverviewPage() {
 
   const { data: existingTeam } = await supabase
     .from("fantasy_teams")
-    .select("id, name, budget")
+    .select("id, name")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -105,7 +79,7 @@ export default async function OverviewPage() {
         name: "My team",
         budget: DEFAULT_BUDGET,
       })
-      .select("id, name, budget")
+      .select("id, name")
       .single();
 
     fantasyTeam = createdTeam as FantasyTeam | null;
@@ -116,7 +90,7 @@ export default async function OverviewPage() {
       fantasyTeam
         ? supabase
             .from("fantasy_team_players")
-            .select("position, is_captain, players(first_name, last_name, price)")
+            .select("position, is_captain, players(first_name, last_name)")
             .eq("fantasy_team_id", fantasyTeam.id)
         : Promise.resolve({ data: [] }),
       supabase.rpc("current_transfer_lock"),
@@ -134,12 +108,6 @@ export default async function OverviewPage() {
   const transfersLocked = Boolean(transferLock?.is_locked);
   const captain = squad.find((row) => row.is_captain);
   const captainPlayer = captain ? getPlayer(captain) : null;
-  const usedBudget = squad.reduce(
-    (total, row) => total + Number(getPlayer(row)?.price ?? 0),
-    0,
-  );
-  const remainingBudget =
-    Number(fantasyTeam?.budget ?? DEFAULT_BUDGET) - usedBudget;
   const totalPoints = progress.reduce(
     (total, row) => total + Number(row.points),
     0,
@@ -148,12 +116,12 @@ export default async function OverviewPage() {
     progress.find((row) => row.status === "In progress") ??
     [...progress].reverse().find((row) => row.status === "Complete");
   const upcomingGameweek = progress.find((row) => row.status === "Upcoming");
+  const activeGameweek =
+    progress.find((row) => row.status === "In progress") ??
+    upcomingGameweek ??
+    [...progress].reverse().find((row) => row.status === "Complete");
   const rankIndex = leaderboard.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
-  const miniLeaderboard = leaderboard
-    .slice(0, 5)
-    .map((row, index) => ({ rank: index + 1, row }));
-
   const isSquadReady = squad.length === SQUAD_SIZE;
   const remainingPlayers = Math.max(SQUAD_SIZE - squad.length, 0);
   const squadCompletion = Math.min(
@@ -173,8 +141,8 @@ export default async function OverviewPage() {
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
       <DashboardHeader />
 
-      <section className="mx-auto max-w-6xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
-        <div className="grid gap-3 lg:grid-cols-[1.35fr_0.65fr] lg:gap-6">
+      <section className="mx-auto max-w-3xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
+        <div>
           <div className="space-y-3 sm:space-y-5">
             <section className="table-panel overflow-hidden rounded-lg border p-3.5 sm:p-6">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--pf-brand-blue)] sm:text-xs">
@@ -183,10 +151,86 @@ export default async function OverviewPage() {
               <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
                 {fantasyTeam?.name ?? "Your fantasy club"}
               </h1>
-              <p className="mt-2 text-sm text-sky-100/60">
-                Your season at a glance.
+              <div
+                aria-hidden="true"
+                className="mx-auto mt-3 h-px w-12 bg-sky-100/20"
+              />
+              <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-sky-100/65 sm:text-xs">
+                {activeGameweek?.round_order
+                  ? `Gameweek ${activeGameweek.round_order}`
+                  : activeGameweek?.gameweek_name ?? "Gameweek —"}
               </p>
+              <div className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-xs">
+                <p className="font-semibold text-sky-100/55">
+                  {deadlineLabel}
+                </p>
+                <p className="font-bold text-sky-50/85">
+                  {deadline || "No deadline scheduled"}
+                </p>
+              </div>
             </section>
+
+            <dl className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="table-panel min-w-0 rounded-lg border px-2.5 py-2.5 sm:flex sm:items-baseline sm:justify-between sm:gap-2 sm:px-3.5 sm:py-3">
+                <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-sky-100/50 min-[380px]:text-[10px] sm:text-[11px]">
+                  Overall rank
+                </dt>
+                <dd
+                  className={`mt-1 truncate text-lg font-black leading-none sm:mt-0 sm:text-xl ${
+                    rank
+                      ? "text-[var(--pf-fantasy-yellow)]"
+                      : "text-sky-100/45"
+                  }`}
+                >
+                  {rank ? `#${rank}` : "—"}
+                </dd>
+              </div>
+              <div className="table-panel min-w-0 rounded-lg border px-2.5 py-2.5 sm:flex sm:items-baseline sm:justify-between sm:gap-2 sm:px-3.5 sm:py-3">
+                <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-sky-100/50 min-[380px]:text-[10px] sm:text-[11px]">
+                  Total points
+                </dt>
+                <dd className="mt-1 truncate text-lg font-black leading-none sm:mt-0 sm:text-xl">
+                  {formatPoints(totalPoints)}
+                </dd>
+              </div>
+              <div className="table-panel min-w-0 rounded-lg border px-2.5 py-2.5 sm:flex sm:items-baseline sm:justify-between sm:gap-2 sm:px-3.5 sm:py-3">
+                <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-sky-100/50 min-[380px]:text-[10px] sm:text-[11px]">
+                  Latest round
+                </dt>
+                <dd
+                  className={`mt-1 truncate leading-none sm:mt-0 ${
+                    latestRound
+                      ? "text-lg font-black text-sky-50 sm:text-xl"
+                      : "text-[10px] font-semibold text-sky-100/55 sm:text-xs"
+                  }`}
+                  title={latestRound?.gameweek_name}
+                >
+                  {latestRound
+                    ? `${formatPoints(latestRound.points)} pts`
+                    : "Not started"}
+                </dd>
+              </div>
+            </dl>
+
+            <Link
+              className="table-panel group flex min-h-16 items-center justify-between gap-4 rounded-lg border px-4 py-3 transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] sm:px-5 sm:py-4"
+              href="/dashboard/progress"
+            >
+              <span>
+                <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
+                  Season performance
+                </span>
+                <span className="mt-0.5 block text-lg font-black text-[var(--pf-text)]">
+                  Follow your progress
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className="text-2xl font-black text-[var(--pf-brand-blue-hover)] transition group-hover:translate-x-1"
+              >
+                →
+              </span>
+            </Link>
 
             <section
               className={`overflow-hidden rounded-lg border bg-[var(--pf-navy)] p-3.5 sm:p-5 ${
@@ -270,158 +314,7 @@ export default async function OverviewPage() {
                 {isSquadReady ? "Manage squad" : "Complete squad"}
               </Link>
             </section>
-
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
-                  Overall rank
-                </dt>
-                <dd
-                  className={`mt-2 text-2xl font-black ${
-                    rank
-                      ? "text-[var(--pf-fantasy-yellow)]"
-                      : "text-sky-100/45"
-                  }`}
-                >
-                  {rank ? `#${rank}` : "—"}
-                </dd>
-              </div>
-              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
-                  Total points
-                </dt>
-                <dd className="mt-2 text-2xl font-black">
-                  {formatPoints(totalPoints)}
-                </dd>
-              </div>
-              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
-                  Latest round
-                </dt>
-                <dd
-                  className={`mt-2 ${
-                    latestRound
-                      ? "text-2xl font-black text-sky-50"
-                      : "text-xs font-semibold leading-4 text-sky-100/55"
-                  }`}
-                >
-                  {latestRound
-                    ? `${formatPoints(latestRound.points)} pts`
-                    : null}
-                  {!latestRound ? (
-                    <>
-                      <span className="min-[360px]:hidden">Not started yet</span>
-                      <span className="hidden min-[360px]:inline">
-                        Season hasn&apos;t started
-                      </span>
-                    </>
-                  ) : null}
-                </dd>
-                {latestRound ? (
-                  <p className="mt-1 truncate text-xs text-sky-100/45">
-                    {latestRound.gameweek_name}
-                  </p>
-                ) : null}
-              </div>
-              <div className="table-panel flex min-h-24 flex-col justify-between rounded-lg border p-3 sm:min-h-28 sm:p-4">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-sky-100/50">
-                  Budget left
-                </dt>
-                <dd className="mt-2 text-2xl font-black">
-                  {formatMoney(remainingBudget)}
-                </dd>
-              </div>
-            </dl>
-
-            <section className="table-panel rounded-lg border p-3.5 sm:p-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
-                Next deadline
-              </p>
-              <div className="mt-1.5 flex flex-col gap-1 min-[390px]:flex-row min-[390px]:items-baseline min-[390px]:justify-between min-[390px]:gap-4">
-                <h2 className="text-sm font-semibold text-sky-100/70">
-                  {deadlineLabel}
-                </h2>
-                <p className="text-base font-bold text-sky-50 min-[390px]:text-right">
-                  {deadline || "No deadline scheduled"}
-                </p>
-              </div>
-            </section>
-
-            <a
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-4 py-2.5 text-sm font-semibold text-[var(--pf-brand-blue)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)]"
-              href={STUPA_RESULTS_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Pingisligan results
-              <ExternalLinkIcon />
-            </a>
           </div>
-
-          <aside className="table-panel self-start rounded-lg border p-3.5 sm:p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-[var(--pf-brand-blue)]">
-                  Global
-                </p>
-                <h2 className="mt-1 text-xl font-bold">Leaderboard</h2>
-              </div>
-              <Link
-                className="inline-flex min-h-10 items-center rounded-sm text-sm font-semibold text-[var(--pf-brand-blue)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                href="/dashboard/leaderboard"
-              >
-                View all
-              </Link>
-            </div>
-
-            <ol className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
-              {miniLeaderboard.map(({ rank: rowRank, row }) => (
-                <li
-                  className={`grid grid-cols-[1.5rem_minmax(0,1fr)_2.25rem_auto] items-center gap-2 rounded-md border px-2.5 py-2.5 text-sm sm:py-3 ${
-                    row.user_id === userId
-                      ? "border-[var(--pf-brand-blue)] bg-[var(--pf-brand-blue-soft)]"
-                      : "border-transparent bg-[var(--pf-navy-elevated)]"
-                  }`}
-                  key={row.user_id}
-                >
-                  <span className="font-black text-sky-100/50">
-                    {rowRank}
-                  </span>
-                  <span className="min-w-0 truncate font-semibold">
-                    {row.team_name}
-                    {row.user_id === userId ? (
-                      <span className="ml-1.5 text-[10px] font-black uppercase text-[var(--pf-brand-blue-hover)]">
-                        You
-                      </span>
-                    ) : null}
-                  </span>
-                  <span
-                    aria-label="Rank movement not available"
-                    className="text-center text-xs font-semibold text-sky-100/35"
-                    title="Rank movement"
-                  >
-                    —
-                  </span>
-                  <span className="whitespace-nowrap text-right font-bold text-sky-50">
-                    {formatPoints(row.total_points)} pts
-                  </span>
-                </li>
-              ))}
-              {leaderboard.length > 5 ? (
-                <li
-                  aria-label={`${leaderboard.length - 5} more ranked teams`}
-                  className="flex justify-center py-1 text-sm font-black tracking-[0.35em] text-[var(--pf-brand-blue)]/45"
-                >
-                  <span aria-hidden="true">•••</span>
-                </li>
-              ) : null}
-              {!leaderboard.length ? (
-                <li className="py-5 text-sm text-sky-100/55">
-                  No ranked teams yet.
-                </li>
-              ) : null}
-            </ol>
-          </aside>
         </div>
       </section>
     </main>

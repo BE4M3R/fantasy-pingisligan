@@ -69,6 +69,18 @@ function searchable(value) {
     .toLocaleLowerCase("sv-SE");
 }
 
+function canonicalClubName(value) {
+  const normalized = searchable(value);
+  const isEskilstunaByStiga = normalized.includes("eskilstuna by stiga");
+  const isLindenEskilstuna =
+    normalized.includes("linden") &&
+    (normalized.includes("eskilstuna") || normalized.includes("esklistuna"));
+
+  return isEskilstunaByStiga || isLindenEskilstuna
+    ? "Linden BTK Eskilstuna"
+    : value.trim();
+}
+
 function getOffsetMinutes(date, timeZone) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -149,10 +161,12 @@ async function fetchStage(stageId) {
 
 function getParticipantName(match, order) {
   const participants = match.participants ?? [];
-  return (
+  const participantName = (
     participants.find((participant) => participant.order === order) ??
     participants[order - 1]
   )?.participant_name?.trim() ?? null;
+
+  return participantName ? canonicalClubName(participantName) : null;
 }
 
 function buildGameweeks(matches, stageId) {

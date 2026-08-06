@@ -93,6 +93,18 @@ function searchable(value) {
     .toLocaleLowerCase("sv-SE");
 }
 
+function canonicalClubName(value) {
+  const normalized = searchable(value);
+  const isEskilstunaByStiga = normalized.includes("eskilstuna by stiga");
+  const isLindenEskilstuna =
+    normalized.includes("linden") &&
+    (normalized.includes("eskilstuna") || normalized.includes("esklistuna"));
+
+  return isEskilstunaByStiga || isLindenEskilstuna
+    ? "Linden BTK Eskilstuna"
+    : value.trim();
+}
+
 function splitPlayerName(name) {
   const [lastName, ...firstNameParts] = name.split(",").map((part) => part.trim());
 
@@ -126,7 +138,9 @@ function parseRankingRows(html) {
     const rankingPosition = Number(placementText.match(/(\d+)\s*$/)?.[1]);
     const fullName = textFromHtml(cells[2]);
     const birthYear = Number(textFromHtml(cells[3]));
-    const clubName = textFromHtml(cells[4]).replace(/\*+$/g, "").trim();
+    const clubName = canonicalClubName(
+      textFromHtml(cells[4]).replace(/\*+$/g, ""),
+    );
     const rankingPoints = Number(textFromHtml(cells[5]).replace(/\D/g, ""));
 
     if (!profixioPlayerId || !fullName || !clubName || !rankingPoints) {
