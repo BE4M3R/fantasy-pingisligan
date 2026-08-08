@@ -47,6 +47,7 @@ The two-players-per-club rule is also enforced by a database trigger so writes
 outside the application cannot bypass it.
 
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`,
+`get_my_played_gameweek_progress()`,
 `snapshot_locked_squads()`, `mark_used_chips()`,
 `calculate_fantasy_gameweek_points()` and leaderboard-related RPCs provide
 derived data to the application. Private league creation, invitation joining,

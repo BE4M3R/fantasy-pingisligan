@@ -7,7 +7,7 @@ export default async function ProgressPage() {
   const supabase = await createClient();
   const [claimsResult, progressResult] = await Promise.all([
     supabase.auth.getClaims(),
-    supabase.rpc("get_my_gameweek_progress"),
+    supabase.rpc("get_my_played_gameweek_progress"),
   ]);
 
   if (!claimsResult.data?.claims.sub) {
@@ -30,15 +30,15 @@ export default async function ProgressPage() {
                 Progress
               </h1>
               <p className="mt-1 text-sm text-[var(--pf-text-muted)]">
-                Your fantasy points by gameweek.
+                Compare your points with every fantasy team.
               </p>
             </div>
           </div>
 
           {progressError ? (
             <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-              Run supabase/player-import-migration.sql in Supabase to enable
-              progress tracking.
+              Run supabase/progress-gameweek-stats-migration.sql in Supabase to
+              enable gameweek statistics.
             </div>
           ) : (
             <ProgressTable rows={progress} />
