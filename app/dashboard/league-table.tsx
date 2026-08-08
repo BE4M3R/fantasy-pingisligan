@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
-export type LeaderboardRow = {
+export type LeagueTableRow = {
   user_id: string;
   team_name: string;
   total_points: number | string;
@@ -33,22 +33,22 @@ function getRankClass(rank: number) {
   }
 }
 
-export function LeaderboardTable({
+export function LeagueTable({
   currentUserId,
   rows,
 }: {
   currentUserId: string;
-  rows: LeaderboardRow[];
+  rows: LeagueTableRow[];
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [selectedTeam, setSelectedTeam] = useState<LeaderboardRow | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<LeagueTableRow | null>(null);
   const [gameweekScores, setGameweekScores] = useState<GameweekScore[]>([]);
   const [gameweekIndex, setGameweekIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const selectedGameweek = gameweekScores[gameweekIndex];
 
-  async function openGameweekScores(row: LeaderboardRow) {
+  async function openGameweekScores(row: LeagueTableRow) {
     setSelectedTeam(row);
     setGameweekScores([]);
     setGameweekIndex(0);
@@ -224,8 +224,8 @@ export function LeaderboardTable({
             </p>
           ) : loadError ? (
             <p className="mt-6 rounded-lg border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-4 text-sm text-[var(--pf-coral-text)]">
-              Gameweek scores could not be loaded. Run the leaderboard gameweek
-              details migration in Supabase.
+              Gameweek scores could not be loaded. Run the gameweek details
+              migration in Supabase.
             </p>
           ) : selectedGameweek ? (
             <div className="mt-6">

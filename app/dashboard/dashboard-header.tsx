@@ -87,7 +87,7 @@ function TeamOnboarding() {
         </h1>
         <p className="mt-3 text-sm leading-6 text-sky-100/70">
           This is the public name that other managers will see on the
-          leaderboard. You can change it later in settings.
+          league tables. You can change it later in settings.
         </p>
         <div className="mt-7">
           <TeamNameForm submitLabel="Create my team" />

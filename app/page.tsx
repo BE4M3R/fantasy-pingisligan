@@ -129,11 +129,11 @@ async function HomeContent() {
                 Compete for bragging rights
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-[var(--pf-text-muted)]">
-                Challenge friends and climb the leaderboard.
+                Challenge friends and climb the league table.
               </p>
             </div>
             <Image
-              alt="Fantasy league leaderboard"
+              alt="Fantasy league table"
               className="h-auto w-full rounded-md border border-white/15 shadow-lg shadow-sky-950/35"
               height={1111}
               sizes="(max-width: 640px) 42vw, 176px"

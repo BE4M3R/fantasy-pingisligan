@@ -54,7 +54,7 @@ export default async function LoginPage({
             Log in
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--pf-text-muted)]">
-            Pick your squad, follow matchdays, and compete on the leaderboard.
+            Pick your squad, follow matchdays, and compete in leagues.
           </p>
 
           {message ? (

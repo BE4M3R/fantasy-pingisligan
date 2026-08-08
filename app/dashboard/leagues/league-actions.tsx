@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import {
-  createPrivateLeaderboard,
-  joinPrivateLeaderboard,
-} from "@/app/dashboard/leaderboard/actions";
+  createPrivateLeague,
+  joinPrivateLeague,
+} from "@/app/dashboard/leagues/actions";
 
 type ActionPanel = "create" | "join" | null;
 
@@ -45,7 +45,7 @@ function JoinIcon() {
   );
 }
 
-export function LeaderboardActions({ inviteCode }: { inviteCode?: string }) {
+export function LeagueActions({ inviteCode }: { inviteCode?: string }) {
   const [activePanel, setActivePanel] = useState<ActionPanel>(
     inviteCode ? "join" : null,
   );
@@ -58,10 +58,10 @@ export function LeaderboardActions({ inviteCode }: { inviteCode?: string }) {
     "flex min-h-14 items-center justify-center gap-2 rounded-lg border px-3 py-3 text-center text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-page-blue)]";
 
   return (
-    <section aria-label="Private leaderboard actions" className="mb-5">
+    <section aria-label="Private league actions" className="mb-5">
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <button
-          aria-controls="create-leaderboard-panel"
+          aria-controls="create-league-panel"
           aria-expanded={activePanel === "create"}
           className={`${actionClass} ${
             activePanel === "create"
@@ -72,11 +72,11 @@ export function LeaderboardActions({ inviteCode }: { inviteCode?: string }) {
           type="button"
         >
           <PlusIcon />
-          <span>Private leaderboard</span>
+          <span>Private league</span>
         </button>
 
         <button
-          aria-controls="join-leaderboard-panel"
+          aria-controls="join-league-panel"
           aria-expanded={activePanel === "join"}
           className={`${actionClass} ${
             activePanel === "join"
@@ -87,24 +87,24 @@ export function LeaderboardActions({ inviteCode }: { inviteCode?: string }) {
           type="button"
         >
           <JoinIcon />
-          <span>Join leaderboard</span>
+          <span>Join league</span>
         </button>
       </div>
 
       {activePanel === "create" ? (
         <div
           className="table-panel mt-3 rounded-lg border p-4 sm:p-5"
-          id="create-leaderboard-panel"
+          id="create-league-panel"
         >
           <h2 className="font-bold text-[var(--pf-text)]">
-            Create a private leaderboard
+            Create a private league
           </h2>
           <form
-            action={createPrivateLeaderboard}
+            action={createPrivateLeague}
             className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
           >
             <label className="min-w-0 flex-1 text-xs text-[var(--pf-text-muted)]">
-              Leaderboard name
+              League name
               <input
                 className="mt-1.5 w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 text-sm text-[var(--pf-text)] outline-none placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)]"
                 maxLength={50}
@@ -123,13 +123,13 @@ export function LeaderboardActions({ inviteCode }: { inviteCode?: string }) {
       {activePanel === "join" ? (
         <div
           className="table-panel mt-3 rounded-lg border p-4 sm:p-5"
-          id="join-leaderboard-panel"
+          id="join-league-panel"
         >
           <h2 className="font-bold text-[var(--pf-text)]">
-            Join a private leaderboard
+            Join a private league
           </h2>
           <form
-            action={joinPrivateLeaderboard}
+            action={joinPrivateLeague}
             className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
           >
             <label className="min-w-0 flex-1 text-xs text-[var(--pf-text-muted)]">

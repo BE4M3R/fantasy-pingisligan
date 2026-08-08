@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
-import type { LeaderboardRow } from "@/app/dashboard/leaderboard-table";
+import type { LeagueTableRow } from "@/app/dashboard/league-table";
 import { createClient } from "@/lib/supabase/server";
 
 const STARTER_SIZE = 4;
@@ -85,7 +85,7 @@ export default async function OverviewPage() {
     fantasyTeam = createdTeam as FantasyTeam | null;
   }
 
-  const [squadResult, transferLockResult, progressResult, leaderboardResult] =
+  const [squadResult, transferLockResult, progressResult, leagueTableResult] =
     await Promise.all([
       fantasyTeam
         ? supabase
@@ -100,7 +100,7 @@ export default async function OverviewPage() {
 
   const squad = (squadResult.data ?? []) as SquadRow[];
   const progress = (progressResult.data ?? []) as ProgressRow[];
-  const leaderboard = (leaderboardResult.data ?? []) as LeaderboardRow[];
+  const leagueTable = (leagueTableResult.data ?? []) as LeagueTableRow[];
   const transferLockRows = transferLockResult.data;
   const transferLock = (
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
@@ -120,7 +120,7 @@ export default async function OverviewPage() {
     progress.find((row) => row.status === "In progress") ??
     upcomingGameweek ??
     [...progress].reverse().find((row) => row.status === "Complete");
-  const rankIndex = leaderboard.findIndex((row) => row.user_id === userId);
+  const rankIndex = leagueTable.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const isSquadReady = squad.length === SQUAD_SIZE;
   const remainingPlayers = Math.max(SQUAD_SIZE - squad.length, 0);
