@@ -159,12 +159,22 @@ async function fetchStage(stageId) {
     .filter((match) => !match.is_deleted);
 }
 
-function getParticipantName(match, order) {
+function getParticipant(match, order) {
   const participants = match.participants ?? [];
-  const participantName = (
+  return (
     participants.find((participant) => participant.order === order) ??
     participants[order - 1]
-  )?.participant_name?.trim() ?? null;
+  );
+}
+
+function nullableInteger(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function getParticipantName(match, order) {
+  const participantName = getParticipant(match, order)?.participant_name?.trim() ?? null;
 
   return participantName ? canonicalClubName(participantName) : null;
 }
@@ -274,6 +284,8 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
   const payload = [];
 
   for (const match of matches) {
+    const homeTeam = getParticipant(match, 1);
+    const awayTeam = getParticipant(match, 2);
     const homeTeamName = getParticipantName(match, 1);
     const awayTeamName = getParticipantName(match, 2);
     const startsAt = localDateTimeToUtcIso(match.start_time);
@@ -291,6 +303,9 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
       stupa_stage_id: stageId,
       stupa_round_id: match.round_id,
       stupa_group_id: match.group_id ?? null,
+      home_team_stupa_participant_id: nullableInteger(homeTeam?.participant_id),
+      away_team_stupa_participant_id: nullableInteger(awayTeam?.participant_id),
+      winning_team_stupa_participant_id: nullableInteger(match.winner),
       home_club_id: await getOrCreateClubId(supabase, clubs, homeTeamName),
       away_club_id: await getOrCreateClubId(supabase, clubs, awayTeamName),
       home_team_name: homeTeamName,

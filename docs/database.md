@@ -36,7 +36,8 @@ erDiagram
 - `stupa_submatches` retains each source submatch and its raw payload.
 - `player_submatch_results` retains per-player set and point details. Its
   `player_id` may be null when an imported identity cannot be matched.
-- `player_match_stats` is intended for calculated fantasy points, not raw data.
+- `player_match_stats` stores calculated singles, doubles, set, fixture-bonus,
+  walkover and gameweek-bonus points derived from the raw Stupa rows.
 
 ## Authorization and business rules
 
@@ -49,7 +50,8 @@ outside the application cannot bypass it.
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`,
 `get_my_played_gameweek_progress()`,
 `snapshot_locked_squads()`, `mark_used_chips()`,
-`calculate_fantasy_gameweek_points()` and leaderboard-related RPCs provide
+`calculate_player_match_stats()`, `calculate_fantasy_gameweek_points()` and
+leaderboard-related RPCs provide
 derived data to the application. Private league creation, invitation joining,
 listing and rankings go through security-definer RPCs that verify the signed-in
 user and league membership.

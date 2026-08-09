@@ -58,34 +58,29 @@ for the gameweek.
 
 | Event | Points |
 | --- | ---: |
-| Win an individual match | +6 |
+| Win an individual match | +4 |
 | Win a set | +1 |
-| Win an individual match 3-0 | +2 |
-| Win after trailing 0-2 | +3 |
-| Beat a higher-ranked opponent | +2 |
-| Player's club wins the team fixture | +2 |
+| Lose a set | -1 |
+| Win a doubles match, per player | +2 |
+| Player's club wins the team fixture | +3 |
 | Win every singles match in the gameweek, with at least two played | +2 |
 
-The ranking bonus uses official ranking position and applies only when both
-players have an imported ranking. The number of ranking places between the
-players does not affect the bonus. A player can still earn points for sets won
-in a lost individual match.
+A player can still earn points for sets won in a lost individual match, with
+one point deducted for each set lost.
 
-The club-win bonus is awarded separately for every team fixture the player's
-club wins, but only when the player took part in at least one singles or doubles
-match in that fixture. A player can therefore receive two club-win bonuses in a
-gameweek if the club wins two fixtures and the player appears in both.
+The club-win bonus is awarded to every fantasy player registered to the winning
+club, whether or not the player appeared in that fixture. It is awarded
+separately for every team fixture the club wins, so a player receives two
+club-win bonuses if their club wins two fixtures in the same gameweek.
 
 ### Walkovers
 
-A player awarded a walkover receives the same points as for a 3-0 win:
+A player awarded a walkover receives points for an individual match win and
+three sets won:
 
-- Individual match win: 6
+- Individual match win: 4
 - Three sets won: 3
-- 3-0 bonus: 2
-- **Total before fixture or gameweek bonuses: 11 points**
-
-The higher-ranked-opponent and comeback bonuses do not apply to a walkover.
+- **Total before fixture or gameweek bonuses: 7 points**
 
 If a player retires after an individual match has started, the match is treated
 as a walkover awarded to the opponent. The opponent receives the standard
@@ -94,31 +89,30 @@ retirement.
 
 ### Doubles
 
-The applicable points from a doubles match are added together and then divided
-equally between the two players. If the result is a half-point, each player's
-score is rounded up to the next whole point. For example, a 3-1 doubles win is
-worth 9 points before division, so each player receives 5 points after 4.5 is
-rounded up. Rounding happens once on the doubles-match total, not separately for
-each set or bonus.
+Each player on the winning doubles pair receives 2 points for the match win.
+Set points are added together for the pair and then divided equally between the
+two players. If the result is a half-point, each player's score is rounded up
+to the next whole point. For example, the set points from a 3-1 doubles win are
+2 before division: 3 points for sets won minus 1 point for the set lost. Each
+player therefore receives 1 set point in addition to the 2-point match-win
+award, for a total of 3 points. Rounding happens once on the doubles match's set
+total, not separately for each set.
 
-The higher-ranked-opponent bonus does not apply to doubles. Fixture-wide and
-gameweek-wide bonuses are calculated per player and are not divided.
+Fixture-wide and gameweek-wide bonuses are calculated per player and are not
+divided.
 
 Players who are not in the fantasy player pool never receive fantasy points.
 Their results can still be used to calculate the points of an eligible opponent.
 
 ### Scoring example
 
-A player wins 3-1 against an opponent ranked 20 places higher and the player's
-club wins the fixture:
+A player wins 3-1 and the player's club wins the fixture:
 
-- Individual match win: 6
+- Individual match win: 4
 - Three sets won: 3
-- Higher-ranked opponent bonus: 2
-- Club win: 2
-- **Total: 13 points**
-
-The 3-0 and comeback bonuses do not apply.
+- One set lost: -1
+- Club win: 3
+- **Total: 9 points**
 
 ## Captain
 

@@ -50,7 +50,8 @@ npm run import:results
 
 The schedule import must precede results because results reference parent rows
 in `matches`. The scripts use upserts and are intended to be safely rerunnable.
-Review warnings about missing matches or unmatched players after every run.
+The result import also recalculates every affected fantasy gameweek. Review
+warnings about missing matches or unmatched players after every run.
 
 ## Transfer locking and squad snapshots
 
@@ -60,6 +61,7 @@ Apply these migrations once, in this order:
 2. `supabase/squad-snapshot-cron-migration.sql`
 3. `supabase/chips-migration.sql`
 4. `supabase/save-squad-draft-migration.sql`
+5. `supabase/scoring-rules-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the

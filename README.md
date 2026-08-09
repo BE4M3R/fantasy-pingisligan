@@ -126,8 +126,14 @@ STUPA_STAGE_ID=4521 npm run import:schedule:dry
 
 ### Result imports
 
-To import scored Stupa submatches and per-player set results, first run
-`supabase/stupa-results-migration.sql` in the Supabase SQL editor, then run:
+To import scored Stupa submatches, calculate player points, and refresh fantasy
+team totals, first run these migrations in the Supabase SQL editor:
+
+1. `supabase/stupa-results-migration.sql`
+2. `supabase/scoring-rules-migration.sql`
+
+The scoring migration expects the squad snapshot and chips migrations described
+in [Updating](docs/updating.md) to have been applied already. Then run:
 
 ```bash
 npm run import:results
@@ -145,7 +151,8 @@ commands, rerun behavior and troubleshooting.
 
 Stupa's player `meta_data.license_id` is matched to the existing Profixio ID.
 Unmatched players are retained in the raw result tables and reported instead of
-being silently discarded. Fantasy points are not assigned by this importer.
+being silently discarded. Each successful import idempotently recalculates all
+gameweeks affected by the imported results.
 
 ## Deploy
 

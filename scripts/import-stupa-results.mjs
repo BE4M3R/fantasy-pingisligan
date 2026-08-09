@@ -58,6 +58,14 @@ function integerArray(value) {
   return Array.isArray(value) ? value.map((item) => integer(item)) : [];
 }
 
+function getParticipant(match, order) {
+  const participants = match.participants ?? [];
+  return (
+    participants.find((participant) => participant.order === order) ??
+    participants[order - 1]
+  );
+}
+
 async function fetchStage(stageId) {
   const url = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
   url.searchParams.set("stage_id", String(stageId));
@@ -88,6 +96,8 @@ async function fetchStage(stageId) {
 }
 
 function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, allowMissingParents = false) {
+  const matchUpdates = [];
+  const gameweekIds = new Set();
   const submatches = [];
   const playerResults = [];
   const unmatchedPlayers = new Map();
@@ -103,6 +113,26 @@ function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, al
     if (completedSubmatches.length > 0 && !databaseMatch) {
       missingParentMatches.add(integer(parent.id));
       if (!allowMissingParents) continue;
+    }
+
+    if (databaseMatch && completedSubmatches.length > 0) {
+      if (databaseMatch.fantasy_gameweek_id) {
+        gameweekIds.add(databaseMatch.fantasy_gameweek_id);
+      }
+      matchUpdates.push({
+        id: databaseMatch.id,
+        home_team_stupa_participant_id: integer(
+          getParticipant(parent, 1)?.participant_id,
+          null,
+        ),
+        away_team_stupa_participant_id: integer(
+          getParticipant(parent, 2)?.participant_id,
+          null,
+        ),
+        winning_team_stupa_participant_id: integer(parent.winner, null),
+        status: String(parent.status ?? "scored").toLowerCase(),
+        source_updated_at: now,
+      });
     }
 
     for (const submatch of completedSubmatches) {
@@ -158,6 +188,8 @@ function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, al
   }
 
   return {
+    gameweekIds: [...gameweekIds],
+    matchUpdates,
     submatches,
     playerResults,
     unmatchedPlayers: [...unmatchedPlayers.values()],
@@ -168,7 +200,10 @@ function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, al
 async function loadDatabaseLookups(supabase) {
   const [{ data: matches, error: matchError }, { data: players, error: playerError }] =
     await Promise.all([
-      supabase.from("matches").select("id, stupa_match_id").not("stupa_match_id", "is", null),
+      supabase
+        .from("matches")
+        .select("id, stupa_match_id, fantasy_gameweek_id")
+        .not("stupa_match_id", "is", null),
       supabase.from("players").select("id, profixio_id, stupa_user_role_id"),
     ]);
 
@@ -184,6 +219,13 @@ async function loadDatabaseLookups(supabase) {
 }
 
 async function persistRows(supabase, rows) {
+  if (rows.matchUpdates.length > 0) {
+    const { error } = await supabase
+      .from("matches")
+      .upsert(rows.matchUpdates, { onConflict: "id" });
+    if (error) throw new Error(`Could not update parent matches: ${error.message}`);
+  }
+
   if (rows.submatches.length > 0) {
     const { error } = await supabase
       .from("stupa_submatches")
@@ -212,6 +254,19 @@ async function persistRows(supabase, rows) {
       }
     }
   }
+}
+
+async function scoreAffectedGameweeks(supabase, gameweekIds) {
+  for (const gameweekId of gameweekIds) {
+    const { error } = await supabase.rpc("calculate_fantasy_gameweek_points", {
+      target_gameweek_id: gameweekId,
+    });
+    if (error) {
+      throw new Error(`Could not score fantasy gameweek ${gameweekId}: ${error.message}`);
+    }
+  }
+
+  return gameweekIds.length;
 }
 
 async function main() {
@@ -246,11 +301,16 @@ async function main() {
     dryRun,
   );
 
-  if (!dryRun) await persistRows(supabase, rows);
+  let scoredGameweekCount = 0;
+  if (!dryRun) {
+    await persistRows(supabase, rows);
+    scoredGameweekCount = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
+  }
 
   console.log(`Fetched ${parentMatches.length} parent matches from Stupa stage ${stageId}.`);
   console.log(`${dryRun ? "Would import" : "Imported"} ${rows.submatches.length} scored submatches.`);
   console.log(`${dryRun ? "Would import" : "Imported"} ${rows.playerResults.length} player result rows.`);
+  if (!dryRun) console.log(`Recalculated ${scoredGameweekCount} fantasy gameweeks.`);
 
   if (rows.missingParentMatches.length > 0) {
     console.warn(`Missing scheduled parent matches: ${rows.missingParentMatches.join(", ")}`);

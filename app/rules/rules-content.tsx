@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
 
 const scoring = [
-  ["Individual match win", "+6"],
+  ["Individual match win", "+4"],
   ["Each set won", "+1"],
-  ["Win 3-0", "+2"],
-  ["Win after trailing 0-2", "+3"],
-  ["Beat a higher-ranked opponent", "+2"],
-  ["Your club wins the fixture", "+2"],
+  ["Each set lost", "-1"],
+  ["Doubles match win, per player", "+2"],
+  ["Your club wins the fixture (all club players)", "+3"],
   ["Win all singles (minimum two)", "+2"],
 ] as const;
 
@@ -142,14 +141,6 @@ export function RulesContent() {
           </ul>
         </RuleCard>
 
-        <RuleCard eyebrow="07" title="Special results">
-          <ul className="space-y-2">
-            <li>A walkover or retirement gives the winner <strong className="text-[var(--pf-fantasy-yellow)]">11 points</strong> before other bonuses.</li>
-            <li>Doubles points are split equally; half-points round up.</li>
-            <li>The club-win bonus applies once per fixture the player appears in.</li>
-            <li>The ranking bonus applies only when both players have an official ranking.</li>
-          </ul>
-        </RuleCard>
       </div>
     </div>
   );

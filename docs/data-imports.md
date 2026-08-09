@@ -12,13 +12,15 @@ developer. Dry runs remain local and do not write database data.
 
 1. **Players** creates clubs and players from Profixio rankings.
 2. **Schedule** creates Stupa rounds as gameweeks and their parent matches.
-3. **Results** attaches Stupa submatches and player results to those matches.
+3. **Results** attaches Stupa submatches and player results, then recalculates
+   player and fantasy-team points for every affected gameweek.
 
 ```mermaid
 flowchart TD
     A[npm run import:players] --> B[npm run import:schedule]
     B --> C[npm run import:results]
-    C --> D[Inspect missing-match and unmatched-player warnings]
+    C --> D[Recalculate affected fantasy gameweeks]
+    D --> E[Inspect missing-match and unmatched-player warnings]
 ```
 
 ## Configuration
@@ -46,7 +48,7 @@ STUPA_STAGE_ID=4521 npm run import:results:dry
 | --- | --- | --- |
 | `npm run import:players` | Profixio rankings | `clubs`, `players` |
 | `npm run import:schedule` | Stupa stage matches | `clubs`, `fantasy_gameweeks`, `matches` |
-| `npm run import:results` | Stupa completed submatches | `stupa_submatches`, `player_submatch_results`, player identity link |
+| `npm run import:results` | Stupa completed submatches | Raw result tables, `player_match_stats`, snapshot player points, team gameweek totals |
 
 Each command has a `:dry` variant. Use it first when changing a stage, source
 endpoint or parser. The writers use stable source identifiers and upserts, so a
@@ -78,4 +80,5 @@ to the console; this preserves source data for later reconciliation.
 - **Unexpected source response:** use a dry run and confirm that the configured
   stage exists and the upstream endpoint still returns its expected shape.
 
-Fantasy points are not assigned by the result importer yet.
+Result scoring is idempotent: corrected source results replace the affected
+`player_match_stats`, snapshot player points, and team totals on the next import.
