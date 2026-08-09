@@ -12,7 +12,8 @@
     "import:schedule": "node scripts/import-stupa-schedule.mjs",
     "import:schedule:dry": "node scripts/import-stupa-schedule.mjs --dry-run",
     "import:results": "node scripts/import-stupa-results.mjs",
-    "import:results:dry": "node scripts/import-stupa-results.mjs --dry-run"
+    "import:results:dry": "node scripts/import-stupa-results.mjs --dry-run",
+    "test:staging": "node scripts/staging-gameweek-test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

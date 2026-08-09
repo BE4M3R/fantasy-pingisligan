@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "stageId": -900001,
+  "gameweeks": [
+    {
+      "key": "gw1",
+      "name": "[TEST] Scoring Gameweek 1",
+      "roundOrder": 9001,
+      "startsAfterHours": 3,
+      "fixtures": [
+        {
+          "key": "eslov-halmstad",
+          "startsAfterMinutes": 0,
+          "durationMinutes": 120,
+          "home": {
+            "club": "Eslövs AI BTK",
+            "players": [
+              "Truls Möregårdh",
+              "Vladislav Ursu",
+              "Hugo Jobs"
+            ]
+          },
+          "away": {
+            "club": "Halmstad BTK",
+            "players": [
+              "Kristian Karlsson",
+              "Mattias Karlsson",
+              "Noa Dahlström"
+            ]
+          },
+          "winner": "home",
+          "matches": [
+            {
+              "type": "singles",
+              "homePlayers": ["Truls Möregårdh"],
+              "awayPlayers": ["Kristian Karlsson"],
+              "result": { "homeSets": 3, "awaySets": 1 },
+              "correction": { "homeSets": 1, "awaySets": 3 }
+            },
+            {
+              "type": "singles",
+              "homePlayers": ["Truls Möregårdh"],
+              "awayPlayers": ["Mattias Karlsson"],
+              "result": { "homeSets": 3, "awaySets": 0 }
+            },
+            {
+              "type": "doubles",
+              "homePlayers": ["Vladislav Ursu", "Hugo Jobs"],
+              "awayPlayers": ["Mattias Karlsson", "Noa Dahlström"],
+              "result": { "homeSets": 3, "awaySets": 1 }
+            },
+            {
+              "type": "singles",
+              "homePlayers": ["Vladislav Ursu"],
+              "awayPlayers": ["Kristian Karlsson"],
+              "result": { "walkover": true, "winner": "home" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "gw2",
+      "name": "[TEST] Scoring Gameweek 2",
+      "roundOrder": 9002,
+      "startsAfterHours": 27,
+      "fixtures": [
+        {
+          "key": "eslov-halmstad-return",
+          "startsAfterMinutes": 0,
+          "durationMinutes": 120,
+          "home": {
+            "club": "Eslövs AI BTK",
+            "players": [
+              "Truls Möregårdh",
+              "Vladislav Ursu",
+              "Hugo Jobs"
+            ]
+          },
+          "away": {
+            "club": "Halmstad BTK",
+            "players": [
+              "Kristian Karlsson",
+              "Mattias Karlsson",
+              "Noa Dahlström"
+            ]
+          },
+          "winner": "away",
+          "matches": [
+            {
+              "type": "singles",
+              "homePlayers": ["Truls Möregårdh"],
+              "awayPlayers": ["Kristian Karlsson"],
+              "result": { "homeSets": 2, "awaySets": 3 }
+            },
+            {
+              "type": "singles",
+              "homePlayers": ["Vladislav Ursu"],
+              "awayPlayers": ["Mattias Karlsson"],
+              "result": { "homeSets": 3, "awaySets": 2 },
+              "correction": { "homeSets": 1, "awaySets": 3 }
+            },
+            {
+              "type": "doubles",
+              "homePlayers": ["Truls Möregårdh", "Hugo Jobs"],
+              "awayPlayers": ["Mattias Karlsson", "Noa Dahlström"],
+              "result": { "homeSets": 2, "awaySets": 3 }
+            },
+            {
+              "type": "singles",
+              "homePlayers": ["Hugo Jobs"],
+              "awayPlayers": ["Noa Dahlström"],
+              "result": { "walkover": true, "winner": "home" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
