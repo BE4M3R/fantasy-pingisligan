@@ -30,6 +30,27 @@ STAGING_TEST_DATA_FILE=test-data/my-staging-gameweeks.json
 
 Never put Supabase keys in a JSON fixture.
 
+## Run the app against staging
+
+Next.js does not load `.env.staging.local` automatically. In Bash, export the
+variables from that file before starting the development server:
+
+```bash
+set -a
+source .env.staging.local
+set +a
+npm run dev
+```
+
+## Test accounts
+
+The following accounts already exist in the staging environment:
+
+| Account | Username | Password |
+| --- | --- | --- |
+| 1 | `test_staging@gmail.com` | `test_staging` |
+| 2 | `test_staging_2@gmail.com` | `test_staging_2` |
+
 ## JSON format
 
 The root contains a reserved `stageId` and one or more gameweeks:
