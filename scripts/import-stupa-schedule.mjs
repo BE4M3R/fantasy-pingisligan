@@ -2,11 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import {
+  localDateTimeToUtcIso,
+  nextStockholmMidnightUtcIso,
+} from "./stockholm-time.mjs";
 
 const STUPA_API_BASE_URL = "https://testbackend.stupaevents.com";
 const STUPA_TENANT = "sbtf";
 const DEFAULT_STAGE_ID = 5727;
-const SOURCE_TIME_ZONE = "Europe/Stockholm";
 const LOCK_WINDOW_HOURS = 2;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,47 +82,6 @@ function canonicalClubName(value) {
   return isEskilstunaByStiga || isLindenEskilstuna
     ? "Linden BTK Eskilstuna"
     : value.trim();
-}
-
-function getOffsetMinutes(date, timeZone) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "shortOffset",
-  }).formatToParts(date);
-  const timeZoneName = parts.find((part) => part.type === "timeZoneName")?.value;
-  const match = timeZoneName?.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
-
-  if (!match) {
-    throw new Error(`Could not determine ${timeZone} offset for ${date.toISOString()}`);
-  }
-
-  const [, sign, hours, minutes = "0"] = match;
-  const offset = Number(hours) * 60 + Number(minutes);
-  return sign === "-" ? -offset : offset;
-}
-
-function localDateTimeToUtcIso(value, timeZone = SOURCE_TIME_ZONE) {
-  if (!value) {
-    return null;
-  }
-
-  if (/[zZ]|[+-]\d\d:?\d\d$/.test(value)) {
-    return new Date(value).toISOString();
-  }
-
-  const [datePart, timePart = "00:00:00"] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour = 0, minute = 0, second = 0] = timePart.split(":").map(Number);
-  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-  const firstOffset = getOffsetMinutes(utcGuess, timeZone);
-  const firstDate = new Date(utcGuess.getTime() - firstOffset * 60 * 1000);
-  const secondOffset = getOffsetMinutes(firstDate, timeZone);
-
-  if (secondOffset === firstOffset) {
-    return firstDate.toISOString();
-  }
-
-  return new Date(utcGuess.getTime() - secondOffset * 60 * 1000).toISOString();
 }
 
 function addHours(isoValue, hours) {
@@ -214,7 +176,7 @@ function buildGameweeks(matches, stageId) {
     .map((gameweek) => ({
       ...gameweek,
       lock_at: addHours(gameweek.first_match_starts_at, -LOCK_WINDOW_HOURS),
-      unlock_at: addHours(gameweek.last_match_ends_at, LOCK_WINDOW_HOURS),
+      unlock_at: nextStockholmMidnightUtcIso(gameweek.last_match_ends_at),
       imported_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }))

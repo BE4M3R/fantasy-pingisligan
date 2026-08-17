@@ -58,8 +58,9 @@ them.
 ## Schedule behavior
 
 One fantasy gameweek is built per Stupa round. Transfers lock two hours before
-the first match and unlock two hours after the last match. Source times are
-interpreted in `Europe/Stockholm` and stored as UTC timestamps.
+the first match and reopen at 00:00 Swedish time on the day after the last
+match. Source times are interpreted in `Europe/Stockholm` and stored as UTC
+timestamps.
 
 ## Result identity matching
 

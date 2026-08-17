@@ -40,7 +40,8 @@ twice.
 The gameweek deadline is two hours before the scheduled start of the earliest
 team fixture in the gameweek. The starting lineup, captain, transfers, and
 active chip lock at that deadline. They can be changed again when the transfer
-window reopens.
+window reopens at 00:00 Swedish time on the day after the final scheduled team
+fixture.
 
 If a squad is incomplete at the deadline, its selected starters still score.
 Every empty slot contributes no points. Automatic substitutions can use only

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
 const MATCH_ID_BASE = -902001;
@@ -497,7 +498,7 @@ function configuredTimes(gameweek, baseDate = new Date()) {
     fixtures,
     lastMatchEndsAt,
     lockAt: addHours(firstMatchStartsAt, -2),
-    unlockAt: addHours(lastMatchEndsAt, 2),
+    unlockAt: nextStockholmMidnightUtcIso(lastMatchEndsAt),
   };
 }
 
@@ -596,7 +597,7 @@ function lockWindowTimes(definition, now = new Date()) {
     fixtures,
     lastMatchEndsAt,
     lockAt,
-    unlockAt: addHours(lastMatchEndsAt, 2),
+    unlockAt: nextStockholmMidnightUtcIso(lastMatchEndsAt),
   };
 }
 

@@ -63,6 +63,7 @@ Apply these migrations once, in this order:
 4. `supabase/save-squad-draft-migration.sql`
 5. `supabase/scoring-rules-migration.sql`
 6. `supabase/chip-state-from-lock-migration.sql`
+7. `supabase/midnight-unlock-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the
