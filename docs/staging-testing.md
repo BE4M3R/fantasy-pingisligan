@@ -102,8 +102,7 @@ A club fixture explicitly lists its clubs and available lineup players:
 
 Club and player names are matched case-insensitively against active staging
 records. Every player must belong to the configured club. `winner` controls the
-club-fixture bonus and can be `"home"`, `"away"`, or `null`. An optional
-`correctionWinner` changes it when the `correct` action runs.
+club-fixture bonus and can be `"home"`, `"away"`, or `null`.
 
 Singles and doubles list the participating players and set score:
 
@@ -112,8 +111,7 @@ Singles and doubles list the participating players and set score:
   "type": "singles",
   "homePlayers": ["Truls Möregårdh"],
   "awayPlayers": ["Kristian Karlsson"],
-  "result": { "homeSets": 3, "awaySets": 1 },
-  "correction": { "homeSets": 1, "awaySets": 3 }
+  "result": { "homeSets": 3, "awaySets": 1 }
 }
 ```
 
@@ -128,9 +126,8 @@ Use two names per side for doubles. A walkover omits the set score:
 }
 ```
 
-`correction` is optional. When present, `correct GAMEWEEK_KEY` replaces the
-initial result with it. The script generates all reserved database identifiers;
-do not add Stupa IDs to the JSON.
+The script generates all reserved database identifiers; do not add Stupa IDs
+to the JSON.
 
 ## Validate and install
 
@@ -176,12 +173,10 @@ npm run test:staging -- lock gw1
 ```
 
 With either path, verify immediately after locking that squad, captain, and
-chip changes are blocked. Then score, inspect, apply the configured correction,
-and complete the gameweek:
+chip changes are blocked. Then score, inspect, and complete the gameweek:
 
 ```bash
 npm run test:staging -- score gw1
-npm run test:staging -- correct gw1
 npm run test:staging -- unlock gw1
 ```
 
@@ -199,7 +194,6 @@ npm run test:staging -- lock-cron gw2
 sleep 360
 npm run test:staging -- status gw2
 npm run test:staging -- score gw2
-npm run test:staging -- correct gw2
 npm run test:staging -- unlock gw2
 ```
 

@@ -194,14 +194,6 @@ function validateScenario(raw) {
         fixture.winner === "home" || fixture.winner === "away" || fixture.winner === null,
         `${fixtureContext}.winner must be "home", "away", or null.`,
       );
-      if (fixture.correctionWinner !== undefined) {
-        assert(
-          fixture.correctionWinner === "home" ||
-            fixture.correctionWinner === "away" ||
-            fixture.correctionWinner === null,
-          `${fixtureContext}.correctionWinner must be "home", "away", or null.`,
-        );
-      }
       assert(
         Number.isFinite(fixture.startsAfterMinutes) && fixture.startsAfterMinutes >= 0,
         `${fixtureContext}.startsAfterMinutes must be zero or greater.`,
@@ -252,9 +244,6 @@ function validateScenario(raw) {
           `${matchContext} contains a duplicate player.`,
         );
         validateResult(match.result, `${matchContext}.result`);
-        if (match.correction !== undefined) {
-          validateResult(match.correction, `${matchContext}.correction`);
-        }
       });
     });
   });
@@ -563,7 +552,7 @@ async function setup(supabase, scenario) {
 
   console.log(`Created ${inserted.length} configured staging gameweeks.`);
   console.table(inserted);
-  console.log("Choose a gameweek key when running lock, score, correct, or unlock.");
+  console.log("Choose a gameweek key when running lock, score, or unlock.");
 }
 
 function lockWindowTimes(definition, now = new Date()) {
@@ -666,19 +655,9 @@ async function lock(supabase, definition, waitForCron = false) {
   console.log(`Stored ${count ?? 0} team snapshots for ${definition.key}.`);
 }
 
-function effectiveResult(match, corrected) {
-  return corrected && match.correction ? match.correction : match.result;
-}
-
 function resultWinner(result) {
   if (result.walkover) return result.winner;
   return result.homeSets > result.awaySets ? "home" : "away";
-}
-
-function fixtureWinner(fixture, corrected) {
-  return corrected && fixture.correctionWinner !== undefined
-    ? fixture.correctionWinner
-    : fixture.winner;
 }
 
 function resultRow({
@@ -726,15 +705,15 @@ function playersForMatch(fixture, names) {
   });
 }
 
-function buildResultRows(definition, roleIds, corrected) {
+function buildResultRows(definition, roleIds) {
   const now = new Date().toISOString();
   const fixtures = definition.fixtures.map((fixture) => {
-    const parentWinner = fixtureWinner(fixture, corrected);
+    const parentWinner = fixture.winner;
     const submatches = [];
     const results = [];
 
     fixture.matches.forEach((match, matchIndex) => {
-      const result = effectiveResult(match, corrected);
+      const result = match.result;
       const winner = resultWinner(result);
       const homePlayers = playersForMatch(fixture, match.homePlayers);
       const awayPlayers = playersForMatch(fixture, match.awayPlayers);
@@ -750,7 +729,7 @@ function buildResultRows(definition, roleIds, corrected) {
         winning_team_stupa_id: homeWon
           ? fixture.homeParticipantId
           : fixture.awayParticipantId,
-        raw_payload: { test: true, corrected, order: matchIndex + 1 },
+        raw_payload: { test: true, order: matchIndex + 1 },
         source_updated_at: now,
       });
 
@@ -793,12 +772,12 @@ function buildResultRows(definition, roleIds, corrected) {
   return fixtures;
 }
 
-function expectedPlayerPoints(definition, activePlayers, corrected) {
+function expectedPlayerPoints(definition, activePlayers) {
   const points = new Map(activePlayers.map((player) => [player.id, 0]));
   const singles = new Map();
 
   for (const fixture of definition.fixtures) {
-    const winningSide = fixtureWinner(fixture, corrected);
+    const winningSide = fixture.winner;
     const winningClub =
       winningSide === "home"
         ? fixture.homeClub
@@ -814,7 +793,7 @@ function expectedPlayerPoints(definition, activePlayers, corrected) {
     }
 
     for (const match of fixture.matches) {
-      const result = effectiveResult(match, corrected);
+      const result = match.result;
       const winner = resultWinner(result);
       for (const side of ["home", "away"]) {
         const players = playersForMatch(
@@ -882,31 +861,20 @@ function expectedTeamPoints(team, rows, playerPoints, snapshot) {
   };
 }
 
-function formatConfiguredResult(match, corrected) {
-  const result = effectiveResult(match, corrected);
+function formatConfiguredResult(match) {
+  const result = match.result;
   if (result.walkover) return `${result.winner} walkover`;
   return `${result.homeSets}-${result.awaySets}`;
 }
 
-async function seedAndScore(supabase, definition, activePlayers, roleIds, corrected) {
-  if (
-    corrected &&
-    !definition.fixtures.some(
-      (fixture) =>
-        fixture.correctionWinner !== undefined ||
-        fixture.matches.some((match) => match.correction),
-    )
-  ) {
-    throw new Error(`Gameweek "${definition.key}" has no corrections in the JSON fixture.`);
-  }
-
+async function seedAndScore(supabase, definition, activePlayers, roleIds) {
   const gameweek = await getDatabaseGameweek(supabase, definition);
   const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
   const matchesByStupaId = new Map(
     databaseMatches.map((match) => [match.stupa_match_id, match]),
   );
   const { rowsByTeam, teams } = await loadTeamsAndSquads(supabase, gameweek.id);
-  const fixtureRows = buildResultRows(definition, roleIds, corrected);
+  const fixtureRows = buildResultRows(definition, roleIds);
   const now = new Date();
   const minimumOffset = Math.min(
     ...definition.fixtures.map((fixture) => fixture.startsAfterMinutes),
@@ -1004,7 +972,7 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds, correc
   const snapshotsByTeam = new Map(
     (snapshots ?? []).map((snapshot) => [snapshot.fantasy_team_id, snapshot]),
   );
-  const expectedPlayers = expectedPlayerPoints(definition, activePlayers, corrected);
+  const expectedPlayers = expectedPlayerPoints(definition, activePlayers);
   const expectedTotals = teams.map((team) => {
     const snapshot = snapshotsByTeam.get(team.id);
     if (!snapshot) throw new Error(`Missing locked snapshot for "${team.name}".`);
@@ -1021,7 +989,7 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds, correc
     }
   }
 
-  console.log(corrected ? `Applied corrections to ${definition.key}.` : `Scored ${definition.key}.`);
+  console.log(`Scored ${definition.key}.`);
   console.log("Configured matches:");
   console.table(
     definition.fixtures.flatMap((fixture) =>
@@ -1029,7 +997,7 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds, correc
         away: match.awayPlayers.join(" / "),
         fixture: `${fixture.home.club} vs ${fixture.away.club}`,
         home: match.homePlayers.join(" / "),
-        result: formatConfiguredResult(match, corrected),
+        result: formatConfiguredResult(match),
         type: match.type,
       })),
     ),
@@ -1210,14 +1178,13 @@ async function main() {
     "lock",
     "lock-cron",
     "score",
-    "correct",
     "unlock",
     "status",
     "cleanup",
   ]);
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, setup, lock, lock-cron, score, correct, unlock, status, or cleanup.",
+      "Choose an action: validate, setup, lock, lock-cron, score, unlock, status, or cleanup.",
     );
   }
   if (action === "setup" && key) {
@@ -1242,7 +1209,7 @@ async function main() {
   if (action === "setup") await setup(supabase, resolvedScenario);
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
-  if (["lock", "lock-cron", "score", "correct", "unlock"].includes(action)) {
+  if (["lock", "lock-cron", "score", "unlock"].includes(action)) {
     const definition = selectDefinition(resolvedScenario, key);
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
@@ -1252,16 +1219,6 @@ async function main() {
         definition,
         resolvedScenario.activePlayers,
         resolvedScenario.roleIds,
-        false,
-      );
-    }
-    if (action === "correct") {
-      await seedAndScore(
-        supabase,
-        definition,
-        resolvedScenario.activePlayers,
-        resolvedScenario.roleIds,
-        true,
       );
     }
     if (action === "unlock") await unlock(supabase, definition);

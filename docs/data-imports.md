@@ -80,5 +80,8 @@ to the console; this preserves source data for later reconciliation.
 - **Unexpected source response:** use a dry run and confirm that the configured
   stage exists and the upstream endpoint still returns its expected shape.
 
-Result scoring is idempotent: corrected source results replace the affected
-`player_match_stats`, snapshot player points, and team totals on the next import.
+Every results import reloads the full Stupa stage. New or changed source rows
+replace their stored rows, and every gameweek present in that result set is
+recalculated against its locked squad snapshots. This means a later import also
+repairs points for an earlier gameweek when a previously missing or inaccurate
+score has changed upstream.

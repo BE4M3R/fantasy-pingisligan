@@ -34,8 +34,7 @@
               "type": "singles",
               "homePlayers": ["Truls Möregårdh"],
               "awayPlayers": ["Kristian Karlsson"],
-              "result": { "homeSets": 3, "awaySets": 1 },
-              "correction": { "homeSets": 1, "awaySets": 3 }
+              "result": { "homeSets": 3, "awaySets": 1 }
             },
             {
               "type": "singles",
@@ -97,8 +96,7 @@
               "type": "singles",
               "homePlayers": ["Vladislav Ursu"],
               "awayPlayers": ["Mattias Karlsson"],
-              "result": { "homeSets": 3, "awaySets": 2 },
-              "correction": { "homeSets": 1, "awaySets": 3 }
+              "result": { "homeSets": 3, "awaySets": 2 }
             },
             {
               "type": "doubles",

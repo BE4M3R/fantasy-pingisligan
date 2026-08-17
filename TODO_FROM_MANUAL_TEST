@@ -9,7 +9,7 @@ I dont see results on progress page after results have come in
 
 double match points should be same ceiling(same calculation as single match / 2) 
 
-In league when pressing a player show team in list main and becnh players and how many points eahc player got + or -. Also show if bbost chip was enabled, captain and if - points from extra trasnfers. Also show info from progress ciew if pessing a gameweek?
+In league when pressing a player show team in list main and becnh players and how many points eahc player got + or -. Also show if bbost chip was enabled, captain and if - points from extra trasnfers. Also show info from progress view if passing a gameweek?
 
 In Squad show points latest round on each player card. If I click a player card I cna click "stats" this will show what gave points from last round and how it be came the shown sum.
 
@@ -24,10 +24,6 @@ If someone has -1 should captain give -2?
 In desktop sometimes scrollbar disapears when I am selecting players.
 
 When doing a transfer show how many gameweeks he played or some other stats
-
-I dont think we need this: npm run test:staging -- correct gw2. Can we always load all infomration and if something has changed just update it and compare with snapshot.
-
-Make all result update when we are unlocking again. At that time all results should be reported. If something comes later comapre with snapshot.
 
 Remove from team button does not work (only tested on iphone safari)
 

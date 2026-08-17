@@ -257,6 +257,8 @@ async function persistRows(supabase, rows) {
 }
 
 async function scoreAffectedGameweeks(supabase, gameweekIds) {
+  // The source response covers the full stage, so this intentionally revisits
+  // earlier gameweeks whenever their results are still present in that response.
   for (const gameweekId of gameweekIds) {
     const { error } = await supabase.rpc("calculate_fantasy_gameweek_points", {
       target_gameweek_id: gameweekId,
@@ -310,7 +312,11 @@ async function main() {
   console.log(`Fetched ${parentMatches.length} parent matches from Stupa stage ${stageId}.`);
   console.log(`${dryRun ? "Would import" : "Imported"} ${rows.submatches.length} scored submatches.`);
   console.log(`${dryRun ? "Would import" : "Imported"} ${rows.playerResults.length} player result rows.`);
-  if (!dryRun) console.log(`Recalculated ${scoredGameweekCount} fantasy gameweeks.`);
+  if (!dryRun) {
+    console.log(
+      `Recalculated ${scoredGameweekCount} fantasy gameweeks from the full stage result set.`,
+    );
+  }
 
   if (rows.missingParentMatches.length > 0) {
     console.warn(`Missing scheduled parent matches: ${rows.missingParentMatches.join(", ")}`);
