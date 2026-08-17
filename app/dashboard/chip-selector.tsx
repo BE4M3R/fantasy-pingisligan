@@ -9,7 +9,6 @@ export type ChipSelection = {
   chip: Chip;
   fantasy_gameweek_id: string;
   locked_at: string | null;
-  used_at: string | null;
 };
 
 type UpcomingGameweek = {
@@ -125,6 +124,7 @@ function ChipIcon({ chip }: { chip: Chip }) {
 
 export function ChipSelector({
   compact = false,
+  lockedGameweekId,
   migrationMissing,
   onChange,
   selectedChip,
@@ -133,6 +133,7 @@ export function ChipSelector({
   upcomingGameweek,
 }: {
   compact?: boolean;
+  lockedGameweekId: string | null;
   migrationMissing: boolean;
   onChange: (chip: Chip | null) => void;
   selectedChip: Chip | null;
@@ -146,7 +147,9 @@ export function ChipSelector({
       .map((selection) => selection.chip),
   );
   const lockedChip = selections.find(
-    (selection) => selection.locked_at && !selection.used_at,
+    (selection) =>
+      selection.locked_at &&
+      selection.fantasy_gameweek_id === lockedGameweekId,
   );
   const [pendingChip, setPendingChip] = useState<Chip | null>(null);
   const chipTriggerRef = useRef<HTMLButtonElement | null>(null);

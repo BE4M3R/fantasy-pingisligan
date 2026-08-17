@@ -1697,15 +1697,6 @@ select cron.schedule(
   $cron$select public.snapshot_locked_squads();$cron$
 );
 
-select cron.unschedule(jobid)
-from cron.job
-where jobname = 'mark-used-chips';
-
-select cron.schedule(
-  'mark-used-chips',
-  '*/15 * * * *',
-  $cron$select public.mark_used_chips();$cron$
-);
 create or replace function public.get_my_latest_squad_result()
 returns table (
   gameweek_id uuid,

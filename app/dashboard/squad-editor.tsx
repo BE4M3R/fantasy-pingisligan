@@ -47,6 +47,7 @@ type SquadEditorProps = {
   initialChip: Chip | null;
   initialSquad: DraftSquadPlayer[];
   latestResultSquad: SquadPlayerResult[];
+  lockedGameweekId: string | null;
   previousPlayerIds: string[];
   resultModeMigrationMissing: boolean;
   transferWindowMessage: string;
@@ -200,6 +201,7 @@ export function SquadEditor({
   initialChip,
   initialSquad,
   latestResultSquad,
+  lockedGameweekId,
   previousPlayerIds,
   resultModeMigrationMissing,
   transferWindowMessage,
@@ -550,6 +552,7 @@ export function SquadEditor({
         <div className="sm:hidden">
           <ChipSelector
             compact
+            lockedGameweekId={lockedGameweekId}
             migrationMissing={chipMigrationMissing}
             onChange={changeChip}
             selectedChip={selectedChip}
@@ -561,6 +564,7 @@ export function SquadEditor({
 
         <div className="hidden sm:block">
           <ChipSelector
+            lockedGameweekId={lockedGameweekId}
             migrationMissing={chipMigrationMissing}
             onChange={changeChip}
             selectedChip={selectedChip}

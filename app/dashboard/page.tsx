@@ -26,6 +26,7 @@ type SquadRow = {
 };
 
 type TransferLock = {
+  gameweek_id: string | null;
   is_locked: boolean;
   gameweek_name: string | null;
   unlock_at: string | null;
@@ -200,7 +201,7 @@ export default async function SquadPage({
     fantasyTeam
       ? supabase
           .from("fantasy_team_chip_selections")
-          .select("chip, fantasy_gameweek_id, locked_at, used_at")
+          .select("chip, fantasy_gameweek_id, locked_at")
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
     supabase.rpc("get_my_latest_squad_result"),
@@ -313,6 +314,7 @@ export default async function SquadPage({
           initialChip={currentChipSelection?.chip ?? null}
           initialSquad={squad}
           latestResultSquad={latestResultSquad}
+          lockedGameweekId={transferLock?.gameweek_id ?? null}
           previousPlayerIds={previousPlayers.map((row) => row.player_id)}
           resultModeMigrationMissing={resultModeMigrationMissing}
           transferWindowMessage={transferWindowMessage}

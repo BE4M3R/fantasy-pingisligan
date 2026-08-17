@@ -1112,10 +1112,7 @@ async function unlock(supabase, definition) {
     })
     .eq("id", gameweek.id);
   ensureNoError(error, `Could not complete ${definition.key}`);
-  const { data: usedChips, error: chipError } = await supabase.rpc("mark_used_chips");
-  ensureNoError(chipError, "Could not mark locked chips as used");
   console.log(`Completed ${definition.key}.`);
-  console.log(`Marked ${usedChips ?? 0} chips as used.`);
 }
 
 async function statusRow(supabase, definition) {
