@@ -61,13 +61,12 @@ for the gameweek.
 | --- | ---: |
 | Win an individual match | +4 |
 | Win a set | +1 |
-| Lose a set | -1 |
 | Win a doubles match, per player | +2 |
 | Player's club wins the team fixture | +3 |
 | Win every singles match in the gameweek, with at least two played | +2 |
 
-A player can still earn points for sets won in a lost individual match, with
-one point deducted for each set lost.
+A player can still earn points for sets won in a lost individual match. Lost
+sets do not deduct points.
 
 The club-win bonus is awarded to every fantasy player registered to the winning
 club, whether or not the player appeared in that fixture. It is awarded
@@ -91,13 +90,12 @@ retirement.
 ### Doubles
 
 Each player on the winning doubles pair receives 2 points for the match win.
-Set points are added together for the pair and then divided equally between the
-two players. If the result is a half-point, each player's score is rounded up
-to the next whole point. For example, the set points from a 3-1 doubles win are
-2 before division: 3 points for sets won minus 1 point for the set lost. Each
-player therefore receives 1 set point in addition to the 2-point match-win
-award, for a total of 3 points. Rounding happens once on the doubles match's set
-total, not separately for each set.
+Points for sets won are added together for the pair and then divided equally
+between the two players. If the result is a half-point, each player's score is
+rounded up to the next whole point. For example, the set points from a 3-1
+doubles win are 3 before division. Each player therefore receives 2 set points
+in addition to the 2-point match-win award, for a total of 4 points. Rounding
+happens once on the doubles match's set total, not separately for each set.
 
 Fixture-wide and gameweek-wide bonuses are calculated per player and are not
 divided.
@@ -111,9 +109,8 @@ A player wins 3-1 and the player's club wins the fixture:
 
 - Individual match win: 4
 - Three sets won: 3
-- One set lost: -1
 - Club win: 3
-- **Total: 9 points**
+- **Total: 10 points**
 
 ## Captain
 

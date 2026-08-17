@@ -1398,14 +1398,12 @@ begin
                   when context.is_walkover then 0
                   else results.sets_won
                 end
-                - case when context.is_walkover then 0 else results.sets_lost end
               )::numeric / side_sizes.player_count
             )::integer
         when context.is_walkover then case when results.won then 7 else 0 end
         else
           (case when results.won then 4 else 0 end)
           + results.sets_won
-          - results.sets_lost
       end as points
     from submatch_context as context
     join public.player_submatch_results as results
@@ -1811,12 +1809,11 @@ as $$
                 when context.is_walkover then 0
                 else results.sets_won
               end
-              - case when context.is_walkover then 0 else results.sets_lost end
             )::numeric / side_sizes.player_count
           )::integer
         when context.is_walkover and results.won then 3
         when context.is_walkover then 0
-        else results.sets_won - results.sets_lost
+        else results.sets_won
       end as set_points
     from submatch_context as context
     join public.player_submatch_results as results

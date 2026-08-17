@@ -821,23 +821,17 @@ function expectedPlayerPoints(definition, activePlayers) {
           : side === "home"
             ? result.homeSets
             : result.awaySets;
-        const setsLost = result.walkover
-          ? 0
-          : side === "home"
-            ? result.awaySets
-            : result.homeSets;
-
         for (const player of players) {
           let matchPoints;
           if (match.type === "doubles") {
             const scoringSetsWon = result.walkover && won ? 3 : setsWon;
             matchPoints =
               (won ? 2 : 0) +
-              Math.ceil((scoringSetsWon - setsLost) / players.length);
+              Math.ceil(scoringSetsWon / players.length);
           } else if (result.walkover) {
             matchPoints = won ? 7 : 0;
           } else {
-            matchPoints = (won ? 4 : 0) + setsWon - setsLost;
+            matchPoints = (won ? 4 : 0) + setsWon;
           }
           points.set(player.id, (points.get(player.id) ?? 0) + matchPoints);
 

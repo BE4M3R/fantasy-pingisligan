@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 const scoring = [
   ["Individual match win", "+4"],
   ["Each set won", "+1"],
-  ["Each set lost", "-1"],
   ["Doubles match win, per player", "+2"],
   ["Your club wins the fixture (all club players)", "+3"],
   ["Win all singles (minimum two)", "+2"],
