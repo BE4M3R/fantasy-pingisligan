@@ -17,6 +17,7 @@ import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
   DraftSquadPlayer,
+  SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
 import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
@@ -45,7 +46,9 @@ type SquadEditorProps = {
   chipSelections: ChipSelection[];
   initialChip: Chip | null;
   initialSquad: DraftSquadPlayer[];
+  latestResultSquad: SquadPlayerResult[];
   previousPlayerIds: string[];
+  resultModeMigrationMissing: boolean;
   transferWindowMessage: string;
   transferSummaryMigrationMissing: boolean;
   transfersLocked: boolean;
@@ -120,6 +123,7 @@ function SquadCard({
   selectedPlayerIds,
   swapTargets,
   transfersLocked,
+  result,
 }: {
   onMakeCaptain: () => void;
   onRemove: () => void;
@@ -131,6 +135,7 @@ function SquadCard({
   selectedPlayerIds: string[];
   swapTargets: DraftSquadPlayer[];
   transfersLocked: boolean;
+  result?: SquadPlayerResult;
 }) {
   const clubName = getClubName(player);
 
@@ -146,6 +151,7 @@ function SquadCard({
       selectedPlayerIds={selectedPlayerIds}
       swapTargets={swapTargets}
       transfersLocked={transfersLocked}
+      result={result}
     >
       <div className="flex min-w-0 w-full flex-col items-center">
         <ClubLogoBadge clubName={clubName} />
@@ -156,7 +162,7 @@ function SquadCard({
           {clubName}
         </p>
         <p className="mt-0.5 text-[0.65rem] font-bold text-[var(--pf-text)] sm:text-xs">
-          {formatMoney(player.price)}
+          {result ? `${result.fantasy_points} pts` : formatMoney(player.price)}
         </p>
         {player.is_captain || player.active === false ? (
           <div className="mt-1.5 flex flex-wrap justify-center gap-1">
@@ -193,7 +199,9 @@ export function SquadEditor({
   chipSelections,
   initialChip,
   initialSquad,
+  latestResultSquad,
   previousPlayerIds,
+  resultModeMigrationMissing,
   transferWindowMessage,
   transferSummaryMigrationMissing,
   transfersLocked,
@@ -208,6 +216,9 @@ export function SquadEditor({
   const [savedSquad, setSavedSquad] =
     useState<DraftSquadPlayer[]>(initialSquad);
   const [savedChip, setSavedChip] = useState<Chip | null>(initialChip);
+  const [viewMode, setViewMode] = useState<"transfers" | "results">(
+    "transfers",
+  );
   const [saveMessage, setSaveMessage] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
     null,
@@ -226,6 +237,21 @@ export function SquadEditor({
     (player) => player.position === "starter",
   );
   const bench = draftSquad.filter((player) => player.position === "bench");
+  const resultStarters = latestResultSquad.filter(
+    (player) => player.position === "starter",
+  );
+  const resultBench = latestResultSquad.filter(
+    (player) => player.position === "bench",
+  );
+  const displayedStarters =
+    viewMode === "results" ? resultStarters : starters;
+  const displayedBench = viewMode === "results" ? resultBench : bench;
+  const latestResult = latestResultSquad[0] ?? null;
+  const latestResultLabel = latestResult
+    ? latestResult.round_order !== null
+      ? `Gameweek ${latestResult.round_order}`
+      : latestResult.gameweek_name.replace(/^round\s*/i, "Gameweek ")
+    : null;
   const selectedPlayerIds = draftSquad.map((player) => player.id);
   const selectedClubIds = draftSquad
     .map(getClubId)
@@ -499,7 +525,7 @@ export function SquadEditor({
                   : "text-[var(--pf-brand-blue)]"
               }`}
             >
-              Transfer deadline
+              {transfersLocked ? "Transfers closed" : "Transfer deadline"}
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-[var(--pf-text)] sm:text-sm">
               {transferWindowMessage}
@@ -622,16 +648,59 @@ export function SquadEditor({
         ) : null}
       </div>
 
-      <section aria-labelledby="starting-lineup-title" className="mt-5">
+      <div className="mx-auto mt-5 flex max-w-2xl justify-center px-1">
+        <div
+          aria-label="Squad view"
+          className="grid w-full max-w-sm grid-cols-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] p-1"
+          role="group"
+        >
+          {(["transfers", "results"] as const).map((mode) => {
+            const selected = viewMode === mode;
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`min-h-10 rounded-md px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] ${
+                  selected
+                    ? "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)]"
+                    : "text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)]"
+                }`}
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                type="button"
+              >
+                {mode === "transfers" ? "Transfer mode" : "Result mode"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {viewMode === "results" && !latestResult ? (
+        <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-4 text-center text-sm text-[var(--pf-text-muted)]">
+          {resultModeMigrationMissing
+            ? "Result mode needs the latest database migration."
+            : "No locked gameweek results are available yet."}
+        </div>
+      ) : null}
+
+      <section
+        aria-labelledby="starting-lineup-title"
+        className={`mt-5 ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
+      >
         <div className="mx-auto mb-4 flex max-w-2xl items-end justify-between gap-4 px-1">
           <h2
             className="text-xl font-black tracking-tight sm:text-2xl"
             id="starting-lineup-title"
           >
-            Select your squad
+            {viewMode === "results"
+              ? `Results for ${latestResultLabel}`
+              : transfersLocked
+                ? "Squad locked"
+                : "Select your squad"}
           </h2>
           <span className="rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-3 py-1 text-xs font-bold text-[var(--pf-text-muted)]">
-            {starters.length} / {STARTER_SIZE}
+            {displayedStarters.length} / {STARTER_SIZE}
           </span>
         </div>
 
@@ -654,7 +723,7 @@ export function SquadEditor({
                 }}
               >
                 {Array.from({ length: STARTER_SIZE }, (_, index) => {
-                  const player = starters[index];
+                  const player = displayedStarters[index];
 
                   return (
                     <div
@@ -678,8 +747,16 @@ export function SquadEditor({
                           selectedPlayerIds={selectedPlayerIds}
                           swapTargets={bench}
                           transfersLocked={transfersLocked}
+                          result={
+                            viewMode === "results"
+                              ? latestResultSquad.find(
+                                  (row) => row.id === player.id,
+                                )
+                              : undefined
+                          }
                         />
-                      ) : index === starters.length ? (
+                      ) : viewMode === "transfers" &&
+                        index === starters.length ? (
                         <PlayerPicker
                           onSelect={(selectedPlayer) =>
                             addPlayer(selectedPlayer, "starter")
@@ -743,19 +820,22 @@ export function SquadEditor({
         </div>
       </section>
 
-      <section aria-labelledby="bench-title" className="mx-auto mt-2 max-w-2xl">
+      <section
+        aria-labelledby="bench-title"
+        className={`mx-auto mt-2 max-w-2xl ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
+      >
         <div className="mb-2 flex items-center justify-between gap-4 px-1">
           <h2 className="text-lg font-black" id="bench-title">
             Bench
           </h2>
           <span className="text-xs font-semibold text-[var(--pf-text-muted)]">
-            {bench.length} / {BENCH_SIZE}
+            {displayedBench.length} / {BENCH_SIZE}
           </span>
         </div>
 
         <div className="grid min-w-0 grid-cols-2 px-1">
           {Array.from({ length: BENCH_SIZE }, (_, index) => {
-            const player = bench[index];
+            const player = displayedBench[index];
 
             if (player) {
               return (
@@ -779,12 +859,17 @@ export function SquadEditor({
                     selectedPlayerIds={selectedPlayerIds}
                     swapTargets={starters}
                     transfersLocked={transfersLocked}
+                    result={
+                      viewMode === "results"
+                        ? latestResultSquad.find((row) => row.id === player.id)
+                        : undefined
+                    }
                   />
                 </div>
               );
             }
 
-            return index === bench.length ? (
+            return viewMode === "transfers" && index === bench.length ? (
               <div
                 className="flex min-w-0 justify-center"
                 key={`bench-picker-${index}`}

@@ -123,6 +123,7 @@ export default async function OverviewPage() {
   const rankIndex = leagueTable.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const isSquadReady = squad.length === SQUAD_SIZE;
+  const hasPositiveSquadStatus = transfersLocked || isSquadReady;
   const remainingPlayers = Math.max(SQUAD_SIZE - squad.length, 0);
   const squadCompletion = Math.min(
     Math.round((squad.length / SQUAD_SIZE) * 100),
@@ -234,7 +235,7 @@ export default async function OverviewPage() {
 
             <section
               className={`overflow-hidden rounded-lg border bg-[var(--pf-navy)] p-3.5 sm:p-5 ${
-                isSquadReady
+                hasPositiveSquadStatus
                   ? "border-[var(--pf-brand-blue-border)]"
                   : "border-[var(--pf-coral)]"
               }`}
@@ -243,22 +244,24 @@ export default async function OverviewPage() {
                 <div className="min-w-0">
                   <p
                     className={`text-xs font-bold uppercase tracking-[0.16em] ${
-                      isSquadReady
+                      hasPositiveSquadStatus
                         ? "text-[var(--pf-brand-blue)]"
                         : "text-[var(--pf-coral)]"
                     }`}
                   >
-                    {isSquadReady ? "Squad status" : "Action needed"}
+                    {hasPositiveSquadStatus ? "Squad status" : "Action needed"}
                   </p>
                   <h2 className="mt-0.5 text-xl font-black leading-tight sm:text-2xl">
-                    {isSquadReady
-                      ? "Fantasy team ready"
-                      : "Complete your squad"}
+                    {transfersLocked
+                      ? "Squad is locked"
+                      : isSquadReady
+                        ? "Fantasy team ready"
+                        : "Complete your squad"}
                   </h2>
                 </div>
                 <span
                   className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
-                    isSquadReady
+                    hasPositiveSquadStatus
                       ? "border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] text-[var(--pf-brand-blue-hover)]"
                       : "border-[var(--pf-coral)] bg-[var(--pf-coral-soft)] text-[var(--pf-coral-text)]"
                   }`}
@@ -283,7 +286,7 @@ export default async function OverviewPage() {
               >
                 <div
                   className={`h-full rounded-full transition-all ${
-                    isSquadReady
+                    hasPositiveSquadStatus
                       ? "bg-[var(--pf-brand-blue)]"
                       : "bg-[var(--pf-coral)]"
                   }`}
@@ -304,13 +307,17 @@ export default async function OverviewPage() {
 
               <Link
                 className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-md px-4 py-2.5 text-center text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] ${
-                  isSquadReady
+                  hasPositiveSquadStatus
                     ? "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)]"
                     : "bg-[var(--pf-coral)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-coral-hover)]"
                 }`}
                 href="/dashboard"
               >
-                {isSquadReady ? "Manage squad" : "Complete squad"}
+                {transfersLocked
+                  ? "See locked squad"
+                  : isSquadReady
+                    ? "Manage squad"
+                    : "Complete squad"}
               </Link>
             </section>
           </div>

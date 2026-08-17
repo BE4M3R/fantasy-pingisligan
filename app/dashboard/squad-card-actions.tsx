@@ -8,6 +8,7 @@ import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
   DraftSquadPlayer,
+  SquadPlayerResult,
 } from "@/app/dashboard/player-types";
 
 type SquadCardActionsProps = {
@@ -18,6 +19,7 @@ type SquadCardActionsProps = {
   onSwapPosition: (targetPlayerId: string) => void;
   player: DraftSquadPlayer;
   remainingBudget: number;
+  result?: SquadPlayerResult;
   selectedClubIds: string[];
   selectedPlayerIds: string[];
   swapTargets: DraftSquadPlayer[];
@@ -32,6 +34,142 @@ function getClubName(player: DashboardPlayer) {
   return Array.isArray(player.clubs)
     ? player.clubs[0]?.name ?? "Free agent"
     : player.clubs?.name ?? "Free agent";
+}
+
+function formatPoints(value: number) {
+  return `${value > 0 ? "+" : ""}${value} pts`;
+}
+
+function getGameweekLabel(result: SquadPlayerResult) {
+  return result.round_order !== null
+    ? `Gameweek ${result.round_order}`
+    : result.gameweek_name.replace(/^round\s*/i, "Gameweek ");
+}
+
+function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
+  const rows = [
+    {
+      detail: `${result.singles_wins} won, ${result.singles_losses} lost`,
+      label: "Singles wins",
+      points: result.singles_wins * 4,
+      show: result.singles_wins + result.singles_losses > 0,
+    },
+    {
+      detail: `${result.doubles_wins} won, ${result.doubles_losses} lost`,
+      label: "Doubles wins",
+      points: result.doubles_wins * 2,
+      show: result.doubles_wins + result.doubles_losses > 0,
+    },
+    {
+      detail: `${result.sets_won} won, ${result.sets_lost} lost`,
+      label: "Set points",
+      points: result.set_points,
+      show: result.sets_won + result.sets_lost > 0,
+    },
+    {
+      detail: `${result.fixture_win_points / 3} fixture ${result.fixture_win_points === 3 ? "win" : "wins"}`,
+      label: "Fixture wins",
+      points: result.fixture_win_points,
+      show: result.fixture_win_points !== 0,
+    },
+    {
+      detail: "Won every singles match (minimum two)",
+      label: "Singles sweep bonus",
+      points: result.sweep_bonus_points,
+      show: result.sweep_bonus_points !== 0,
+    },
+  ].filter((row) => row.show);
+
+  return (
+    <div className="mt-5">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-[var(--pf-navy-elevated)] p-3">
+          <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
+            Player points
+          </p>
+          <p className="mt-1 text-2xl font-black text-[var(--pf-text)]">
+            {result.fantasy_points}
+          </p>
+        </div>
+        <div className="rounded-lg bg-[var(--pf-navy-elevated)] p-3">
+          <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
+            Team contribution
+          </p>
+          <p className="mt-1 text-2xl font-black text-[var(--pf-fantasy-yellow)]">
+            {result.team_points_contribution}
+          </p>
+        </div>
+      </div>
+
+      <h3 className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-[var(--pf-brand-blue-hover)]">
+        Points breakdown
+      </h3>
+      {rows.length ? (
+        <dl className="mt-2 divide-y divide-[var(--pf-card-border)] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3">
+          {rows.map((row) => (
+            <div className="flex items-center justify-between gap-4 py-3" key={row.label}>
+              <div className="min-w-0">
+                <dt className="text-sm font-bold text-[var(--pf-text)]">
+                  {row.label}
+                </dt>
+                <dd className="mt-0.5 text-xs text-[var(--pf-text-muted)]">
+                  {row.detail}
+                </dd>
+              </div>
+              <dd
+                className={`shrink-0 text-sm font-black ${
+                  row.points < 0
+                    ? "text-[var(--pf-coral-text)]"
+                    : "text-[var(--pf-text)]"
+                }`}
+              >
+                {formatPoints(row.points)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-2 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-3 text-sm text-[var(--pf-text-muted)]">
+          No scored appearances or fixture bonuses yet.
+        </p>
+      )}
+
+      {result.is_captain ? (
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-[var(--pf-fantasy-yellow)]/45 bg-[var(--pf-navy-elevated)] p-3">
+          <div>
+            <p className="text-sm font-bold text-[var(--pf-fantasy-yellow)]">
+              {result.active_chip === "triple_captain"
+                ? "Triple Captain"
+                : "Captain"}
+            </p>
+            <p className="mt-0.5 text-xs text-[var(--pf-text-muted)]">
+              {result.active_chip === "triple_captain"
+                ? "Player points counted three times"
+                : "Player points counted twice"}
+            </p>
+          </div>
+          <p className="shrink-0 text-sm font-black text-[var(--pf-fantasy-yellow)]">
+            {formatPoints(result.captain_bonus_points)}
+          </p>
+        </div>
+      ) : null}
+
+      {result.position === "bench" ? (
+        <div className="mt-3 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] p-3">
+          <p className="text-sm font-bold text-[var(--pf-text)]">
+            {result.active_chip === "bench_boost"
+              ? "Bench Boost active"
+              : "Bench points not counted"}
+          </p>
+          <p className="mt-0.5 text-xs text-[var(--pf-text-muted)]">
+            {result.active_chip === "bench_boost"
+              ? `${result.fantasy_points} bench points included in the team total.`
+              : `${result.fantasy_points} player points earned, with no Bench Boost active.`}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function ClubLogo({ player }: { player: DashboardPlayer }) {
@@ -65,6 +203,7 @@ export function SquadCardActions({
   onSwapPosition,
   player,
   remainingBudget,
+  result,
   selectedClubIds,
   selectedPlayerIds,
   swapTargets,
@@ -104,7 +243,7 @@ export function SquadCardActions({
   return (
     <>
       <button
-        aria-label={`Open actions for ${playerName}`}
+        aria-label={`Open ${result ? "result details" : "actions"} for ${playerName}`}
         aria-expanded={isOpen}
         className={`group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border bg-[var(--pf-navy)] px-2 py-3 text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)] sm:px-4 sm:py-4 ${
           isOpen
@@ -156,7 +295,9 @@ export function SquadCardActions({
                         {playerName}
                       </h2>
                       <p className="mt-1 text-sm font-bold text-[var(--pf-text-muted)]">
-                        {formatMoney(player.price)}
+                        {result
+                          ? `${getGameweekLabel(result)} · ${result.fantasy_points} pts`
+                          : formatMoney(player.price)}
                       </p>
                     </div>
                   </div>
@@ -171,6 +312,10 @@ export function SquadCardActions({
                   </button>
                 </div>
 
+                {result ? (
+                  <ResultBreakdown result={result} />
+                ) : (
+                  <>
                 {transfersLocked ? (
                   <div className="mt-5 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-3 text-sm text-[var(--pf-coral-text)]">
                     Player changes are unavailable while the transfer window is
@@ -287,6 +432,8 @@ export function SquadCardActions({
                     Remove from team
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             </div>,
             document.body,

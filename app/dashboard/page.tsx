@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import type {
   DashboardPlayer,
   DraftSquadPlayer,
+  SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
 import { SquadEditor } from "@/app/dashboard/squad-editor";
@@ -48,6 +49,35 @@ type PreviousPlayer = {
   player_id: string;
 };
 
+type LatestSquadResultRow = {
+  active_chip: "wildcard" | "triple_captain" | "bench_boost" | null;
+  captain_bonus_points: number | string;
+  club_id: string | null;
+  club_name: string | null;
+  counts_for_team: boolean;
+  doubles_losses: number | string;
+  doubles_wins: number | string;
+  fantasy_points: number | string;
+  fixture_win_points: number | string;
+  gameweek_id: string;
+  gameweek_name: string;
+  is_captain: boolean;
+  last_name: string;
+  match_win_points: number | string;
+  player_id: string;
+  position: SquadPosition;
+  price: number | string;
+  round_order: number | null;
+  set_points: number | string;
+  sets_lost: number | string;
+  sets_won: number | string;
+  singles_losses: number | string;
+  singles_wins: number | string;
+  first_name: string;
+  sweep_bonus_points: number | string;
+  team_points_contribution: number | string;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "";
 
@@ -76,6 +106,39 @@ function getPreviousSnapshot(row: PreviousGameweek | null) {
   return Array.isArray(row.fantasy_team_gameweek_snapshots)
     ? row.fantasy_team_gameweek_snapshots[0] ?? null
     : row.fantasy_team_gameweek_snapshots;
+}
+
+function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
+  return {
+    active_chip: row.active_chip,
+    birth_year: null,
+    captain_bonus_points: Number(row.captain_bonus_points),
+    clubs: row.club_name
+      ? { id: row.club_id ?? "", name: row.club_name }
+      : null,
+    counts_for_team: row.counts_for_team,
+    doubles_losses: Number(row.doubles_losses),
+    doubles_wins: Number(row.doubles_wins),
+    fantasy_points: Number(row.fantasy_points),
+    first_name: row.first_name,
+    fixture_win_points: Number(row.fixture_win_points),
+    gameweek_id: row.gameweek_id,
+    gameweek_name: row.gameweek_name,
+    id: row.player_id,
+    is_captain: row.is_captain,
+    last_name: row.last_name,
+    match_win_points: Number(row.match_win_points),
+    position: row.position,
+    price: row.price,
+    round_order: row.round_order,
+    set_points: Number(row.set_points),
+    sets_lost: Number(row.sets_lost),
+    sets_won: Number(row.sets_won),
+    singles_losses: Number(row.singles_losses),
+    singles_wins: Number(row.singles_wins),
+    sweep_bonus_points: Number(row.sweep_bonus_points),
+    team_points_contribution: Number(row.team_points_contribution),
+  };
 }
 
 export default async function SquadPage({
@@ -116,6 +179,7 @@ export default async function SquadPage({
     transferLockResult,
     upcomingGameweekResult,
     chipSelectionsResult,
+    latestSquadResult,
   ] = await Promise.all([
     fantasyTeam
       ? supabase
@@ -139,6 +203,7 @@ export default async function SquadPage({
           .select("chip, fantasy_gameweek_id, locked_at, used_at")
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
+    supabase.rpc("get_my_latest_squad_result"),
   ]);
 
   const { message } = await searchParams;
@@ -150,6 +215,10 @@ export default async function SquadPage({
   const upcomingGameweek =
     upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
+  const resultModeMigrationMissing = Boolean(latestSquadResult.error);
+  const latestResultSquad = (
+    (latestSquadResult.data ?? []) as LatestSquadResultRow[]
+  ).map(getSquadResultPlayer);
   const chipMigrationMissing = Boolean(
     chipSelectionsResult.error?.message.includes(
       "fantasy_team_chip_selections",
@@ -243,7 +312,9 @@ export default async function SquadPage({
           chipSelections={chipSelections}
           initialChip={currentChipSelection?.chip ?? null}
           initialSquad={squad}
+          latestResultSquad={latestResultSquad}
           previousPlayerIds={previousPlayers.map((row) => row.player_id)}
+          resultModeMigrationMissing={resultModeMigrationMissing}
           transferWindowMessage={transferWindowMessage}
           transferSummaryMigrationMissing={transferSummaryMigrationMissing}
           transfersLocked={transfersLocked}
