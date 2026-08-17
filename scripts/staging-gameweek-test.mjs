@@ -159,6 +159,9 @@ function validateScenario(raw) {
 
   const keys = new Set();
   const roundOrders = new Set();
+  const gameweekIndexes = new Map(
+    raw.gameweeks.map((gameweek, index) => [gameweek.key, index]),
+  );
 
   raw.gameweeks.forEach((gameweek, gameweekIndex) => {
     const context = `gameweeks[${gameweekIndex}]`;
@@ -194,6 +197,17 @@ function validateScenario(raw) {
         fixture.winner === "home" || fixture.winner === "away" || fixture.winner === null,
         `${fixtureContext}.winner must be "home", "away", or null.`,
       );
+      if (fixture.resultAvailableFromGameweek !== undefined) {
+        assert(
+          typeof fixture.resultAvailableFromGameweek === "string" &&
+            gameweekIndexes.has(fixture.resultAvailableFromGameweek),
+          `${fixtureContext}.resultAvailableFromGameweek must reference a configured gameweek key.`,
+        );
+        assert(
+          gameweekIndexes.get(fixture.resultAvailableFromGameweek) >= gameweekIndex,
+          `${fixtureContext}.resultAvailableFromGameweek cannot be earlier than ${gameweek.key}.`,
+        );
+      }
       assert(
         Number.isFinite(fixture.startsAfterMinutes) && fixture.startsAfterMinutes >= 0,
         `${fixtureContext}.startsAfterMinutes must be zero or greater.`,
@@ -867,7 +881,13 @@ function formatConfiguredResult(match) {
   return `${result.homeSets}-${result.awaySets}`;
 }
 
-async function seedAndScore(supabase, definition, activePlayers, roleIds) {
+async function seedAndScore(
+  supabase,
+  definition,
+  activePlayers,
+  roleIds,
+  updateTimes,
+) {
   const gameweek = await getDatabaseGameweek(supabase, definition);
   const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
   const matchesByStupaId = new Map(
@@ -898,28 +918,33 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds) {
         : fixtureRow.parentWinner === "away"
           ? fixture.awayParticipantId
           : null;
+    const matchUpdate = {
+      status: "scored",
+      winning_team_stupa_participant_id: winningParticipantId,
+      source_updated_at: now.toISOString(),
+    };
+    if (updateTimes) {
+      matchUpdate.starts_at = startsAt;
+      matchUpdate.ends_at = endsAt;
+    }
     const { error } = await supabase
       .from("matches")
-      .update({
-        starts_at: startsAt,
-        ends_at: endsAt,
-        status: "scored",
-        winning_team_stupa_participant_id: winningParticipantId,
-        source_updated_at: now.toISOString(),
-      })
+      .update(matchUpdate)
       .eq("id", databaseMatch.id);
     ensureNoError(error, `Could not score parent fixture ${fixture.key}`);
   }
 
-  const { error: gameweekError } = await supabase
-    .from("fantasy_gameweeks")
-    .update({
-      first_match_starts_at: firstMatchStartsAt,
-      last_match_ends_at: lastMatchEndsAt,
-      updated_at: now.toISOString(),
-    })
-    .eq("id", gameweek.id);
-  ensureNoError(gameweekError, `Could not start ${definition.key}`);
+  if (updateTimes) {
+    const { error: gameweekError } = await supabase
+      .from("fantasy_gameweeks")
+      .update({
+        first_match_starts_at: firstMatchStartsAt,
+        last_match_ends_at: lastMatchEndsAt,
+        updated_at: now.toISOString(),
+      })
+      .eq("id", gameweek.id);
+    ensureNoError(gameweekError, `Could not start ${definition.key}`);
+  }
 
   const databaseMatchIds = databaseMatches.map((match) => match.id);
   const { error: deleteError } = await supabase
@@ -989,7 +1014,7 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds) {
     }
   }
 
-  console.log(`Scored ${definition.key}.`);
+  console.log(`${updateTimes ? "Scored" : "Refreshed"} ${definition.key}.`);
   console.log("Configured matches:");
   console.table(
     definition.fixtures.flatMap((fixture) =>
@@ -1017,6 +1042,34 @@ async function seedAndScore(supabase, definition, activePlayers, roleIds) {
   console.log("Verified fantasy-team totals:");
   console.table(expectedTotals.map(({ name, points }) => ({ team: name, points })));
   console.log("Repeated scoring produced identical totals.");
+}
+
+async function scoreAvailableGameweeks(supabase, scenario, targetDefinition) {
+  const targetIndex = scenario.gameweeks.findIndex(
+    (gameweek) => gameweek.key === targetDefinition.key,
+  );
+  const gameweekIndexes = new Map(
+    scenario.gameweeks.map((gameweek, index) => [gameweek.key, index]),
+  );
+
+  for (const [gameweekIndex, definition] of scenario.gameweeks.entries()) {
+    if (gameweekIndex > targetIndex) break;
+
+    const availableFixtures = definition.fixtures.filter((fixture) => {
+      const availableFrom =
+        fixture.resultAvailableFromGameweek ?? definition.key;
+      return gameweekIndexes.get(availableFrom) <= targetIndex;
+    });
+    if (availableFixtures.length === 0) continue;
+
+    await seedAndScore(
+      supabase,
+      { ...definition, fixtures: availableFixtures },
+      scenario.activePlayers,
+      scenario.roleIds,
+      definition.key === targetDefinition.key,
+    );
+  }
 }
 
 async function unlock(supabase, definition) {
@@ -1214,12 +1267,7 @@ async function main() {
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
     if (action === "score") {
-      await seedAndScore(
-        supabase,
-        definition,
-        resolvedScenario.activePlayers,
-        resolvedScenario.roleIds,
-      );
+      await scoreAvailableGameweeks(supabase, resolvedScenario, definition);
     }
     if (action === "unlock") await unlock(supabase, definition);
   }

@@ -2,8 +2,9 @@
 
 The staging lifecycle harness reads its schedule and results from
 [`test-data/staging-gameweeks.json`](../test-data/staging-gameweeks.json). The
-default file contains two synthetic gameweeks. It uses reserved negative Stupa
-identifiers and never changes imported current-season matches.
+default file contains four synthetic gameweeks covering all seven Pingisligan
+clubs. Each round has three fixtures and one club with a bye. It uses reserved
+negative Stupa identifiers and never changes imported current-season matches.
 
 The harness requires at least two completed staging fantasy teams with valid
 six-player squads.
@@ -78,7 +79,9 @@ initial start time, and one or more club fixtures:
 
 `setup` creates every configured gameweek. `startsAfterHours` is relative to
 the setup time and must leave at least two hours before play. Later lifecycle
-commands move only the selected gameweek through lock, play, and completion.
+`lock` and `unlock` move only the selected gameweek through their lifecycle.
+`score` loads every result available up to the selected gameweek and refreshes
+the affected current and previous gameweeks.
 
 A club fixture explicitly lists its clubs and available lineup players:
 
@@ -129,6 +132,20 @@ Use two names per side for doubles. A walkover omits the set score:
 The script generates all reserved database identifiers; do not add Stupa IDs
 to the JSON.
 
+To simulate a postponed or late-reported club fixture, set the optional
+`resultAvailableFromGameweek` field:
+
+```json
+{
+  "key": "halmstad-rekord-late",
+  "resultAvailableFromGameweek": "gw2"
+}
+```
+
+The fixture still belongs to its original gameweek and therefore uses that
+gameweek's locked squad snapshots. It is omitted by `score gw1`, then imported
+and included in the recalculation when `score gw2` runs.
+
 ## Validate and install
 
 Validate the JSON structure, clubs, player names, and club memberships without
@@ -177,12 +194,15 @@ chip changes are blocked. Then score, inspect, and complete the gameweek:
 
 ```bash
 npm run test:staging -- score gw1
+npm run test:staging -- status gw1
 npm run test:staging -- unlock gw1
 ```
 
 The scoring action prints every configured individual match, independently
 calculates expected player and fantasy-team totals, compares them with
-Supabase, and runs the database calculation twice to check idempotency.
+Supabase, and runs the database calculation twice to check idempotency. The
+default data initially stores 16 GW1 player-result rows because its third
+fixture is configured to arrive with GW2.
 
 ## Test Gameweek 2
 
@@ -194,12 +214,33 @@ npm run test:staging -- lock-cron gw2
 sleep 360
 npm run test:staging -- status gw2
 npm run test:staging -- score gw2
+npm run test:staging -- status gw1
 npm run test:staging -- unlock gw2
 ```
 
-This preserves the first snapshot and score, allowing Progress, cumulative
-leaderboards, free-transfer rollover, transfer penalties, and one-use chips to
-be inspected across gameweeks.
+After `score gw2`, GW1 has 24 player-result rows. Its delayed fixture has been
+added and GW1 points have been recalculated against the unchanged GW1 squad
+snapshot. This also allows Progress, cumulative leaderboards, free-transfer
+rollover, transfer penalties, and one-use chips to be inspected across
+gameweeks.
+
+## Test Gameweeks 3 and 4
+
+Repeat the same lifecycle, changing squads or chips between deadlines when
+needed:
+
+```bash
+npm run test:staging -- lock gw3
+npm run test:staging -- score gw3
+npm run test:staging -- unlock gw3
+
+npm run test:staging -- lock gw4
+npm run test:staging -- score gw4
+npm run test:staging -- unlock gw4
+```
+
+Each score run revisits every earlier gameweek whose configured results are
+available by that point.
 
 ## Status and cleanup
 
