@@ -684,7 +684,7 @@ export function SquadEditor({
         <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-4 text-center text-sm text-[var(--pf-text-muted)]">
           {resultModeMigrationMissing
             ? "Result mode needs the latest database migration."
-            : "No locked gameweek results are available yet."}
+            : "No results available yet"}
         </div>
       ) : null}
 
