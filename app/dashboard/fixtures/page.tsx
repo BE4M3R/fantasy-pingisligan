@@ -2,6 +2,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
+import { FixtureResultsLink } from "@/app/fixture-results-link";
 import { createClient } from "@/lib/supabase/server";
 
 const STOCKHOLM_TIME_ZONE = "Europe/Stockholm";
@@ -160,6 +161,8 @@ export default async function FixturesPage() {
             </h1>
           </div>
         </div>
+
+        <FixtureResultsLink className="mb-5 sm:mb-7" />
 
         {fixtureError ? (
           <div className="table-panel rounded-lg border p-5 text-sm text-amber-100">

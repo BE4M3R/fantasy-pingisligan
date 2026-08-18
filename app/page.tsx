@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CLUB_LOGOS } from "@/app/dashboard/club-logos";
+import { FixtureResultsLink } from "@/app/fixture-results-link";
 import { createClient } from "@/lib/supabase/server";
 
 export default function Home() {
@@ -142,6 +143,8 @@ async function HomeContent() {
             />
           </div>
         </div>
+
+        <FixtureResultsLink className="lg:col-span-2" />
 
         <div className="flex justify-center pt-2 lg:col-span-2">
           <Link
