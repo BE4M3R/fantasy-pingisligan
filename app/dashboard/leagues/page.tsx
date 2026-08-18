@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
-import type { LeagueTableRow } from "@/app/dashboard/league-table";
+import {
+  LeagueTable,
+  type LeagueTableRow,
+} from "@/app/dashboard/league-table";
 import { joinPrivateLeague } from "@/app/dashboard/leagues/actions";
 import { LeagueActions } from "@/app/dashboard/leagues/league-actions";
 import { createClient } from "@/lib/supabase/server";
@@ -58,10 +61,6 @@ export default async function LeaguesPage({
 
   const privateLeagues = (privateLeaguesResult.data ?? []) as PrivateLeague[];
   const globalLeagueTable = (globalResult.data ?? []) as LeagueTableRow[];
-  const globalRankIndex = globalLeagueTable.findIndex(
-    (row) => row.user_id === userId,
-  );
-  const globalRank = globalRankIndex >= 0 ? globalRankIndex + 1 : null;
   const privateMigrationMissing = Boolean(privateLeaguesResult.error);
   const leagueLinkClass =
     "flex items-center justify-between gap-3 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-3 text-sm text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]";
@@ -122,40 +121,53 @@ export default async function LeaguesPage({
           <h2 className="font-bold text-[var(--pf-text)]">Your leagues</h2>
 
           <nav aria-label="League selection" className="mt-3 space-y-1.5">
-            <Link className={leagueLinkClass} href="/dashboard/leagues/global">
-              <span className="min-w-0">
-                <span className="block truncate font-semibold">
-                  Global league
-                </span>
-                <span className="mt-0.5 block text-xs font-normal text-[var(--pf-text-muted)]">
-                  All fantasy teams
-                </span>
-              </span>
-              <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
-                {globalRank ? `#${globalRank}` : "—"}
-              </span>
-            </Link>
-
-            {privateLeagues.map((league) => (
-              <Link
-                className={leagueLinkClass}
-                href={privateLeagueHref(league.league_id)}
-                key={league.league_id}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold">
-                    {league.league_name}
+            {privateLeagues.length ? (
+              privateLeagues.map((league) => (
+                <Link
+                  className={leagueLinkClass}
+                  href={privateLeagueHref(league.league_id)}
+                  key={league.league_id}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">
+                      {league.league_name}
+                    </span>
+                    <span className="mt-0.5 block text-xs font-normal text-[var(--pf-text-muted)]">
+                      Private league
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-xs font-normal text-[var(--pf-text-muted)]">
-                    Private league
+                  <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
+                    {league.current_rank ? `#${league.current_rank}` : "—"}
                   </span>
-                </span>
-                <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
-                  {league.current_rank ? `#${league.current_rank}` : "—"}
-                </span>
-              </Link>
-            ))}
+                </Link>
+              ))
+            ) : (
+              <p className="rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-4 text-sm text-[var(--pf-text-muted)]">
+                You have not joined a private league yet.
+              </p>
+            )}
           </nav>
+        </section>
+
+        <section className="table-panel mt-5 min-w-0 rounded-lg border p-4 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
+            Overall
+          </p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--pf-text)]">
+            Global league
+          </h2>
+          <p className="mt-1 text-sm text-[var(--pf-text-muted)]">
+            Fantasy teams sorted by total points.
+          </p>
+
+          {globalResult.error ? (
+            <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+              Run supabase/player-import-migration.sql in Supabase to enable
+              the league table.
+            </div>
+          ) : (
+            <LeagueTable currentUserId={userId} rows={globalLeagueTable} />
+          )}
         </section>
       </section>
     </main>

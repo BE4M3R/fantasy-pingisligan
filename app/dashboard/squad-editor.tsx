@@ -27,7 +27,7 @@ const BENCH_SIZE = 2;
 const MAX_FREE_TRANSFERS = 4;
 const COURT_POSITION_STYLE = {
   padding:
-    "clamp(0.7rem, 2.2vw, 1.25rem) clamp(0.55rem, 2.5vw, 1.25rem)",
+    "clamp(0.25rem, 1vw, 0.55rem) clamp(0.45rem, 1.5vw, 0.75rem)",
 };
 const BENCH_POSITION_STYLE = {
   padding: "0 clamp(0.4rem, 2.5vw, 1.25rem)",
@@ -517,8 +517,8 @@ export function SquadEditor({
 
   return (
     <section aria-label="Squad editor" className="min-w-0">
-      <div className="table-panel rounded-lg border p-3.5 min-[390px]:p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 sm:gap-5">
+      <div className="table-panel mx-auto max-w-2xl rounded-lg border p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p
               className={`text-[0.65rem] font-black uppercase tracking-[0.16em] ${
@@ -539,7 +539,7 @@ export function SquadEditor({
               aria-label={
                 saveHint ? `${saveButtonLabel}: ${saveHint}` : saveButtonLabel
               }
-              className="h-10 min-w-24 rounded-md bg-[var(--pf-brand-blue)] px-3 text-xs font-black text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:border disabled:border-[var(--pf-card-border)] disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)]/55"
+              className="h-9 min-w-24 rounded-md bg-[var(--pf-brand-blue)] px-3 text-xs font-black text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:border disabled:border-[var(--pf-card-border)] disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)]/55"
               disabled={saveDisabled}
               onClick={saveChanges}
               type="button"
@@ -549,33 +549,19 @@ export function SquadEditor({
           </div>
         </div>
 
-        <div className="sm:hidden">
-          <ChipSelector
-            compact
-            lockedGameweekId={lockedGameweekId}
-            migrationMissing={chipMigrationMissing}
-            onChange={changeChip}
-            selectedChip={selectedChip}
-            selections={chipSelections}
-            transfersLocked={transfersLocked}
-            upcomingGameweek={upcomingGameweek}
-          />
-        </div>
+        <ChipSelector
+          compact
+          lockedGameweekId={lockedGameweekId}
+          migrationMissing={chipMigrationMissing}
+          onChange={changeChip}
+          selectedChip={selectedChip}
+          selections={chipSelections}
+          transfersLocked={transfersLocked}
+          upcomingGameweek={upcomingGameweek}
+        />
 
-        <div className="hidden sm:block">
-          <ChipSelector
-            lockedGameweekId={lockedGameweekId}
-            migrationMissing={chipMigrationMissing}
-            onChange={changeChip}
-            selectedChip={selectedChip}
-            selections={chipSelections}
-            transfersLocked={transfersLocked}
-            upcomingGameweek={upcomingGameweek}
-          />
-        </div>
-
-        <dl className="mt-3 grid grid-cols-3 gap-1 border-t border-[var(--pf-card-border)] pt-2.5 text-center min-[390px]:gap-2">
-          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1.5 min-[390px]:px-1">
+        <dl className="mt-2 grid grid-cols-3 gap-1 border-t border-[var(--pf-card-border)] pt-2 text-center min-[390px]:gap-2">
+          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1 min-[390px]:px-1">
             <dt className="whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[-0.025em] text-[var(--pf-text-muted)] min-[390px]:tracking-normal sm:text-[0.65rem] sm:tracking-wide">
               Budget left
             </dt>
@@ -589,7 +575,7 @@ export function SquadEditor({
               {formatMoney(remainingBudget)}
             </dd>
           </div>
-          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1.5 min-[390px]:px-1">
+          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1 min-[390px]:px-1">
             <dt className="whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[-0.025em] text-[var(--pf-text-muted)] min-[390px]:tracking-normal sm:text-[0.65rem] sm:tracking-wide">
               Transfers left
             </dt>
@@ -599,7 +585,7 @@ export function SquadEditor({
                 : transferSummary.remainingLabel}
             </dd>
           </div>
-          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1.5 min-[390px]:px-1">
+          <div className="min-w-0 rounded-md bg-[var(--pf-navy-elevated)] px-0.5 py-1 min-[390px]:px-1">
             <dt className="whitespace-nowrap text-[0.6rem] font-semibold uppercase tracking-[-0.025em] text-[var(--pf-text-muted)] min-[390px]:tracking-normal sm:text-[0.65rem] sm:tracking-wide">
               Transfer cost
             </dt>
@@ -652,7 +638,7 @@ export function SquadEditor({
         ) : null}
       </div>
 
-      <div className="mx-auto mt-5 flex max-w-2xl justify-center px-1">
+      <div className="mx-auto mt-3 flex max-w-2xl justify-center px-1">
         <div
           aria-label="Squad view"
           className="grid w-full max-w-sm grid-cols-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] p-1"
@@ -690,9 +676,9 @@ export function SquadEditor({
 
       <section
         aria-labelledby="starting-lineup-title"
-        className={`mt-5 ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
+        className={`mt-3 ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
       >
-        <div className="mx-auto mb-4 flex max-w-2xl items-end justify-between gap-4 px-1">
+        <div className="mx-auto mb-2 flex max-w-xl items-end justify-between gap-4 px-1">
           <h2
             className="text-xl font-black tracking-tight sm:text-2xl"
             id="starting-lineup-title"
@@ -708,11 +694,11 @@ export function SquadEditor({
           </span>
         </div>
 
-        <div className="py-1 sm:px-6">
-          <div className="mx-auto w-full max-w-2xl">
+        <div>
+          <div className="mx-auto w-full max-w-xl">
             <div
               className="relative w-full"
-              style={{ paddingBottom: "125%" }}
+              style={{ paddingBottom: "70%" }}
             >
               <div
                 aria-label="Table tennis starting lineup"
@@ -788,14 +774,14 @@ export function SquadEditor({
                   aria-hidden="true"
                   style={{
                     backgroundColor: "rgba(242, 246, 248, 0.58)",
-                    bottom: 0,
                     boxShadow: "0 0 1px rgba(255, 255, 255, 0.7)",
-                    left: "50%",
+                    height: "2px",
+                    left: 0,
                     pointerEvents: "none",
                     position: "absolute",
-                    top: 0,
-                    transform: "translateX(-50%)",
-                    width: "2px",
+                    right: 0,
+                    top: "50%",
+                    transform: "translateY(-50%)",
                     zIndex: 5,
                   }}
                 />
@@ -811,11 +797,11 @@ export function SquadEditor({
                     borderRight: "2px solid rgba(242, 246, 248, 0.75)",
                     borderTop: "2px solid rgba(242, 246, 248, 0.78)",
                     boxShadow: "0 3px 5px rgba(1, 23, 43, 0.28)",
-                    height: "0.9rem",
-                    left: "-0.35rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: "calc(100% + 0.7rem)",
+                    height: "calc(100% + 0.7rem)",
+                    left: "50%",
+                    top: "-0.35rem",
+                    transform: "translateX(-50%)",
+                    width: "0.9rem",
                   }}
                 />
               </div>

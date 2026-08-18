@@ -50,7 +50,9 @@ function getChipBallClassName({
   isUnavailable: boolean;
   isUsed: boolean;
 }) {
-  const sizeClass = compact ? "h-16 w-16" : "h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20";
+  const sizeClass = compact
+    ? "h-14 w-14"
+    : "h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20";
   let stateClass =
     "border-[#fffaf0] bg-[#fff8e9] text-[var(--pf-navy)] group-hover:-translate-y-0.5 group-hover:border-white group-focus-visible:ring-4 group-focus-visible:ring-[var(--pf-brand-blue)]/35";
 
@@ -180,7 +182,7 @@ export function ChipSelector({
   return (
     <section
       aria-label="Gameweek chips"
-      className={compact ? "pt-3" : "mt-4"}
+      className={compact ? "pt-2" : "mt-4"}
     >
       {migrationMissing ? (
         <div className="mb-3 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] px-3 py-2 text-xs text-[var(--pf-coral-text)]">
@@ -265,7 +267,7 @@ export function ChipSelector({
                   />
                 ) : null}
               </span>
-              <span className="mt-2 min-h-7 text-[0.62rem] font-black leading-[1.15] text-[var(--pf-text)] min-[390px]:text-[0.68rem] sm:text-xs">
+              <span className="mt-1 min-h-6 text-[0.62rem] font-black leading-[1.15] text-[var(--pf-text)] min-[390px]:text-[0.68rem] sm:text-xs">
                 {chip.value === "triple_captain" ? "3× Captain" : chip.label}
               </span>
               <span
