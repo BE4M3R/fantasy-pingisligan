@@ -9,6 +9,7 @@ const PLAYERS_PER_CLUB = 10;
 const MIN_RANKING_POINTS = 2250;
 const PRICE_OFFSET = 2200;
 const PRICE_MULTIPLIER = 100000;
+const WORLD_RANK_PRICE_POOL = 50000000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -114,6 +115,31 @@ function splitPlayerName(name) {
   };
 }
 
+function parsePlacement(value) {
+  const worldRankingMatch = value.match(/\bWR\s*0*(\d+)\b/i);
+  const worldRankingPosition = Number(worldRankingMatch?.[1]);
+  const rankingPosition = Number(value.match(/(\d+)\s*$/)?.[1]);
+
+  return {
+    rankingPosition: Number.isFinite(rankingPosition) ? rankingPosition : null,
+    worldRankingPosition:
+      Number.isInteger(worldRankingPosition) && worldRankingPosition > 0
+        ? worldRankingPosition
+        : null,
+  };
+}
+
+function calculatePlayerPrice(rankingPoints, worldRankingPosition) {
+  const rankingPrice =
+    (Math.max(MIN_RANKING_POINTS, rankingPoints) - PRICE_OFFSET) *
+    PRICE_MULTIPLIER;
+  const worldRankingPrice = worldRankingPosition
+    ? Math.round(WORLD_RANK_PRICE_POOL / Math.sqrt(worldRankingPosition))
+    : 0;
+
+  return rankingPrice + worldRankingPrice;
+}
+
 function parseRankingRows(html) {
   const rows = [];
   const rowMatches = html.matchAll(/<tr>([\s\S]*?)<\/tr>/gi);
@@ -135,7 +161,8 @@ function parseRankingRows(html) {
 
     const profixioPlayerId = rowHtml.match(/id=['"]rml:(\d+):/)?.[1];
     const placementText = textFromHtml(cells[0]);
-    const rankingPosition = Number(placementText.match(/(\d+)\s*$/)?.[1]);
+    const { rankingPosition, worldRankingPosition } =
+      parsePlacement(placementText);
     const fullName = textFromHtml(cells[2]);
     const birthYear = Number(textFromHtml(cells[3]));
     const clubName = canonicalClubName(
@@ -152,13 +179,13 @@ function parseRankingRows(html) {
     rows.push({
       profixioPlayerId,
       rankingPosition,
+      worldRankingPosition,
       firstName,
       lastName,
       birthYear: Number.isFinite(birthYear) ? birthYear : null,
       clubName,
       rankingPoints,
-      price: (Math.max(MIN_RANKING_POINTS, rankingPoints) - PRICE_OFFSET) *
-        PRICE_MULTIPLIER,
+      price: calculatePlayerPrice(rankingPoints, worldRankingPosition),
     });
   }
 

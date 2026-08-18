@@ -91,7 +91,10 @@ npm run import:players
 
 The script reads club search strings from `clubs.txt`, takes up to 10 first-page
 ranking matches per club, and stores prices as whole fantasy currency values
-using `(max(2250, ranking_points) - 2200) * 100000`.
+using `(max(2250, ranking_points) - 2200) * 100000`. If the `Placering`
+column contains a world ranking such as `WR02`, the rounded surcharge
+`50000000 / sqrt(world_rank)` is added to that player's price (`WR02` is
+treated as world rank `2`).
 
 For existing Supabase databases created before the importer, run
 `supabase/player-import-migration.sql` in the Supabase SQL editor. It is safe to
