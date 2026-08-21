@@ -787,22 +787,7 @@ export function SquadEditor({
                 />
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute z-20"
-                  style={{
-                    backgroundColor: "rgba(1, 23, 43, 0.8)",
-                    backgroundImage:
-                      "repeating-linear-gradient(to right, rgba(207, 230, 247, 0.42) 0, rgba(207, 230, 247, 0.42) 1px, transparent 1px, transparent 8px), repeating-linear-gradient(to bottom, rgba(207, 230, 247, 0.3) 0, rgba(207, 230, 247, 0.3) 1px, transparent 1px, transparent 5px)",
-                    borderBottom: "1px solid rgba(1, 23, 43, 0.9)",
-                    borderLeft: "2px solid rgba(242, 246, 248, 0.75)",
-                    borderRight: "2px solid rgba(242, 246, 248, 0.75)",
-                    borderTop: "2px solid rgba(242, 246, 248, 0.78)",
-                    boxShadow: "0 3px 5px rgba(1, 23, 43, 0.28)",
-                    height: "calc(100% + 0.7rem)",
-                    left: "50%",
-                    top: "-0.35rem",
-                    transform: "translateX(-50%)",
-                    width: "0.9rem",
-                  }}
+                  className="squad-table-net pointer-events-none absolute z-20"
                 />
               </div>
             </div>

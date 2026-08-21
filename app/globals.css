@@ -137,6 +137,48 @@ body {
   min-block-size: 7rem;
 }
 
+.squad-table-net {
+  top: -0.25rem;
+  left: 50%;
+  width: 0.5rem;
+  height: calc(100% + 0.5rem);
+  transform: translateX(-50%);
+  background-color: transparent;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgb(var(--pf-court-line-rgb) / 0.62) 0 1px,
+      transparent 1px 2px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgb(var(--pf-court-line-rgb) / 0.54) 0 1px,
+      transparent 1px 3px
+    );
+  border-left: 2px solid var(--pf-text);
+  filter: drop-shadow(0 3px 3px rgb(1 23 43 / 0.28));
+}
+
+.squad-table-net::before,
+.squad-table-net::after {
+  position: absolute;
+  left: -0.16rem;
+  width: 0.72rem;
+  height: 0.24rem;
+  border-radius: 999px;
+  background: var(--pf-text);
+  box-shadow: 0 2px 3px rgb(1 23 43 / 0.35);
+  content: "";
+}
+
+.squad-table-net::before {
+  top: -0.06rem;
+}
+
+.squad-table-net::after {
+  bottom: -0.06rem;
+}
+
 .chip-ball {
   background-image:
     radial-gradient(
