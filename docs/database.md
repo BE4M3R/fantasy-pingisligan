@@ -45,7 +45,9 @@ RLS is enabled on application tables. Public sports data has read policies;
 team data is limited to its owner. Server Actions still validate business rules
 such as the four-starter/two-bench limit, one captain, budget and transfer lock.
 The two-players-per-club rule is also enforced by a database trigger so writes
-outside the application cannot bypass it.
+outside the application cannot bypass it. Completed fantasy teams must have a
+unique name, compared case-insensitively; unfinished teams may share the
+placeholder name used during onboarding.
 
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`,
 `get_my_played_gameweek_progress()`,

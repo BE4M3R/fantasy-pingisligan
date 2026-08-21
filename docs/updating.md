@@ -98,6 +98,13 @@ Apply `supabase/club-player-limit-migration.sql` once to enforce the maximum of
 two players per club. The migration stops without changing the database if an
 existing squad already exceeds the limit; correct that squad and run it again.
 
+## Unique fantasy team names
+
+Apply `supabase/unique-team-names-migration.sql` once to prevent two completed
+fantasy teams from using the same name, including capitalization variants. The
+migration stops without changing the database if completed teams already have
+duplicate names; rename those teams and run it again.
+
 ## Private leaderboards
 
 Apply `supabase/private-leaderboards-migration.sql` once to enable creating

@@ -299,6 +299,10 @@ export async function updateTeamName(formData: FormData) {
     .eq("user_id", userId);
 
   if (error) {
+    if (error.code === "23505") {
+      dashboardMessage("That team name is already taken. Choose another one.");
+    }
+
     dashboardMessage(error.message);
   }
 

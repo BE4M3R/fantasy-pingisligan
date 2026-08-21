@@ -41,6 +41,10 @@ create table if not exists public.fantasy_teams (
   unique (user_id)
 );
 
+create unique index if not exists fantasy_teams_completed_name_unique
+on public.fantasy_teams (lower(btrim(name)))
+where onboarding_completed;
+
 create table if not exists public.fantasy_team_players (
   fantasy_team_id uuid not null references public.fantasy_teams(id) on delete cascade,
   player_id uuid not null references public.players(id) on delete cascade,
