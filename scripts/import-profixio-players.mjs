@@ -273,13 +273,72 @@ async function upsertPlayers(supabase, players) {
   }
 }
 
+async function getPendingRefreshGameweek(supabase) {
+  const now = new Date().toISOString();
+  const { data: gameweek, error } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id, name, lock_at, unlock_at")
+    .lte("lock_at", now)
+    .is("data_refreshed_at", null)
+    .order("unlock_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not check pending gameweek refreshes: ${error.message}`);
+  }
+
+  return gameweek;
+}
+
+async function hasStartedGameweek(supabase) {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id")
+    .lte("lock_at", now)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not inspect gameweek state: ${error.message}`);
+  }
+
+  return Boolean(data);
+}
+
+async function markGameweekRefreshed(supabase, gameweek) {
+  const refreshedAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("fantasy_gameweeks")
+    .update({ data_refreshed_at: refreshedAt, updated_at: refreshedAt })
+    .eq("id", gameweek.id)
+    .is("data_refreshed_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not reopen transfers: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error(
+      `${gameweek.name} was already marked refreshed by another process.`,
+    );
+  }
+
+  console.log(`Refreshed ${gameweek.name}; transfers are open.`);
+}
+
 async function main() {
   await loadEnvFile(path.join(projectRoot, ".env.local"));
   await loadEnvFile(path.join(projectRoot, ".env"));
 
   const dryRun =
     process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
+  const afterUnlock = process.argv.includes("--after-unlock");
   let supabase = null;
+  let refreshGameweek = null;
 
   if (!dryRun) {
     const supabaseUrl = requireEnv("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
@@ -290,6 +349,40 @@ async function main() {
         autoRefreshToken: false,
       },
     });
+
+    const pendingGameweek = await getPendingRefreshGameweek(supabase);
+
+    if (afterUnlock) {
+      if (!pendingGameweek) {
+        console.log("No gameweek is waiting for a data refresh; skipping.");
+        return;
+      }
+
+      if (Date.now() <= Date.parse(pendingGameweek.unlock_at)) {
+        console.log(
+          `${pendingGameweek.name} is still active until ${pendingGameweek.unlock_at}; ` +
+            "skipping scheduled price refresh.",
+        );
+        return;
+      }
+
+      refreshGameweek = pendingGameweek;
+      console.log(`Refreshing player prices after ${pendingGameweek.name}.`);
+    } else {
+      if (pendingGameweek) {
+        throw new Error(
+          `${pendingGameweek.name} is locked or waiting for its data refresh. ` +
+            "Import results first, then run the player importer with --after-unlock.",
+        );
+      }
+
+      if (await hasStartedGameweek(supabase)) {
+        throw new Error(
+          "In-season prices may only refresh after a gameweek unlock. " +
+            "Use --after-unlock after importing results.",
+        );
+      }
+    }
   }
 
   const clubSearches = await readClubSearches();
@@ -314,8 +407,16 @@ async function main() {
   const rankingRows = parseRankingRows(html);
   const { players, summary } = pickPlayersForClubs(rankingRows, clubSearches);
 
-  if (!dryRun && players.length > 0) {
+  if (!dryRun && players.length === 0) {
+    throw new Error("No players were parsed; transfers will remain locked.");
+  }
+
+  if (!dryRun) {
     await upsertPlayers(supabase, players);
+
+    if (refreshGameweek) {
+      await markGameweekRefreshed(supabase, refreshGameweek);
+    }
   }
 
   console.log(`Read ${clubSearches.length} club search strings from ${clubsFile}`);

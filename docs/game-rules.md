@@ -137,6 +137,21 @@ A player wins 3-1 and the player's club wins the fixture:
   club. A full
   squad can still replace one player with another through a valid transfer.
 
+### Player prices and team value
+
+- Player prices are refreshed from the latest ranking after a gameweek has
+  finished and reached its scheduled unlock time.
+- Prices never change while a gameweek transfer window is locked.
+- Transfers reopen only after the results and player-price refresh completes
+  successfully. A failed job leaves transfers closed until it is retried.
+- A completed team keeps the same unspent cash during a refresh. Price changes
+  are credited or debited using the squad that was locked for the gameweek that
+  just finished. If one of those players rises or falls, the team's total value
+  rises or falls by the same amount.
+- Transfers buy and sell players at their current displayed price. This means a
+  good earlier selection can increase the amount available for later squads,
+  while a price decrease reduces it.
+
 ## Chips
 
 Each chip can be used once per season, with at most one chip active in a
@@ -175,8 +190,5 @@ from the first scoring version:
 - **MVP bonus:** requires an objective performance-rating formula and tie rule.
 - **Scout bonus:** could award +3 when a scoring player has less than 5%
   ownership at the deadline, but ownership must be snapshotted first.
-- **Dynamic prices:** requires a published formula, price history, and clear
-  rules for the sale value of already-owned players. Prices should not change
-  during a locked gameweek.
 - **Home/away record and last-five form:** useful player statistics, but not a
   pricing or scoring input until a formula is agreed.

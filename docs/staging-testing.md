@@ -80,6 +80,10 @@ initial start time, and one or more club fixtures:
 `setup` creates every configured gameweek. `startsAfterHours` is relative to
 the setup time and must leave at least two hours before play. Later lifecycle
 `lock` and `unlock` move only the selected gameweek through their lifecycle.
+The `unlock` command moves past the scheduled unlock time but deliberately
+leaves the data refresh pending. `refresh-prices` then tests the locked-squad
+budget adjustment and marks the refresh complete, simulating the final
+successful step of the production import workflow.
 `score` loads every result available up to the selected gameweek and refreshes
 the affected current and previous gameweeks.
 
@@ -196,6 +200,9 @@ chip changes are blocked. Then score, inspect, and complete the gameweek:
 npm run test:staging -- score gw1
 npm run test:staging -- status gw1
 npm run test:staging -- unlock gw1
+npm run test:staging -- status gw1
+npm run test:staging -- refresh-prices gw1
+npm run test:staging -- status gw1
 ```
 
 The scoring action prints every configured individual match, independently
@@ -203,6 +210,14 @@ calculates expected player and fantasy-team totals, compares them with
 Supabase, and runs the database calculation twice to check idempotency. The
 default data initially stores 16 GW1 player-result rows because its third
 fixture is configured to arrive with GW2.
+
+After `unlock`, open the squad page and confirm it still blocks transfers while
+showing that results and prices are updating. `refresh-prices` temporarily adds
+SEK 1m to one player from the locked snapshot, verifies that only completed
+teams that owned that player receive SEK 1m of additional budget, then restores
+the player price and every budget. Finally it records `data_refreshed_at`; the
+website should then allow transfers. The price test is reversible and does not
+leave imported players or team budgets changed.
 
 ## Test Gameweek 2
 
@@ -216,6 +231,7 @@ npm run test:staging -- status gw2
 npm run test:staging -- score gw2
 npm run test:staging -- status gw1
 npm run test:staging -- unlock gw2
+npm run test:staging -- refresh-prices gw2
 ```
 
 After `score gw2`, GW1 has 24 player-result rows. Its delayed fixture has been
@@ -233,10 +249,12 @@ needed:
 npm run test:staging -- lock gw3
 npm run test:staging -- score gw3
 npm run test:staging -- unlock gw3
+npm run test:staging -- refresh-prices gw3
 
 npm run test:staging -- lock gw4
 npm run test:staging -- score gw4
 npm run test:staging -- unlock gw4
+npm run test:staging -- refresh-prices gw4
 ```
 
 Each score run revisits every earlier gameweek whose configured results are

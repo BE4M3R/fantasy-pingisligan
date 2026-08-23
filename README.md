@@ -96,6 +96,13 @@ column contains a world ranking such as `WR02`, the rounded surcharge
 `50000000 / sqrt(world_rank)` is added to that player's price (`WR02` is
 treated as world rank `2`).
 
+After applying `supabase/dynamic-player-prices-migration.sql`, the nightly
+workflow imports available results and then refreshes player prices from the
+pending gameweek's locked snapshot. Price changes preserve a completed team's
+unspent cash and instead increase or decrease its total team value. Transfers
+reopen only after both workflow steps succeed. A plain `npm run import:players`
+is reserved for preseason; in-season refreshes use `--after-unlock`.
+
 For existing Supabase databases created before the importer, run
 `supabase/player-import-migration.sql` in the Supabase SQL editor. It is safe to
 run again after the squad builder update; it also normalizes fantasy team

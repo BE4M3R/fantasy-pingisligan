@@ -28,6 +28,7 @@ type SquadRow = {
 type TransferLock = {
   gameweek_id: string | null;
   is_locked: boolean;
+  is_refreshing: boolean;
   gameweek_name: string | null;
   unlock_at: string | null;
 };
@@ -213,6 +214,7 @@ export default async function SquadPage({
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
+  const waitingForDataRefresh = Boolean(transferLock?.is_refreshing);
   const upcomingGameweek =
     upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
@@ -283,10 +285,12 @@ export default async function SquadPage({
 
   const previousSnapshot = getPreviousSnapshot(previousGameweek);
   const transferWindowMessage = transfersLocked
-    ? `Transfer window opens ${
-        formatDateTime(transferLock?.unlock_at ?? null) ||
-        "after the round finishes"
-      }.`
+    ? waitingForDataRefresh
+      ? "Updating results and player prices. Transfers reopen automatically when the refresh finishes."
+      : `Transfer window opens earliest ${
+          formatDateTime(transferLock?.unlock_at ?? null) ||
+          "the round finishes"
+        }.`
     : upcomingGameweek
       ? `Transfer window closes ${formatDateTime(upcomingGameweek.lock_at)}.`
       : "Transfer window closing time is not scheduled.";

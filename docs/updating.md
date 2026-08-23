@@ -105,6 +105,26 @@ fantasy teams from using the same name, including capitalization variants. The
 migration stops without changing the database if completed teams already have
 duplicate names; rename those teams and run it again.
 
+## Dynamic player prices and team value
+
+Apply `supabase/dynamic-player-prices-migration.sql` once before the next player
+price refresh. It adjusts a completed team's total budget by each player-price
+delta from its pending gameweek snapshot, preserving unspent cash while
+allowing team value to rise or fall. It also adds `data_refreshed_at` and keeps
+transfers closed after the scheduled unlock until the nightly results and
+player-price workflow finishes successfully. Existing completed gameweeks are
+backfilled as already refreshed when the migration is applied.
+
+The migration cannot reconstruct price changes imported before it was applied.
+For an already-negative team, determine its cash immediately before that import
+and correct its `fantasy_teams.budget` once. If the team had no unspent cash,
+set its budget to the current sum of its six player prices. Review the target
+team and amount before running that data correction.
+
+The GitHub Actions workflow change uses the existing `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` secrets; no new secret is required. Apply this
+migration before deploying or enabling the updated workflow.
+
 ## Private leaderboards
 
 Apply `supabase/private-leaderboards-migration.sql` once to enable creating

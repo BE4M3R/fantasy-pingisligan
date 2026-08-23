@@ -46,7 +46,7 @@ STUPA_STAGE_ID=4521 npm run import:results:dry
 
 | Command | Source | Main writes |
 | --- | --- | --- |
-| `npm run import:players` | Profixio rankings | `clubs`, `players` |
+| `npm run import:players` | Profixio rankings | `clubs`, `players`, and completed owners' budgets when prices change |
 | `npm run import:schedule` | Stupa stage matches | `clubs`, `fantasy_gameweeks`, `matches` |
 | `npm run import:results` | Stupa completed submatches | Raw result tables, `player_match_stats`, snapshot player points, team gameweek totals |
 
@@ -55,12 +55,28 @@ endpoint or parser. The writers use stable source identifiers and upserts, so a
 later run refreshes existing source rows instead of intentionally duplicating
 them.
 
+## Player-price refresh and transfer reopening
+
+After the first deadline of the season, real player imports run only as the
+final step of an unlocked gameweek refresh. The nightly workflow first imports
+available Stupa results and recalculates scores, then runs
+`npm run import:players -- --after-unlock`. A normal `npm run import:players`
+remains available for preseason setup before any gameweek has started.
+
+The database keeps transfers closed after the scheduled `unlock_at` until the
+player import succeeds and records `data_refreshed_at`. When a player price
+changes, the database adjusts the budget of every completed team that owned
+that player in the pending gameweek snapshot. Remaining cash is unchanged,
+while squad and total team values reflect the ranking change. If either import
+step fails, the marker remains null and the workflow can be retried safely.
+
 ## Schedule behavior
 
 One fantasy gameweek is built per Stupa round. Transfers lock two hours before
-the first match and reopen at 00:00 Swedish time on the day after the last
-match. Source times are interpreted in `Europe/Stockholm` and stored as UTC
-timestamps.
+the first match. The earliest reopening is 00:00 Swedish time on the day after
+the last match; actual reopening happens when the subsequent results and price
+refresh succeeds. Source times are interpreted in `Europe/Stockholm` and stored
+as UTC timestamps.
 
 ## Result identity matching
 

@@ -640,6 +640,7 @@ async function lock(supabase, definition, waitForCron = false) {
   const { error } = await supabase
     .from("fantasy_gameweeks")
     .update({
+      data_refreshed_at: null,
       lock_at: times.lockAt,
       first_match_starts_at: times.firstMatchStartsAt,
       last_match_ends_at: times.lastMatchEndsAt,
@@ -1099,6 +1100,7 @@ async function unlock(supabase, definition) {
   const { error } = await supabase
     .from("fantasy_gameweeks")
     .update({
+      data_refreshed_at: null,
       lock_at: addHours(firstMatchStartsAt, -2),
       first_match_starts_at: firstMatchStartsAt,
       last_match_ends_at: lastMatchEndsAt,
@@ -1107,7 +1109,140 @@ async function unlock(supabase, definition) {
     })
     .eq("id", gameweek.id);
   ensureNoError(error, `Could not complete ${definition.key}`);
-  console.log(`Completed ${definition.key}.`);
+  console.log(
+    `${definition.key} reached its scheduled unlock time and remains locked pending refresh.`,
+  );
+}
+
+async function loadFantasyTeamsById(supabase, teamIds) {
+  if (teamIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("fantasy_teams")
+    .select("id, name, budget, onboarding_completed")
+    .in("id", teamIds);
+  ensureNoError(error, "Could not load fantasy-team budgets");
+  return data ?? [];
+}
+
+async function refreshPrices(supabase, definition) {
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+
+  assert(
+    Date.now() > Date.parse(gameweek.unlock_at),
+    `${definition.key} has not reached its scheduled unlock time. Run unlock first.`,
+  );
+  assert(
+    gameweek.data_refreshed_at === null,
+    `${definition.key} was already refreshed. Run the test on the next locked gameweek.`,
+  );
+
+  const { data: snapshotRows, error: snapshotError } = await supabase
+    .from("fantasy_team_gameweek_players")
+    .select("fantasy_team_id, player_id")
+    .eq("fantasy_gameweek_id", gameweek.id);
+  ensureNoError(snapshotError, "Could not load locked squads for price testing");
+  assert(
+    (snapshotRows?.length ?? 0) > 0,
+    `No locked squads found for ${definition.key}. Run lock before refresh-prices.`,
+  );
+
+  const teamIds = [...new Set(snapshotRows.map((row) => row.fantasy_team_id))];
+  const originalTeams = await loadFantasyTeamsById(supabase, teamIds);
+  const completedTeamIds = new Set(
+    originalTeams
+      .filter((team) => team.onboarding_completed)
+      .map((team) => team.id),
+  );
+  const ownerCounts = new Map();
+
+  for (const row of snapshotRows) {
+    if (!completedTeamIds.has(row.fantasy_team_id)) continue;
+    ownerCounts.set(row.player_id, (ownerCounts.get(row.player_id) ?? 0) + 1);
+  }
+
+  const [testPlayerId] = [...ownerCounts.entries()].sort(
+    (first, second) => second[1] - first[1],
+  )[0] ?? [];
+  assert(testPlayerId, "No completed snapshotted team owns a testable player.");
+
+  const { data: player, error: playerError } = await supabase
+    .from("players")
+    .select("id, first_name, last_name, price")
+    .eq("id", testPlayerId)
+    .single();
+  ensureNoError(playerError, "Could not load the temporary test player");
+
+  const ownerTeamIds = new Set(
+    snapshotRows
+      .filter((row) => row.player_id === testPlayerId)
+      .map((row) => row.fantasy_team_id),
+  );
+  const originalBudgets = new Map(
+    originalTeams.map((team) => [team.id, Number(team.budget)]),
+  );
+  const originalPrice = Number(player.price);
+  const priceDelta = 1000000;
+  let priceChanged = false;
+
+  console.log(
+    `Temporarily increasing ${displayName(player)} from ${originalPrice} to ${originalPrice + priceDelta}. Do not interrupt this command.`,
+  );
+
+  try {
+    const { error } = await supabase
+      .from("players")
+      .update({ price: originalPrice + priceDelta })
+      .eq("id", player.id);
+    ensureNoError(error, "Could not apply the temporary player-price increase");
+    priceChanged = true;
+
+    const changedTeams = await loadFantasyTeamsById(supabase, teamIds);
+    for (const team of changedTeams) {
+      const expectedDelta =
+        team.onboarding_completed && ownerTeamIds.has(team.id) ? priceDelta : 0;
+      assert(
+        Number(team.budget) === originalBudgets.get(team.id) + expectedDelta,
+        `${team.name} received an unexpected budget change.`,
+      );
+    }
+  } finally {
+    if (priceChanged) {
+      const { error } = await supabase
+        .from("players")
+        .update({ price: originalPrice })
+        .eq("id", player.id);
+      ensureNoError(error, "Could not restore the temporary player price");
+    }
+  }
+
+  const restoredTeams = await loadFantasyTeamsById(supabase, teamIds);
+  for (const team of restoredTeams) {
+    assert(
+      Number(team.budget) === originalBudgets.get(team.id),
+      `${team.name}'s budget was not restored after the reversible test.`,
+    );
+  }
+
+  const refreshedAt = new Date().toISOString();
+  const { data: refreshedGameweek, error: refreshError } = await supabase
+    .from("fantasy_gameweeks")
+    .update({ data_refreshed_at: refreshedAt, updated_at: refreshedAt })
+    .eq("id", gameweek.id)
+    .is("data_refreshed_at", null)
+    .select("id")
+    .maybeSingle();
+  ensureNoError(refreshError, `Could not finish the refresh for ${definition.key}`);
+  assert(
+    refreshedGameweek,
+    `${definition.key} was already refreshed by another process.`,
+  );
+
+  console.log(
+    `Verified ${displayName(player)} at +SEK 1m for ${ownerCounts.get(testPlayerId)} locked owner(s).`,
+  );
+  console.log("The player price and all team budgets were restored.");
+  console.log(`${definition.key} is marked refreshed; transfers may reopen.`);
 }
 
 async function statusRow(supabase, definition) {
@@ -1145,6 +1280,7 @@ async function statusRow(supabase, definition) {
   return {
     gameweek: definition.key,
     installed: true,
+    data_refreshed_at: gameweek.data_refreshed_at,
     lock_at: gameweek.lock_at,
     result_rows: results ?? 0,
     scored_teams: totals ?? 0,
@@ -1224,12 +1360,13 @@ async function main() {
     "lock-cron",
     "score",
     "unlock",
+    "refresh-prices",
     "status",
     "cleanup",
   ]);
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, setup, lock, lock-cron, score, unlock, status, or cleanup.",
+      "Choose an action: validate, setup, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
     );
   }
   if (action === "setup" && key) {
@@ -1254,7 +1391,7 @@ async function main() {
   if (action === "setup") await setup(supabase, resolvedScenario);
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
-  if (["lock", "lock-cron", "score", "unlock"].includes(action)) {
+  if (["lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
     const definition = selectDefinition(resolvedScenario, key);
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
@@ -1262,6 +1399,7 @@ async function main() {
       await scoreAvailableGameweeks(supabase, resolvedScenario, definition);
     }
     if (action === "unlock") await unlock(supabase, definition);
+    if (action === "refresh-prices") await refreshPrices(supabase, definition);
   }
 }
 

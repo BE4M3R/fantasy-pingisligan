@@ -27,6 +27,7 @@ type SquadRow = {
 
 type TransferLock = {
   is_locked: boolean;
+  is_refreshing: boolean;
   unlock_at: string | null;
 };
 
@@ -106,6 +107,7 @@ export default async function OverviewPage() {
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
+  const waitingForDataRefresh = Boolean(transferLock?.is_refreshing);
   const captain = squad.find((row) => row.is_captain);
   const captainPlayer = captain ? getPlayer(captain) : null;
   const totalPoints = progress.reduce(
@@ -129,14 +131,18 @@ export default async function OverviewPage() {
     Math.round((squad.length / SQUAD_SIZE) * 100),
     100,
   );
-  const deadlineLabel = transfersLocked
-    ? "Transfer window reopens"
-    : "Transfer window closes";
-  const deadline = formatDateTime(
-    transfersLocked
-      ? transferLock?.unlock_at ?? null
-      : upcomingGameweek?.lock_at ?? null,
-  );
+  const deadlineLabel = waitingForDataRefresh
+    ? "Gameweek data"
+    : transfersLocked
+      ? "Earliest reopening"
+      : "Transfer window closes";
+  const deadline = waitingForDataRefresh
+    ? "Updating results and prices..."
+    : formatDateTime(
+        transfersLocked
+          ? transferLock?.unlock_at ?? null
+          : upcomingGameweek?.lock_at ?? null,
+      );
 
   return (
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">

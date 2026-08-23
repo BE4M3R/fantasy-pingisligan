@@ -156,7 +156,9 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
 
   if (lock?.is_locked) {
     dashboardMessage(
-      `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens ${formatDateTime(lock.unlock_at)}.`,
+      lock.is_refreshing
+        ? "Transfers remain closed while results and player prices are updated."
+        : `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens after ${formatDateTime(lock.unlock_at)} and the data refresh.`,
     );
   }
 }

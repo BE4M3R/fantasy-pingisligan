@@ -22,7 +22,9 @@ erDiagram
 ## Main areas
 
 - `profiles` mirrors application-specific user information from Supabase Auth.
-- `fantasy_teams` is one user's team, name and budget.
+- `fantasy_teams` is one user's team, name and budget. The budget represents
+  current squad value plus unspent cash; it moves with owned-player price
+  changes so a refresh does not change the team's available cash.
 - `fantasy_team_players` is the six-player squad, including position and captain.
 - `leagues` and `league_members` provide invite-only private leaderboards. The
   creator is added as the first member and can share the league's invite code.
@@ -31,7 +33,8 @@ erDiagram
 - `players` and `clubs` contain imported ranking data. `profixio_id` is also used
   to match Stupa's `license_id`; `stupa_user_role_id` stores the Stupa identity.
 - `fantasy_gameweeks` is created from Stupa rounds. Its first and last match
-  timestamps produce the transfer lock window.
+  timestamps produce the transfer lock window; `data_refreshed_at` records when
+  the post-gameweek results and player-price refresh has reopened transfers.
 - `matches` contains the parent team fixtures required before results can load.
 - `stupa_submatches` retains each source submatch and its raw payload.
 - `player_submatch_results` retains per-player set and point details. Its
@@ -47,7 +50,10 @@ such as the four-starter/two-bench limit, one captain, budget and transfer lock.
 The two-players-per-club rule is also enforced by a database trigger so writes
 outside the application cannot bypass it. Completed fantasy teams must have a
 unique name, compared case-insensitively; unfinished teams may share the
-placeholder name used during onboarding.
+placeholder name used during onboarding. A player-price trigger uses the latest
+pending gameweek snapshot to preserve each completed team's cash when a player
+from that squad is repriced. Squad and chip writes remain blocked until the
+post-gameweek data refresh succeeds.
 
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`,
 `get_my_played_gameweek_progress()`,

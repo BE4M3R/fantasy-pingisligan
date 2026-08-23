@@ -57,6 +57,10 @@ snapshot header for every team that existed at the deadline and immutable
 player rows containing names, position, captain, price and club data. Repeated
 calls are safe because the snapshot tables use team/gameweek/player keys and
 ignore conflicts. Later scoring must use these rows rather than the live squad.
+After the scheduled unlock time, transfers remain closed until the nightly job
+has imported available results and refreshed Profixio player prices. The final
+successful player-import step records `fantasy_gameweeks.data_refreshed_at`,
+which reopens transfers.
 
 The Stupa schedule and completed results are two views of the same real-world
 team fixtures. The schedule importer creates the parent `matches` rows before
