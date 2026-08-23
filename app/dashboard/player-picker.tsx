@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
+import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 
 type PlayerPickerProps = {
   onSelect: (player: DashboardPlayer) => void;
@@ -80,6 +81,8 @@ export function PlayerPicker({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  useBodyScrollLock(pickerOpen);
+
   async function openPicker() {
     setFiltersOpen(false);
     dialogRef.current?.showModal();
@@ -112,32 +115,6 @@ export function PlayerPicker({
       dialog.removeEventListener("close", handleClose);
     };
   }, []);
-
-  useEffect(() => {
-    if (!pickerOpen) return;
-
-    const body = document.body;
-    const scrollPosition = window.scrollY;
-    const previousStyles = {
-      overflow: body.style.overflow,
-      position: body.style.position,
-      top: body.style.top,
-      width: body.style.width,
-    };
-
-    body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollPosition}px`;
-    body.style.width = "100%";
-
-    return () => {
-      body.style.overflow = previousStyles.overflow;
-      body.style.position = previousStyles.position;
-      body.style.top = previousStyles.top;
-      body.style.width = previousStyles.width;
-      window.scrollTo(0, scrollPosition);
-    };
-  }, [pickerOpen]);
 
   const selectedIds = useMemo(() => new Set(selectedPlayerIds), [selectedPlayerIds]);
   const clubCounts = useMemo(() => {

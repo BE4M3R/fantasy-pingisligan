@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 
 export type Chip = "wildcard" | "triple_captain" | "bench_boost";
 
@@ -157,19 +158,18 @@ export function ChipSelector({
   const chipTriggerRef = useRef<HTMLButtonElement | null>(null);
   const chipToConfirm = chips.find((chip) => chip.value === pendingChip);
 
+  useBodyScrollLock(Boolean(pendingChip));
+
   useEffect(() => {
     if (!pendingChip) return;
 
-    const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setPendingChip(null);
     };
 
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [pendingChip]);

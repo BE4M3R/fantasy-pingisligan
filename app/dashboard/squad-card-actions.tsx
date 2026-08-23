@@ -10,6 +10,7 @@ import type {
   DraftSquadPlayer,
   SquadPlayerResult,
 } from "@/app/dashboard/player-types";
+import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 
 type SquadCardActionsProps = {
   children: React.ReactNode;
@@ -214,10 +215,11 @@ export function SquadCardActions({
   const [swapPickerOpen, setSwapPickerOpen] = useState(false);
   const playerName = `${player.first_name} ${player.last_name}`;
 
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setSwapPickerOpen(false);
@@ -225,11 +227,9 @@ export function SquadCardActions({
       }
     };
 
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [isOpen]);
