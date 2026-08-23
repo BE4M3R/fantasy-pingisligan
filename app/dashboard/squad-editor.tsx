@@ -31,7 +31,7 @@ const COURT_POSITION_STYLE = {
     "clamp(0.25rem, 1vw, 0.55rem) clamp(0.45rem, 1.5vw, 0.75rem)",
 };
 const BENCH_POSITION_STYLE = {
-  padding: "0 clamp(0.4rem, 2.5vw, 1.25rem)",
+  padding: "0 clamp(0.45rem, 1.5vw, 0.75rem)",
 };
 
 type UpcomingGameweek = {
@@ -158,7 +158,7 @@ function SquadCard({
     >
       <div className="flex min-w-0 w-full flex-col items-center">
         <ClubLogoBadge clubName={clubName} />
-        <h3 className="mt-2 line-clamp-2 min-w-0 w-full break-words text-xs font-black leading-[1.15] text-[var(--pf-text)] sm:text-sm">
+        <h3 className="mt-1.5 line-clamp-2 min-w-0 w-full break-words text-xs font-black leading-[1.15] text-[var(--pf-text)] sm:text-sm">
           {formatPlayerCardName(player)}
         </h3>
         <p className="mt-1 hidden min-w-0 w-full leading-tight text-[var(--pf-text-muted)] sm:line-clamp-1 sm:text-[0.7rem]">
@@ -170,7 +170,7 @@ function SquadCard({
             : formatMoney(player.price)}
         </p>
         {player.is_captain || player.active === false || result?.automatic_substitution ? (
-          <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+          <div className="absolute left-1.5 top-1.5 z-10 flex flex-col items-start gap-1 sm:static sm:mt-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
             {player.is_captain ? (
               <span
                 aria-label="Captain"
@@ -182,7 +182,8 @@ function SquadCard({
                   whiteSpace: "nowrap",
                 }}
               >
-                Captain
+                <span className="sm:hidden">C</span>
+                <span className="hidden sm:inline">Captain</span>
               </span>
             ) : null}
             {player.active === false ? (
@@ -191,10 +192,24 @@ function SquadCard({
               </span>
             ) : null}
             {result?.automatic_substitution ? (
-              <span className="inline-flex items-center justify-center rounded-full bg-[var(--pf-brand-blue-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-brand-blue-hover)] ring-1 ring-[var(--pf-brand-blue-border)]">
-                {result.automatic_substitution === "in"
-                  ? "Subbed in"
-                  : "Subbed out"}
+              <span
+                aria-label={
+                  result.automatic_substitution === "in"
+                    ? "Subbed in"
+                    : "Subbed out"
+                }
+                className="inline-flex items-center justify-center rounded-full bg-[var(--pf-brand-blue-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-brand-blue-hover)] ring-1 ring-[var(--pf-brand-blue-border)]"
+              >
+                <span className="sm:hidden">
+                  {result.automatic_substitution === "in"
+                    ? "Sub in"
+                    : "Sub out"}
+                </span>
+                <span className="hidden sm:inline">
+                  {result.automatic_substitution === "in"
+                    ? "Subbed in"
+                    : "Subbed out"}
+                </span>
               </span>
             ) : null}
           </div>
@@ -733,7 +748,7 @@ export function SquadEditor({
           <div className="mx-auto w-full max-w-xl">
             <div
               className="relative w-full"
-              style={{ paddingBottom: "70%" }}
+              style={{ paddingBottom: "66%" }}
             >
               <div
                 aria-label="Table tennis starting lineup"

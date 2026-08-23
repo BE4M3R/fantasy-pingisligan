@@ -265,7 +265,7 @@ export function SquadCardActions({
       <button
         aria-label={`Open ${result ? "result details" : "actions"} for ${playerName}`}
         aria-expanded={isOpen}
-        className={`group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border bg-[var(--pf-navy)] px-2 py-3 text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)] sm:px-4 sm:py-4 ${
+        className={`group relative min-w-0 w-full max-w-52 touch-manipulation cursor-pointer overflow-hidden rounded-lg border bg-[var(--pf-navy)] px-2 py-2.5 text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)] sm:px-4 sm:py-3 ${
           isOpen
             ? "border-[var(--pf-brand-blue)] ring-2 ring-[var(--pf-brand-blue)]/35"
             : player.active === false
