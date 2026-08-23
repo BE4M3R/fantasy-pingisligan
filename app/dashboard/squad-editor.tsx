@@ -20,6 +20,7 @@ import type {
   SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
+import { getDisplayedResultPoints } from "@/app/dashboard/player-types";
 import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
 
 const STARTER_SIZE = 4;
@@ -163,7 +164,9 @@ function SquadCard({
           {clubName}
         </p>
         <p className="mt-0.5 text-[0.65rem] font-bold text-[var(--pf-text)] sm:text-xs">
-          {result ? `${result.fantasy_points} pts` : formatMoney(player.price)}
+          {result
+            ? `${getDisplayedResultPoints(result)} pts`
+            : formatMoney(player.price)}
         </p>
         {player.is_captain || player.active === false ? (
           <div className="mt-1.5 flex flex-wrap justify-center gap-1">

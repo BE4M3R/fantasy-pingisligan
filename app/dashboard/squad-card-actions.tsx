@@ -10,6 +10,10 @@ import type {
   DraftSquadPlayer,
   SquadPlayerResult,
 } from "@/app/dashboard/player-types";
+import {
+  getDisplayedResultPoints,
+  hasPlayedMatch,
+} from "@/app/dashboard/player-types";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 
 type SquadCardActionsProps = {
@@ -48,6 +52,8 @@ function getGameweekLabel(result: SquadPlayerResult) {
 }
 
 function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
+  const playedMatch = hasPlayedMatch(result);
+  const displayedPoints = getDisplayedResultPoints(result);
   const rows = [
     {
       detail: `${result.singles_wins} won, ${result.singles_losses} lost`,
@@ -83,23 +89,18 @@ function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
 
   return (
     <div className="mt-5">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-[var(--pf-navy-elevated)] p-3">
-          <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
-            Player points
+      <div className="rounded-lg bg-[var(--pf-navy-elevated)] p-3">
+        <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
+          Total points
+        </p>
+        <p className="mt-1 text-2xl font-black text-[var(--pf-fantasy-yellow)]">
+          {displayedPoints}
+        </p>
+        {displayedPoints === 0 ? (
+          <p className="mt-1 text-xs font-bold text-[var(--pf-text-muted)]">
+            {playedMatch ? "Played this gameweek" : "Did not play this gameweek"}
           </p>
-          <p className="mt-1 text-2xl font-black text-[var(--pf-text)]">
-            {result.fantasy_points}
-          </p>
-        </div>
-        <div className="rounded-lg bg-[var(--pf-navy-elevated)] p-3">
-          <p className="text-[0.65rem] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
-            Team contribution
-          </p>
-          <p className="mt-1 text-2xl font-black text-[var(--pf-fantasy-yellow)]">
-            {result.team_points_contribution}
-          </p>
-        </div>
+        ) : null}
       </div>
 
       <h3 className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-[var(--pf-brand-blue-hover)]">
@@ -131,7 +132,9 @@ function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
         </dl>
       ) : (
         <p className="mt-2 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-3 text-sm text-[var(--pf-text-muted)]">
-          No scored appearances or fixture bonuses yet.
+          {playedMatch
+            ? "Played, but earned no scoring points."
+            : "Did not play this gameweek."}
         </p>
       )}
 
@@ -296,7 +299,7 @@ export function SquadCardActions({
                       </h2>
                       <p className="mt-1 text-sm font-bold text-[var(--pf-text-muted)]">
                         {result
-                          ? `${getGameweekLabel(result)} · ${result.fantasy_points} pts`
+                          ? `${getGameweekLabel(result)} · ${getDisplayedResultPoints(result)} pts`
                           : formatMoney(player.price)}
                       </p>
                     </div>

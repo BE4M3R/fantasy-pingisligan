@@ -38,3 +38,19 @@ export type SquadPlayerResult = DraftSquadPlayer & {
   sweep_bonus_points: number;
   team_points_contribution: number;
 };
+
+export function hasPlayedMatch(result: SquadPlayerResult) {
+  return (
+    result.singles_wins +
+      result.singles_losses +
+      result.doubles_wins +
+      result.doubles_losses >
+    0
+  );
+}
+
+export function getDisplayedResultPoints(result: SquadPlayerResult) {
+  return result.counts_for_team
+    ? result.team_points_contribution
+    : result.fantasy_points;
+}
