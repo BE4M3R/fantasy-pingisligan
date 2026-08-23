@@ -317,7 +317,13 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
     ? "fantasy_team_gameweek_players"
     : "fantasy_team_players";
   let query = supabase.from(sourceTable).select("*");
-  if (gameweekId) query = query.eq("fantasy_gameweek_id", gameweekId);
+  if (gameweekId) {
+    query = query
+      .eq("fantasy_gameweek_id", gameweekId)
+      .order("player_last_name_at_lock")
+      .order("player_first_name_at_lock")
+      .order("player_id");
+  }
 
   const { data: squadRows, error: squadError } = await query;
   ensureNoError(squadError, "Could not load fantasy squads");
@@ -790,6 +796,7 @@ function buildResultRows(definition, roleIds) {
 
 function expectedPlayerPoints(definition, activePlayers) {
   const points = new Map(activePlayers.map((player) => [player.id, 0]));
+  const played = new Set();
   const singles = new Map();
 
   for (const fixture of definition.fixtures) {
@@ -823,6 +830,7 @@ function expectedPlayerPoints(definition, activePlayers) {
             ? result.homeSets
             : result.awaySets;
         for (const player of players) {
+          played.add(player.id);
           let matchPoints;
           if (match.type === "doubles") {
             const scoringSetsWon = result.walkover && won ? 3 : setsWon;
@@ -852,14 +860,31 @@ function expectedPlayerPoints(definition, activePlayers) {
       points.set(playerId, (points.get(playerId) ?? 0) + 2);
     }
   }
-  return points;
+  return { played, points };
 }
 
-function expectedTeamPoints(team, rows, playerPoints, snapshot) {
+function expectedTeamPoints(team, rows, playerResults, snapshot) {
+  const missingStarterCount = rows.filter(
+    (row) => row.position === "starter" && !playerResults.played.has(row.player_id),
+  ).length;
+  const automaticSubstituteIds = new Set(
+    rows
+      .filter(
+        (row) => row.position === "bench" && playerResults.played.has(row.player_id),
+      )
+      .slice(0, missingStarterCount)
+      .map((row) => row.player_id),
+  );
   const playerTotal = rows.reduce((total, row) => {
-    const points = playerPoints.get(row.player_id) ?? 0;
-    if (row.position === "bench" && snapshot.active_chip !== "bench_boost") return total;
-    if (row.is_captain && row.position === "starter") {
+    const points = playerResults.points.get(row.player_id) ?? 0;
+    const played = playerResults.played.has(row.player_id);
+    const countsForTeam =
+      snapshot.active_chip === "bench_boost" ||
+      (row.position === "starter" && played) ||
+      automaticSubstituteIds.has(row.player_id);
+
+    if (!countsForTeam) return total;
+    if (row.is_captain && row.position === "starter" && played) {
       return total + points * (snapshot.active_chip === "triple_captain" ? 3 : 2);
     }
     return total + points;
@@ -1033,7 +1058,10 @@ async function seedAndScore(
   console.table(
     activePlayers
       .filter((player) => participatingIds.has(player.id))
-      .map((player) => ({ player: displayName(player), points: expectedPlayers.get(player.id) ?? 0 })),
+      .map((player) => ({
+        player: displayName(player),
+        points: expectedPlayers.points.get(player.id) ?? 0,
+      })),
   );
   console.log("Verified fantasy-team totals:");
   console.table(expectedTotals.map(({ name, points }) => ({ team: name, points })));

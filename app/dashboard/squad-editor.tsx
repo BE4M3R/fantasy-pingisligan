@@ -48,6 +48,7 @@ type SquadEditorProps = {
   initialChip: Chip | null;
   initialSquad: DraftSquadPlayer[];
   latestResultSquad: SquadPlayerResult[];
+  latestResultTransferPenalty: number;
   lockedGameweekId: string | null;
   previousPlayerIds: string[];
   resultModeMigrationMissing: boolean;
@@ -168,7 +169,7 @@ function SquadCard({
             ? `${getDisplayedResultPoints(result)} pts`
             : formatMoney(player.price)}
         </p>
-        {player.is_captain || player.active === false ? (
+        {player.is_captain || player.active === false || result?.automatic_substitution ? (
           <div className="mt-1.5 flex flex-wrap justify-center gap-1">
             {player.is_captain ? (
               <span
@@ -189,6 +190,13 @@ function SquadCard({
                 Unavailable
               </span>
             ) : null}
+            {result?.automatic_substitution ? (
+              <span className="inline-flex items-center justify-center rounded-full bg-[var(--pf-brand-blue-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-brand-blue-hover)] ring-1 ring-[var(--pf-brand-blue-border)]">
+                {result.automatic_substitution === "in"
+                  ? "Subbed in"
+                  : "Subbed out"}
+              </span>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -204,6 +212,7 @@ export function SquadEditor({
   initialChip,
   initialSquad,
   latestResultSquad,
+  latestResultTransferPenalty,
   lockedGameweekId,
   previousPlayerIds,
   resultModeMigrationMissing,
@@ -257,6 +266,11 @@ export function SquadEditor({
       ? `Gameweek ${latestResult.round_order}`
       : latestResult.gameweek_name.replace(/^round\s*/i, "Gameweek ")
     : null;
+  const latestResultTotalPoints =
+    latestResultSquad.reduce(
+      (total, player) => total + player.team_points_contribution,
+      0,
+    ) + latestResultTransferPenalty;
   const selectedPlayerIds = draftSquad.map((player) => player.id);
   const selectedClubIds = draftSquad
     .map(getClubId)
@@ -696,6 +710,24 @@ export function SquadEditor({
             {displayedStarters.length} / {STARTER_SIZE}
           </span>
         </div>
+
+        {viewMode === "results" ? (
+          <div className="mx-auto mb-3 flex max-w-xl items-center justify-between gap-4 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-4 py-3">
+            <div>
+              <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
+                Gameweek total
+              </p>
+              {latestResultTransferPenalty !== 0 ? (
+                <p className="mt-0.5 text-xs text-[var(--pf-text-muted)]">
+                  Includes {latestResultTransferPenalty} pts transfer cost
+                </p>
+              ) : null}
+            </div>
+            <p className="shrink-0 text-xl font-black text-[var(--pf-fantasy-yellow)]">
+              {latestResultTotalPoints} pts
+            </p>
+          </div>
+        ) : null}
 
         <div>
           <div className="mx-auto w-full max-w-xl">

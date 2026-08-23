@@ -142,6 +142,7 @@ team totals, first run these migrations in the Supabase SQL editor:
 1. `supabase/stupa-results-migration.sql`
 2. `supabase/scoring-rules-migration.sql`
 3. `supabase/remove-lost-set-penalty-migration.sql`
+4. `supabase/automatic-bench-substitutions-migration.sql`
 
 The scoring migrations expect the squad snapshot and chips migrations described
 in [Updating](docs/updating.md) to have been applied already. Then run:

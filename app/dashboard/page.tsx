@@ -7,6 +7,7 @@ import type {
   SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
+import { applyAutomaticBenchSubstitutions } from "@/app/dashboard/player-types";
 import { SquadEditor } from "@/app/dashboard/squad-editor";
 import { createClient } from "@/lib/supabase/server";
 
@@ -113,6 +114,7 @@ function getPreviousSnapshot(row: PreviousGameweek | null) {
 function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
   return {
     active_chip: row.active_chip,
+    automatic_substitution: null,
     birth_year: null,
     captain_bonus_points: Number(row.captain_bonus_points),
     clubs: row.club_name
@@ -130,6 +132,7 @@ function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
     is_captain: row.is_captain,
     last_name: row.last_name,
     match_win_points: Number(row.match_win_points),
+    original_position: row.position,
     position: row.position,
     price: row.price,
     round_order: row.round_order,
@@ -219,9 +222,25 @@ export default async function SquadPage({
     upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
   const resultModeMigrationMissing = Boolean(latestSquadResult.error);
-  const latestResultSquad = (
-    (latestSquadResult.data ?? []) as LatestSquadResultRow[]
-  ).map(getSquadResultPlayer);
+  const latestResultSquad = applyAutomaticBenchSubstitutions(
+    ((latestSquadResult.data ?? []) as LatestSquadResultRow[]).map(
+      getSquadResultPlayer,
+    ),
+  );
+  let latestResultTransferPenalty = 0;
+
+  if (fantasyTeam && latestResultSquad[0]) {
+    const { data: resultSnapshot } = await supabase
+      .from("fantasy_team_gameweek_snapshots")
+      .select("transfer_penalty_points")
+      .eq("fantasy_team_id", fantasyTeam.id)
+      .eq("fantasy_gameweek_id", latestResultSquad[0].gameweek_id)
+      .maybeSingle();
+
+    latestResultTransferPenalty = Number(
+      resultSnapshot?.transfer_penalty_points ?? 0,
+    );
+  }
   const chipMigrationMissing = Boolean(
     chipSelectionsResult.error?.message.includes(
       "fantasy_team_chip_selections",
@@ -318,6 +337,7 @@ export default async function SquadPage({
           initialChip={currentChipSelection?.chip ?? null}
           initialSquad={squad}
           latestResultSquad={latestResultSquad}
+          latestResultTransferPenalty={latestResultTransferPenalty}
           lockedGameweekId={transferLock?.gameweek_id ?? null}
           previousPlayerIds={previousPlayers.map((row) => row.player_id)}
           resultModeMigrationMissing={resultModeMigrationMissing}
