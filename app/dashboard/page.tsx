@@ -81,6 +81,16 @@ type LatestSquadResultRow = {
   team_points_contribution: number | string;
 };
 
+type LatestSetBreakdownRow = {
+  doubles_set_points: number | string;
+  doubles_sets_lost: number | string;
+  doubles_sets_won: number | string;
+  player_id: string;
+  singles_set_points: number | string;
+  singles_sets_lost: number | string;
+  singles_sets_won: number | string;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "";
 
@@ -111,7 +121,10 @@ function getPreviousSnapshot(row: PreviousGameweek | null) {
     : row.fantasy_team_gameweek_snapshots;
 }
 
-function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
+function getSquadResultPlayer(
+  row: LatestSquadResultRow,
+  setBreakdown?: LatestSetBreakdownRow,
+): SquadPlayerResult {
   return {
     active_chip: row.active_chip,
     automatic_substitution: null,
@@ -122,6 +135,9 @@ function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
       : null,
     counts_for_team: row.counts_for_team,
     doubles_losses: Number(row.doubles_losses),
+    doubles_set_points: Number(setBreakdown?.doubles_set_points ?? 0),
+    doubles_sets_lost: Number(setBreakdown?.doubles_sets_lost ?? 0),
+    doubles_sets_won: Number(setBreakdown?.doubles_sets_won ?? 0),
     doubles_wins: Number(row.doubles_wins),
     fantasy_points: Number(row.fantasy_points),
     first_name: row.first_name,
@@ -137,9 +153,13 @@ function getSquadResultPlayer(row: LatestSquadResultRow): SquadPlayerResult {
     price: row.price,
     round_order: row.round_order,
     set_points: Number(row.set_points),
+    set_breakdown_available: Boolean(setBreakdown),
     sets_lost: Number(row.sets_lost),
     sets_won: Number(row.sets_won),
     singles_losses: Number(row.singles_losses),
+    singles_set_points: Number(setBreakdown?.singles_set_points ?? 0),
+    singles_sets_lost: Number(setBreakdown?.singles_sets_lost ?? 0),
+    singles_sets_won: Number(setBreakdown?.singles_sets_won ?? 0),
     singles_wins: Number(row.singles_wins),
     sweep_bonus_points: Number(row.sweep_bonus_points),
     team_points_contribution: Number(row.team_points_contribution),
@@ -185,6 +205,7 @@ export default async function SquadPage({
     upcomingGameweekResult,
     chipSelectionsResult,
     latestSquadResult,
+    latestSetBreakdownResult,
   ] = await Promise.all([
     fantasyTeam
       ? supabase
@@ -209,6 +230,7 @@ export default async function SquadPage({
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
     supabase.rpc("get_my_latest_squad_result"),
+    supabase.rpc("get_my_latest_squad_set_breakdown"),
   ]);
 
   const { message } = await searchParams;
@@ -222,9 +244,14 @@ export default async function SquadPage({
     upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
   const resultModeMigrationMissing = Boolean(latestSquadResult.error);
+  const setBreakdownByPlayer = new Map(
+    ((latestSetBreakdownResult.data ?? []) as LatestSetBreakdownRow[]).map(
+      (row) => [row.player_id, row],
+    ),
+  );
   const latestResultSquad = applyAutomaticBenchSubstitutions(
-    ((latestSquadResult.data ?? []) as LatestSquadResultRow[]).map(
-      getSquadResultPlayer,
+    ((latestSquadResult.data ?? []) as LatestSquadResultRow[]).map((row) =>
+      getSquadResultPlayer(row, setBreakdownByPlayer.get(row.player_id)),
     ),
   );
   let latestResultTransferPenalty = 0;

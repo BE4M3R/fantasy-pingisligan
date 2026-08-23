@@ -67,12 +67,29 @@ function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
       points: result.doubles_wins * 2,
       show: result.doubles_wins + result.doubles_losses > 0,
     },
-    {
-      detail: `${result.sets_won} won, ${result.sets_lost} lost`,
-      label: "Set points",
-      points: result.set_points,
-      show: result.sets_won + result.sets_lost > 0,
-    },
+    ...(result.set_breakdown_available
+      ? [
+          {
+            detail: `${result.singles_sets_won} won, ${result.singles_sets_lost} lost`,
+            label: "Singles set points",
+            points: result.singles_set_points,
+            show: result.singles_sets_won + result.singles_sets_lost > 0,
+          },
+          {
+            detail: `${result.doubles_sets_won} won, ${result.doubles_sets_lost} lost`,
+            label: "Doubles set points",
+            points: result.doubles_set_points,
+            show: result.doubles_sets_won + result.doubles_sets_lost > 0,
+          },
+        ]
+      : [
+          {
+            detail: `${result.sets_won} won, ${result.sets_lost} lost`,
+            label: "Set points",
+            points: result.set_points,
+            show: result.sets_won + result.sets_lost > 0,
+          },
+        ]),
     {
       detail: `${result.fixture_win_points / 3} fixture ${result.fixture_win_points === 3 ? "win" : "wins"}`,
       label: "Fixture wins",

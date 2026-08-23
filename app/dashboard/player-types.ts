@@ -24,6 +24,9 @@ export type SquadPlayerResult = DraftSquadPlayer & {
   captain_bonus_points: number;
   counts_for_team: boolean;
   doubles_losses: number;
+  doubles_set_points: number;
+  doubles_sets_lost: number;
+  doubles_sets_won: number;
   doubles_wins: number;
   fantasy_points: number;
   fixture_win_points: number;
@@ -33,9 +36,13 @@ export type SquadPlayerResult = DraftSquadPlayer & {
   original_position: SquadPosition;
   round_order: number | null;
   set_points: number;
+  set_breakdown_available: boolean;
   sets_lost: number;
   sets_won: number;
   singles_losses: number;
+  singles_set_points: number;
+  singles_sets_lost: number;
+  singles_sets_won: number;
   singles_wins: number;
   sweep_bonus_points: number;
   team_points_contribution: number;
