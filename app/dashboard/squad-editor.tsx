@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -62,6 +61,11 @@ type SquadEditorProps = {
   upcomingGameweek: UpcomingGameweek | null;
 };
 
+type ResultGameweekPayload = {
+  squad: SquadPlayerResult[];
+  transferPenalty: number;
+};
+
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
 }
@@ -95,6 +99,65 @@ function getDraftSignature(players: DraftSquadPlayer[], chip: Chip | null) {
       }))
       .toSorted((left, right) => left.player_id.localeCompare(right.player_id)),
   });
+}
+
+function orderResultSquadLikeDraft(
+  results: SquadPlayerResult[],
+  draft: DraftSquadPlayer[],
+) {
+  const resultByPlayerId = new Map(
+    results.map((result) => [result.id, result]),
+  );
+  const subbedIn = results.filter(
+    (result) => result.automatic_substitution === "in",
+  );
+  const subbedOut = results.filter(
+    (result) => result.automatic_substitution === "out",
+  );
+  const subbedInByOutgoingPlayerId = new Map(
+    subbedOut.map((outgoingPlayer, index) => [
+      outgoingPlayer.id,
+      subbedIn[index],
+    ]),
+  );
+  const subbedOutByIncomingPlayerId = new Map(
+    subbedIn.map((incomingPlayer, index) => [
+      incomingPlayer.id,
+      subbedOut[index],
+    ]),
+  );
+  const usedPlayerIds = new Set<string>();
+
+  function orderPosition(position: SquadPosition) {
+    const ordered = draft.flatMap((draftPlayer) => {
+      if (draftPlayer.position !== position) return [];
+
+      const directResult = resultByPlayerId.get(draftPlayer.id);
+      const result =
+        position === "starter" &&
+        directResult?.automatic_substitution === "out"
+          ? subbedInByOutgoingPlayerId.get(draftPlayer.id)
+          : position === "bench" &&
+              directResult?.automatic_substitution === "in"
+            ? subbedOutByIncomingPlayerId.get(draftPlayer.id)
+            : directResult;
+
+      if (!result || result.position !== position) return [];
+
+      usedPlayerIds.add(result.id);
+      return [result];
+    });
+
+    return [
+      ...ordered,
+      ...results.filter(
+        (result) =>
+          result.position === position && !usedPlayerIds.has(result.id),
+      ),
+    ];
+  }
+
+  return [...orderPosition("starter"), ...orderPosition("bench")];
 }
 
 function ClubLogoBadge({ clubName }: { clubName: string }) {
@@ -253,6 +316,29 @@ export function SquadEditor({
   const [savedChip, setSavedChip] = useState<Chip | null>(initialChip);
   const [viewMode, setViewMode] =
     useState<"transfers" | "results">(initialViewMode);
+  const [resultSquad, setResultSquad] =
+    useState<SquadPlayerResult[]>(latestResultSquad);
+  const [resultTransferPenalty, setResultTransferPenalty] = useState(
+    latestResultTransferPenalty,
+  );
+  const [resultLoadError, setResultLoadError] = useState("");
+  const [isResultLoading, setIsResultLoading] = useState(false);
+  const resultCacheRef = useRef(
+    new Map<string, ResultGameweekPayload>(
+      latestResultSquad[0]
+        ? [
+            [
+              latestResultSquad[0].gameweek_id,
+              {
+                squad: latestResultSquad,
+                transferPenalty: latestResultTransferPenalty,
+              },
+            ],
+          ]
+        : [],
+    ),
+  );
+  const resultRequestRef = useRef(0);
   const [saveMessage, setSaveMessage] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
     null,
@@ -271,16 +357,20 @@ export function SquadEditor({
     (player) => player.position === "starter",
   );
   const bench = draftSquad.filter((player) => player.position === "bench");
-  const resultStarters = latestResultSquad.filter(
+  const orderedResultSquad = orderResultSquadLikeDraft(
+    resultSquad,
+    draftSquad,
+  );
+  const resultStarters = orderedResultSquad.filter(
     (player) => player.position === "starter",
   );
-  const resultBench = latestResultSquad.filter(
+  const resultBench = orderedResultSquad.filter(
     (player) => player.position === "bench",
   );
   const displayedStarters =
     viewMode === "results" ? resultStarters : starters;
   const displayedBench = viewMode === "results" ? resultBench : bench;
-  const latestResult = latestResultSquad[0] ?? null;
+  const latestResult = resultSquad[0] ?? null;
   const selectedResultGameweekIndex = resultGameweeks.findIndex(
     ({ id }) => id === latestResult?.gameweek_id,
   );
@@ -299,10 +389,10 @@ export function SquadEditor({
       : latestResult.gameweek_name.replace(/^round\s*/i, "Gameweek ")
     : null;
   const latestResultTotalPoints =
-    latestResultSquad.reduce(
+    resultSquad.reduce(
       (total, player) => total + player.team_points_contribution,
       0,
-    ) + latestResultTransferPenalty;
+    ) + resultTransferPenalty;
   const selectedPlayerIds = draftSquad.map((player) => player.id);
   const selectedClubIds = draftSquad
     .map(getClubId)
@@ -362,6 +452,34 @@ export function SquadEditor({
     saveDisabledReason === "No changes" ? "" : saveDisabledReason;
 
   useEffect(() => {
+    let cancelled = false;
+    const adjacentGameweekIds = [
+      previousResultGameweek?.id,
+      nextResultGameweek?.id,
+    ].filter((id): id is string => Boolean(id));
+
+    for (const gameweekId of adjacentGameweekIds) {
+      if (resultCacheRef.current.has(gameweekId)) continue;
+
+      void fetch(`/api/squad-results?gameweek=${gameweekId}`)
+        .then(async (response) => {
+          if (!response.ok) return null;
+          return (await response.json()) as ResultGameweekPayload;
+        })
+        .then((payload) => {
+          if (!cancelled && payload) {
+            resultCacheRef.current.set(gameweekId, payload);
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nextResultGameweek?.id, previousResultGameweek?.id]);
+
+  useEffect(() => {
     if (!isDirty) return;
 
     const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {
@@ -417,6 +535,78 @@ export function SquadEditor({
   function closeLeaveDialog() {
     leaveDialogRef.current?.close();
     setPendingNavigation(null);
+  }
+
+  async function selectResultGameweek(gameweek: ResultGameweek) {
+    if (gameweek.id === latestResult?.gameweek_id) return;
+
+    const requestId = resultRequestRef.current + 1;
+    resultRequestRef.current = requestId;
+    setResultLoadError("");
+
+    try {
+      let payload = resultCacheRef.current.get(gameweek.id);
+
+      if (!payload) {
+        setIsResultLoading(true);
+        const response = await fetch(
+          `/api/squad-results?gameweek=${gameweek.id}`,
+        );
+        const responseBody = (await response.json()) as
+          | ResultGameweekPayload
+          | { error?: string };
+
+        if (!response.ok || !("squad" in responseBody)) {
+          throw new Error(
+            "error" in responseBody && responseBody.error
+              ? responseBody.error
+              : "This gameweek result could not be loaded.",
+          );
+        }
+
+        payload = responseBody;
+        resultCacheRef.current.set(gameweek.id, payload);
+      }
+
+      if (resultRequestRef.current !== requestId) return;
+
+      setResultSquad(payload.squad);
+      setResultTransferPenalty(payload.transferPenalty);
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "results");
+      url.searchParams.set("gameweek", gameweek.id);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    } catch (error) {
+      if (resultRequestRef.current === requestId) {
+        setResultLoadError(
+          error instanceof Error
+            ? error.message
+            : "This gameweek result could not be loaded.",
+        );
+      }
+    } finally {
+      if (resultRequestRef.current === requestId) {
+        setIsResultLoading(false);
+      }
+    }
+  }
+
+  function changeViewMode(mode: "transfers" | "results") {
+    setViewMode(mode);
+    setResultLoadError("");
+
+    if (mode !== "results" || viewMode === "results") return;
+
+    const latestGameweek = resultGameweeks.at(-1);
+
+    if (latestGameweek) {
+      void selectResultGameweek(latestGameweek);
+    }
   }
 
   function leaveWithoutSaving() {
@@ -705,7 +895,7 @@ export function SquadEditor({
                     : "text-[var(--pf-text-muted)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)]"
                 }`}
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => changeViewMode(mode)}
                 type="button"
               >
                 {mode === "transfers" ? "Transfer mode" : "Result mode"}
@@ -718,26 +908,28 @@ export function SquadEditor({
       {viewMode === "results" && latestResult ? (
         <nav
           aria-label="Result gameweeks"
+          aria-busy={isResultLoading}
           className="mx-auto mt-3 grid max-w-sm grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] p-2"
         >
-          {previousResultGameweek ? (
-            <Link
-              aria-label={`View previous gameweek: ${previousResultGameweek.name}`}
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-              href={`/dashboard?view=results&gameweek=${previousResultGameweek.id}`}
-            >
-              <span aria-hidden="true" className="text-2xl leading-none">
-                ‹
-              </span>
-            </Link>
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-2xl leading-none text-[var(--pf-text-muted)]/35"
-            >
+          <button
+            aria-label={
+              previousResultGameweek
+                ? `View previous gameweek: ${previousResultGameweek.name}`
+                : "No previous gameweek"
+            }
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:border-[var(--pf-card-border)] disabled:text-[var(--pf-text-muted)]/35 disabled:hover:bg-[var(--pf-navy-elevated)]"
+            disabled={!previousResultGameweek || isResultLoading}
+            onClick={() => {
+              if (previousResultGameweek) {
+                void selectResultGameweek(previousResultGameweek);
+              }
+            }}
+            type="button"
+          >
+            <span aria-hidden="true" className="text-2xl leading-none">
               ‹
             </span>
-          )}
+          </button>
 
           <div className="min-w-0 text-center">
             <p className="truncate text-[0.65rem] font-black uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
@@ -747,31 +939,43 @@ export function SquadEditor({
               {latestResultTotalPoints} pts
             </p>
             <p className="mt-0.5 min-h-4 text-[0.65rem] leading-4 text-[var(--pf-text-muted)]">
-              {latestResultTransferPenalty !== 0
-                ? `Includes ${latestResultTransferPenalty} pts transfer cost`
-                : "No transfer cost"}
+              {isResultLoading
+                ? "Loading gameweek…"
+                : resultTransferPenalty !== 0
+                  ? `Includes ${resultTransferPenalty} pts transfer cost`
+                  : "No transfer cost"}
             </p>
           </div>
 
-          {nextResultGameweek ? (
-            <Link
-              aria-label={`View next gameweek: ${nextResultGameweek.name}`}
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-              href={`/dashboard?view=results&gameweek=${nextResultGameweek.id}`}
-            >
-              <span aria-hidden="true" className="text-2xl leading-none">
-                ›
-              </span>
-            </Link>
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-2xl leading-none text-[var(--pf-text-muted)]/35"
-            >
+          <button
+            aria-label={
+              nextResultGameweek
+                ? `View next gameweek: ${nextResultGameweek.name}`
+                : "No next gameweek"
+            }
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:border-[var(--pf-card-border)] disabled:text-[var(--pf-text-muted)]/35 disabled:hover:bg-[var(--pf-navy-elevated)]"
+            disabled={!nextResultGameweek || isResultLoading}
+            onClick={() => {
+              if (nextResultGameweek) {
+                void selectResultGameweek(nextResultGameweek);
+              }
+            }}
+            type="button"
+          >
+            <span aria-hidden="true" className="text-2xl leading-none">
               ›
             </span>
-          )}
+          </button>
         </nav>
+      ) : null}
+
+      {viewMode === "results" && resultLoadError ? (
+        <p
+          aria-live="polite"
+          className="mx-auto mt-2 max-w-sm rounded-md border border-[var(--pf-coral)]/40 bg-[var(--pf-coral-soft)] px-3 py-2 text-center text-xs text-[var(--pf-coral-text)]"
+        >
+          {resultLoadError}
+        </p>
       ) : null}
 
       {viewMode === "results" && !latestResult ? (
@@ -784,7 +988,9 @@ export function SquadEditor({
 
       <section
         aria-labelledby="starting-lineup-title"
-        className={`mt-3 ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
+        className={`mt-3 transition-opacity duration-150 ${
+          viewMode === "results" && !latestResult ? "hidden" : ""
+        } ${viewMode === "results" && isResultLoading ? "opacity-55" : ""}`}
       >
         <div className="mx-auto mb-2 flex max-w-xl items-end justify-between gap-4 px-1">
           <h2
@@ -847,7 +1053,7 @@ export function SquadEditor({
                           transfersLocked={transfersLocked}
                           result={
                             viewMode === "results"
-                              ? latestResultSquad.find(
+                              ? resultSquad.find(
                                   (row) => row.id === player.id,
                                 )
                               : undefined
@@ -905,7 +1111,9 @@ export function SquadEditor({
 
       <section
         aria-labelledby="bench-title"
-        className={`mx-auto mt-2 max-w-2xl ${viewMode === "results" && !latestResult ? "hidden" : ""}`}
+        className={`mx-auto mt-2 max-w-2xl transition-opacity duration-150 ${
+          viewMode === "results" && !latestResult ? "hidden" : ""
+        } ${viewMode === "results" && isResultLoading ? "opacity-55" : ""}`}
       >
         <div className="mb-2 flex items-center justify-between gap-4 px-1">
           <h2 className="text-lg font-black" id="bench-title">
@@ -944,7 +1152,7 @@ export function SquadEditor({
                     transfersLocked={transfersLocked}
                     result={
                       viewMode === "results"
-                        ? latestResultSquad.find((row) => row.id === player.id)
+                        ? resultSquad.find((row) => row.id === player.id)
                         : undefined
                     }
                   />
