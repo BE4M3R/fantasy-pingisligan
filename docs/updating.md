@@ -92,6 +92,13 @@ order by created_at desc;
 The first call during a new locked gameweek reports inserted rows. Running it
 again reports zero new rows, confirming that retries do not duplicate data.
 
+## Historical squad results
+
+Apply `supabase/result-gameweek-navigation-migration.sql` once to let result
+mode load any of the signed-in user's snapshotted gameweeks. This adds the
+gameweek-specific result and set-breakdown functions used by the previous and
+next arrows; it does not modify existing results or snapshots.
+
 ## Squad club limit
 
 Apply `supabase/club-player-limit-migration.sql` once to enforce the maximum of

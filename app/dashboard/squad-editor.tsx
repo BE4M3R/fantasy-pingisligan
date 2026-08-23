@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -17,6 +18,7 @@ import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
   DraftSquadPlayer,
+  ResultGameweek,
   SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
@@ -46,11 +48,13 @@ type SquadEditorProps = {
   chipMigrationMissing: boolean;
   chipSelections: ChipSelection[];
   initialChip: Chip | null;
+  initialViewMode: "transfers" | "results";
   initialSquad: DraftSquadPlayer[];
   latestResultSquad: SquadPlayerResult[];
   latestResultTransferPenalty: number;
   lockedGameweekId: string | null;
   previousPlayerIds: string[];
+  resultGameweeks: ResultGameweek[];
   resultModeMigrationMissing: boolean;
   transferWindowMessage: string;
   transferSummaryMigrationMissing: boolean;
@@ -225,11 +229,13 @@ export function SquadEditor({
   chipMigrationMissing,
   chipSelections,
   initialChip,
+  initialViewMode,
   initialSquad,
   latestResultSquad,
   latestResultTransferPenalty,
   lockedGameweekId,
   previousPlayerIds,
+  resultGameweeks,
   resultModeMigrationMissing,
   transferWindowMessage,
   transferSummaryMigrationMissing,
@@ -245,9 +251,8 @@ export function SquadEditor({
   const [savedSquad, setSavedSquad] =
     useState<DraftSquadPlayer[]>(initialSquad);
   const [savedChip, setSavedChip] = useState<Chip | null>(initialChip);
-  const [viewMode, setViewMode] = useState<"transfers" | "results">(
-    "transfers",
-  );
+  const [viewMode, setViewMode] =
+    useState<"transfers" | "results">(initialViewMode);
   const [saveMessage, setSaveMessage] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
     null,
@@ -276,6 +281,18 @@ export function SquadEditor({
     viewMode === "results" ? resultStarters : starters;
   const displayedBench = viewMode === "results" ? resultBench : bench;
   const latestResult = latestResultSquad[0] ?? null;
+  const selectedResultGameweekIndex = resultGameweeks.findIndex(
+    ({ id }) => id === latestResult?.gameweek_id,
+  );
+  const previousResultGameweek =
+    selectedResultGameweekIndex > 0
+      ? resultGameweeks[selectedResultGameweekIndex - 1]
+      : null;
+  const nextResultGameweek =
+    selectedResultGameweekIndex >= 0 &&
+    selectedResultGameweekIndex < resultGameweeks.length - 1
+      ? resultGameweeks[selectedResultGameweekIndex + 1]
+      : null;
   const latestResultLabel = latestResult
     ? latestResult.round_order !== null
       ? `Gameweek ${latestResult.round_order}`
@@ -698,6 +715,65 @@ export function SquadEditor({
         </div>
       </div>
 
+      {viewMode === "results" && latestResult ? (
+        <nav
+          aria-label="Result gameweeks"
+          className="mx-auto mt-3 grid max-w-sm grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] p-2"
+        >
+          {previousResultGameweek ? (
+            <Link
+              aria-label={`View previous gameweek: ${previousResultGameweek.name}`}
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+              href={`/dashboard?view=results&gameweek=${previousResultGameweek.id}`}
+            >
+              <span aria-hidden="true" className="text-2xl leading-none">
+                ‹
+              </span>
+            </Link>
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-2xl leading-none text-[var(--pf-text-muted)]/35"
+            >
+              ‹
+            </span>
+          )}
+
+          <div className="min-w-0 text-center">
+            <p className="truncate text-[0.65rem] font-black uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
+              {latestResultLabel}
+            </p>
+            <p className="mt-0.5 text-xl font-black text-[var(--pf-fantasy-yellow)]">
+              {latestResultTotalPoints} pts
+            </p>
+            <p className="mt-0.5 min-h-4 text-[0.65rem] leading-4 text-[var(--pf-text-muted)]">
+              {latestResultTransferPenalty !== 0
+                ? `Includes ${latestResultTransferPenalty} pts transfer cost`
+                : "No transfer cost"}
+            </p>
+          </div>
+
+          {nextResultGameweek ? (
+            <Link
+              aria-label={`View next gameweek: ${nextResultGameweek.name}`}
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+              href={`/dashboard?view=results&gameweek=${nextResultGameweek.id}`}
+            >
+              <span aria-hidden="true" className="text-2xl leading-none">
+                ›
+              </span>
+            </Link>
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] text-2xl leading-none text-[var(--pf-text-muted)]/35"
+            >
+              ›
+            </span>
+          )}
+        </nav>
+      ) : null}
+
       {viewMode === "results" && !latestResult ? (
         <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-4 text-center text-sm text-[var(--pf-text-muted)]">
           {resultModeMigrationMissing
@@ -725,24 +801,6 @@ export function SquadEditor({
             {displayedStarters.length} / {STARTER_SIZE}
           </span>
         </div>
-
-        {viewMode === "results" ? (
-          <div className="mx-auto mb-3 flex max-w-xl items-center justify-between gap-4 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-4 py-3">
-            <div>
-              <p className="text-[0.65rem] font-black uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
-                Gameweek total
-              </p>
-              {latestResultTransferPenalty !== 0 ? (
-                <p className="mt-0.5 text-xs text-[var(--pf-text-muted)]">
-                  Includes {latestResultTransferPenalty} pts transfer cost
-                </p>
-              ) : null}
-            </div>
-            <p className="shrink-0 text-xl font-black text-[var(--pf-fantasy-yellow)]">
-              {latestResultTotalPoints} pts
-            </p>
-          </div>
-        ) : null}
 
         <div>
           <div className="mx-auto w-full max-w-xl">

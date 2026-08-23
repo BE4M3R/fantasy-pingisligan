@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import type {
   DashboardPlayer,
   DraftSquadPlayer,
+  ResultGameweek,
   SquadPlayerResult,
   SquadPosition,
 } from "@/app/dashboard/player-types";
@@ -91,6 +92,15 @@ type LatestSetBreakdownRow = {
   singles_sets_won: number | string;
 };
 
+type ResultGameweekRow = {
+  fantasy_gameweek_id: string;
+  fantasy_gameweeks:
+    | ResultGameweek
+    | ResultGameweek[]
+    | null;
+  transfer_penalty_points: number | string;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "";
 
@@ -119,6 +129,39 @@ function getPreviousSnapshot(row: PreviousGameweek | null) {
   return Array.isArray(row.fantasy_team_gameweek_snapshots)
     ? row.fantasy_team_gameweek_snapshots[0] ?? null
     : row.fantasy_team_gameweek_snapshots;
+}
+
+function getResultGameweek(row: ResultGameweekRow) {
+  const gameweek = Array.isArray(row.fantasy_gameweeks)
+    ? row.fantasy_gameweeks[0] ?? null
+    : row.fantasy_gameweeks;
+
+  return gameweek
+    ? {
+        ...gameweek,
+        transferPenaltyPoints: Number(row.transfer_penalty_points),
+      }
+    : null;
+}
+
+function compareResultGameweeks(
+  left: ResultGameweek,
+  right: ResultGameweek,
+) {
+  if (left.round_order === null && right.round_order !== null) return -1;
+  if (left.round_order !== null && right.round_order === null) return 1;
+
+  if (
+    left.round_order !== null &&
+    right.round_order !== null &&
+    left.round_order !== right.round_order
+  ) {
+    return left.round_order - right.round_order;
+  }
+
+  return (
+    left.lock_at.localeCompare(right.lock_at) || left.id.localeCompare(right.id)
+  );
 }
 
 function getSquadResultPlayer(
@@ -169,13 +212,23 @@ function getSquadResultPlayer(
 export default async function SquadPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{
+    gameweek?: string;
+    message?: string;
+    view?: string;
+  }>;
 }) {
   const supabase = await createClient();
   const { data: claimsResult } = await supabase.auth.getClaims();
   const userId = claimsResult?.claims?.sub;
 
   if (!userId) redirect("/login");
+
+  const {
+    gameweek: requestedGameweekId,
+    message,
+    view,
+  } = await searchParams;
 
   const { data: existingTeam } = await supabase
     .from("fantasy_teams")
@@ -204,6 +257,7 @@ export default async function SquadPage({
     transferLockResult,
     upcomingGameweekResult,
     chipSelectionsResult,
+    resultGameweeksResult,
     latestSquadResult,
     latestSetBreakdownResult,
   ] = await Promise.all([
@@ -229,11 +283,18 @@ export default async function SquadPage({
           .select("chip, fantasy_gameweek_id, locked_at")
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
+    fantasyTeam
+      ? supabase
+          .from("fantasy_team_gameweek_snapshots")
+          .select(
+            "fantasy_gameweek_id, transfer_penalty_points, fantasy_gameweeks!inner(id, name, round_order, lock_at)",
+          )
+          .eq("fantasy_team_id", fantasyTeam.id)
+      : Promise.resolve({ data: [], error: null }),
     supabase.rpc("get_my_latest_squad_result"),
     supabase.rpc("get_my_latest_squad_set_breakdown"),
   ]);
 
-  const { message } = await searchParams;
   const transferLockRows = transferLockResult.data;
   const transferLock = (
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
@@ -243,31 +304,57 @@ export default async function SquadPage({
   const upcomingGameweek =
     upcomingGameweekResult.data as UpcomingGameweek | null;
   const chipSelections = (chipSelectionsResult.data ?? []) as ChipSelection[];
-  const resultModeMigrationMissing = Boolean(latestSquadResult.error);
+  const resultGameweeks = (
+    (resultGameweeksResult.data ?? []) as ResultGameweekRow[]
+  )
+    .map(getResultGameweek)
+    .filter((gameweek): gameweek is NonNullable<typeof gameweek> =>
+      Boolean(gameweek),
+    )
+    .sort(compareResultGameweeks);
+  const latestResultGameweek = resultGameweeks.at(-1) ?? null;
+  let selectedResultGameweek =
+    resultGameweeks.find(({ id }) => id === requestedGameweekId) ??
+    latestResultGameweek;
+  let selectedSquadResult = latestSquadResult;
+  let selectedSetBreakdownResult = latestSetBreakdownResult;
+  let resultHistoryMigrationMissing = false;
+
+  if (
+    selectedResultGameweek &&
+    latestResultGameweek &&
+    selectedResultGameweek.id !== latestResultGameweek.id
+  ) {
+    [selectedSquadResult, selectedSetBreakdownResult] = await Promise.all([
+      supabase.rpc("get_my_squad_result", {
+        target_gameweek_id: selectedResultGameweek.id,
+      }),
+      supabase.rpc("get_my_squad_set_breakdown", {
+        target_gameweek_id: selectedResultGameweek.id,
+      }),
+    ]);
+
+    if (selectedSquadResult.error) {
+      resultHistoryMigrationMissing = true;
+      selectedResultGameweek = latestResultGameweek;
+      selectedSquadResult = latestSquadResult;
+      selectedSetBreakdownResult = latestSetBreakdownResult;
+    }
+  }
+
+  const resultModeMigrationMissing = Boolean(selectedSquadResult.error);
   const setBreakdownByPlayer = new Map(
-    ((latestSetBreakdownResult.data ?? []) as LatestSetBreakdownRow[]).map(
+    ((selectedSetBreakdownResult.data ?? []) as LatestSetBreakdownRow[]).map(
       (row) => [row.player_id, row],
     ),
   );
   const latestResultSquad = applyAutomaticBenchSubstitutions(
-    ((latestSquadResult.data ?? []) as LatestSquadResultRow[]).map((row) =>
+    ((selectedSquadResult.data ?? []) as LatestSquadResultRow[]).map((row) =>
       getSquadResultPlayer(row, setBreakdownByPlayer.get(row.player_id)),
     ),
   );
-  let latestResultTransferPenalty = 0;
-
-  if (fantasyTeam && latestResultSquad[0]) {
-    const { data: resultSnapshot } = await supabase
-      .from("fantasy_team_gameweek_snapshots")
-      .select("transfer_penalty_points")
-      .eq("fantasy_team_id", fantasyTeam.id)
-      .eq("fantasy_gameweek_id", latestResultSquad[0].gameweek_id)
-      .maybeSingle();
-
-    latestResultTransferPenalty = Number(
-      resultSnapshot?.transfer_penalty_points ?? 0,
-    );
-  }
+  const latestResultTransferPenalty =
+    selectedResultGameweek?.transferPenaltyPoints ?? 0;
   const chipMigrationMissing = Boolean(
     chipSelectionsResult.error?.message.includes(
       "fantasy_team_chip_selections",
@@ -362,11 +449,17 @@ export default async function SquadPage({
           chipMigrationMissing={chipMigrationMissing}
           chipSelections={chipSelections}
           initialChip={currentChipSelection?.chip ?? null}
+          initialViewMode={view === "results" ? "results" : "transfers"}
           initialSquad={squad}
           latestResultSquad={latestResultSquad}
           latestResultTransferPenalty={latestResultTransferPenalty}
           lockedGameweekId={transferLock?.gameweek_id ?? null}
           previousPlayerIds={previousPlayers.map((row) => row.player_id)}
+          resultGameweeks={
+            resultHistoryMigrationMissing && latestResultGameweek
+              ? [latestResultGameweek]
+              : resultGameweeks
+          }
           resultModeMigrationMissing={resultModeMigrationMissing}
           transferWindowMessage={transferWindowMessage}
           transferSummaryMigrationMissing={transferSummaryMigrationMissing}
