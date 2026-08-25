@@ -9,7 +9,7 @@ const PLAYERS_PER_CLUB = 10;
 const MIN_RANKING_POINTS = 2250;
 const PRICE_OFFSET = 2200;
 const PRICE_MULTIPLIER = 100000;
-const WORLD_RANK_PRICE_POOL = 50000000;
+const WORLD_RANK_PRICE_POOL = 25000000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");

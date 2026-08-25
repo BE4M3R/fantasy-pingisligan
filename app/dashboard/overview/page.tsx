@@ -108,8 +108,21 @@ export default async function OverviewPage() {
   ) as TransferLock | null;
   const transfersLocked = Boolean(transferLock?.is_locked);
   const waitingForDataRefresh = Boolean(transferLock?.is_refreshing);
-  const captain = squad.find((row) => row.is_captain);
-  const captainPlayer = captain ? getPlayer(captain) : null;
+  const squadPlayers = [...squad]
+    .sort((a, b) => {
+      if (a.position !== b.position) return a.position === "starter" ? -1 : 1;
+
+      const aPlayer = getPlayer(a);
+      const bPlayer = getPlayer(b);
+      return `${aPlayer?.last_name ?? ""} ${aPlayer?.first_name ?? ""}`.localeCompare(
+        `${bPlayer?.last_name ?? ""} ${bPlayer?.first_name ?? ""}`,
+        "sv",
+      );
+    })
+    .flatMap((row) => {
+      const player = getPlayer(row);
+      return player ? [{ ...row, player }] : [];
+    });
   const totalPoints = progress.reduce(
     (total, row) => total + Number(row.points),
     0,
@@ -219,26 +232,6 @@ export default async function OverviewPage() {
               </div>
             </dl>
 
-            <Link
-              className="table-panel group flex min-h-16 items-center justify-between gap-4 rounded-lg border px-4 py-3 transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] sm:px-5 sm:py-4"
-              href="/dashboard/progress"
-            >
-              <span>
-                <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
-                  Season performance
-                </span>
-                <span className="mt-0.5 block text-lg font-black text-[var(--pf-text)]">
-                  Follow your progress
-                </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className="text-2xl font-black text-[var(--pf-brand-blue-hover)] transition group-hover:translate-x-1"
-              >
-                →
-              </span>
-            </Link>
-
             <section
               className={`overflow-hidden rounded-lg border bg-[var(--pf-navy)] p-3.5 sm:p-5 ${
                 hasPositiveSquadStatus
@@ -300,16 +293,27 @@ export default async function OverviewPage() {
                 />
               </div>
 
-              <div className="mt-2.5 flex items-baseline gap-2">
-                <p className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-sky-100/45">
-                  Captain
+              {squadPlayers.length ? (
+                <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                  {squadPlayers.map(({ is_captain, player, position }) => (
+                    <li
+                      className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--pf-navy-elevated)] px-3 py-2 text-sm"
+                      key={`${position}-${player.first_name}-${player.last_name}`}
+                    >
+                      <span className="truncate font-semibold text-[var(--pf-text)]">
+                        {player.first_name} {player.last_name}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
+                        {is_captain ? "Captain" : position === "bench" ? "Bench" : "Main"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-[var(--pf-text-muted)]">
+                  No players selected yet.
                 </p>
-                <p className="min-w-0 truncate text-sm font-semibold text-sky-50">
-                  {captainPlayer
-                    ? `${captainPlayer.first_name} ${captainPlayer.last_name}`
-                    : "Not selected"}
-                </p>
-              </div>
+              )}
 
               <Link
                 className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-md px-4 py-2.5 text-center text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] ${
