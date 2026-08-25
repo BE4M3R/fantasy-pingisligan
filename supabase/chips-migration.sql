@@ -14,9 +14,10 @@ create table if not exists public.fantasy_team_chip_selections (
     check (chip in ('wildcard', 'triple_captain', 'bench_boost'))
 );
 
-create unique index if not exists fantasy_team_chip_selections_once_locked
-on public.fantasy_team_chip_selections (fantasy_team_id, chip)
-where locked_at is not null;
+drop index if exists public.fantasy_team_chip_selections_once_locked;
+
+create unique index if not exists fantasy_team_chip_selections_once_confirmed
+on public.fantasy_team_chip_selections (fantasy_team_id, chip);
 
 create index if not exists fantasy_team_chip_selections_gameweek_idx
 on public.fantasy_team_chip_selections (fantasy_gameweek_id, fantasy_team_id);
@@ -56,59 +57,8 @@ with check (
 );
 
 drop policy if exists "Users can update upcoming chip selections" on public.fantasy_team_chip_selections;
-create policy "Users can update upcoming chip selections"
-on public.fantasy_team_chip_selections for update
-to authenticated
-using (
-  locked_at is null
-  and exists (
-    select 1
-    from public.fantasy_teams
-    where fantasy_teams.id = fantasy_team_chip_selections.fantasy_team_id
-      and fantasy_teams.user_id = auth.uid()
-  )
-  and exists (
-    select 1
-    from public.fantasy_gameweeks
-    where fantasy_gameweeks.id = fantasy_team_chip_selections.fantasy_gameweek_id
-      and now() < fantasy_gameweeks.lock_at
-  )
-)
-with check (
-  locked_at is null
-  and exists (
-    select 1
-    from public.fantasy_teams
-    where fantasy_teams.id = fantasy_team_chip_selections.fantasy_team_id
-      and fantasy_teams.user_id = auth.uid()
-  )
-  and exists (
-    select 1
-    from public.fantasy_gameweeks
-    where fantasy_gameweeks.id = fantasy_team_chip_selections.fantasy_gameweek_id
-      and now() < fantasy_gameweeks.lock_at
-  )
-);
 
 drop policy if exists "Users can clear upcoming chip selections" on public.fantasy_team_chip_selections;
-create policy "Users can clear upcoming chip selections"
-on public.fantasy_team_chip_selections for delete
-to authenticated
-using (
-  locked_at is null
-  and exists (
-    select 1
-    from public.fantasy_teams
-    where fantasy_teams.id = fantasy_team_chip_selections.fantasy_team_id
-      and fantasy_teams.user_id = auth.uid()
-  )
-  and exists (
-    select 1
-    from public.fantasy_gameweeks
-    where fantasy_gameweeks.id = fantasy_team_chip_selections.fantasy_gameweek_id
-      and now() < fantasy_gameweeks.lock_at
-  )
-);
 
 alter table public.fantasy_team_gameweek_snapshots
   add column if not exists active_chip text;

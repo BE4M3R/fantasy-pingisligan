@@ -138,16 +138,14 @@ export function ChipSelector({
   compact?: boolean;
   lockedGameweekId: string | null;
   migrationMissing: boolean;
-  onChange: (chip: Chip | null) => void;
+  onChange: (chip: Chip) => Promise<boolean>;
   selectedChip: Chip | null;
   selections: ChipSelection[];
   transfersLocked: boolean;
   upcomingGameweek: UpcomingGameweek | null;
 }) {
   const usedChips = new Set(
-    selections
-      .filter((selection) => selection.locked_at)
-      .map((selection) => selection.chip),
+    selections.map((selection) => selection.chip),
   );
   const lockedChip = selections.find(
     (selection) =>
@@ -155,6 +153,7 @@ export function ChipSelector({
       selection.fantasy_gameweek_id === lockedGameweekId,
   );
   const [pendingChip, setPendingChip] = useState<Chip | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const chipTriggerRef = useRef<HTMLButtonElement | null>(null);
   const chipToConfirm = chips.find((chip) => chip.value === pendingChip);
 
@@ -196,6 +195,13 @@ export function ChipSelector({
         </div>
       ) : null}
 
+      {selectedChip && !lockedChip ? (
+        <div className="mb-3 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] px-3 py-2 text-xs text-[var(--pf-brand-blue-hover)]">
+          {getChipLabel(selectedChip)} is confirmed for this gameweek and cannot
+          be changed.
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-3 place-items-start gap-1.5 min-[390px]:gap-3">
         {chips.map((chip) => {
           const isSelected = selectedChip === chip.value;
@@ -204,10 +210,7 @@ export function ChipSelector({
           const isUsed = usedChips.has(chip.value) && !isLocked;
           const isUnavailable =
             migrationMissing || transfersLocked || !upcomingGameweek;
-          const disabled =
-            isUnavailable ||
-            isLocked ||
-            isUsed;
+          const disabled = isUnavailable || Boolean(selectedChip) || isUsed;
           const stateLabel = isActive
             ? "Selected"
             : isUsed
@@ -216,7 +219,7 @@ export function ChipSelector({
           const accessibleState = isLocked
             ? "Activated and locked for this gameweek."
             : isSelected
-              ? "Activated. Press again to deactivate."
+              ? "Confirmed for this gameweek and cannot be changed."
               : isUsed
                 ? "Already used this season."
                 : "Not activated.";
@@ -232,11 +235,6 @@ export function ChipSelector({
               key={chip.value}
               onClick={(event) => {
                 chipTriggerRef.current = event.currentTarget;
-
-                if (isSelected) {
-                  onChange(null);
-                  return;
-                }
 
                 setPendingChip(chip.value);
               }}
@@ -322,33 +320,32 @@ export function ChipSelector({
               </p>
 
               <div className="mt-4 rounded-md border border-[var(--pf-fantasy-yellow)]/35 bg-[var(--pf-fantasy-yellow)]/10 p-3 text-sm leading-5 text-[#ffe8a3]">
-                Only one chip can be used per gameweek. Each chip can be used once during the season.
+                This decision is permanent. Once confirmed, this chip cannot be
+                removed or replaced for {upcomingGameweek.name}.
               </div>
-
-              {selectedChip && selectedChip !== chipToConfirm.value ? (
-                <p className="mt-3 text-xs leading-5 text-sky-100/60">
-                  This will replace your selected {getChipLabel(selectedChip)} chip for {upcomingGameweek.name}.
-                </p>
-              ) : null}
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   autoFocus
                   className="h-12 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 text-sm font-semibold text-[var(--pf-text)] hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
                   onClick={closeConfirmation}
+                  disabled={isConfirming}
                   type="button"
                 >
                   Cancel
                 </button>
                 <button
                   className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-4 text-sm font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)]"
-                  onClick={() => {
-                    onChange(chipToConfirm.value);
-                    closeConfirmation();
+                  disabled={isConfirming}
+                  onClick={async () => {
+                    setIsConfirming(true);
+                    const saved = await onChange(chipToConfirm.value);
+                    setIsConfirming(false);
+                    if (saved) closeConfirmation();
                   }}
                   type="button"
                 >
-                  Select chip
+                  {isConfirming ? "Confirming…" : "Confirm permanently"}
                 </button>
               </div>
             </div>

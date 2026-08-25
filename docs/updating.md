@@ -61,18 +61,19 @@ Apply these migrations once, in this order:
 2. `supabase/squad-snapshot-cron-migration.sql`
 3. `supabase/chips-migration.sql`
 4. `supabase/save-squad-draft-migration.sql`
-5. `supabase/scoring-rules-migration.sql`
-6. `supabase/chip-state-from-lock-migration.sql`
-7. `supabase/midnight-unlock-migration.sql`
-8. `supabase/remove-lost-set-penalty-migration.sql`
+5. `supabase/irreversible-chip-selections-migration.sql`
+6. `supabase/scoring-rules-migration.sql`
+7. `supabase/chip-state-from-lock-migration.sql`
+8. `supabase/midnight-unlock-migration.sql`
+9. `supabase/remove-lost-set-penalty-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the
 snapshot tables and schedules `snapshot_locked_squads()` every five minutes. Check
 **Integrations > Cron > Jobs > snapshot-locked-squads > History** to verify
 runs. The chip-state migration removes the older `mark-used-chips` job. A chip
-is consumed when the snapshot job locks it; the app derives Active versus Used
-from the current gameweek window. A snapshot run outside a locked gameweek
+choice becomes permanent as soon as the user confirms it and is marked as
+locked when the snapshot job runs. A snapshot run outside a locked gameweek
 correctly reports zero new snapshots.
 
 To test from the SQL editor after temporarily closing a gameweek, run:

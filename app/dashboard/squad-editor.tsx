@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
+  confirmGameweekChip,
   saveSquadDraft,
   type SaveSquadDraftInput,
 } from "@/app/dashboard/actions";
@@ -723,9 +724,23 @@ export function SquadEditor({
     setSaveMessage("");
   }
 
-  function changeChip(chip: Chip | null) {
+  async function changeChip(chip: Chip) {
+    if (!upcomingGameweek) return false;
+
     setSaveMessage("");
+    const result = await confirmGameweekChip({
+      chip,
+      gameweekId: upcomingGameweek.id,
+    });
+
+    if (result.error) {
+      setSaveMessage(result.error);
+      return false;
+    }
+
     setSelectedChip(chip);
+    setSavedChip(chip);
+    return true;
   }
 
   function saveChanges() {

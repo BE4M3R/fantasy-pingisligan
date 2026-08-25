@@ -195,6 +195,68 @@ export async function saveSquadDraft(
   return { saved: true };
 }
 
+export async function confirmGameweekChip(input: {
+  chip: Chip;
+  gameweekId: string;
+}): Promise<{ error?: string; saved?: true }> {
+  if (!input.gameweekId || !isChip(input.chip)) {
+    return { error: "Choose a valid gameweek chip." };
+  }
+
+  const { supabase, userId } = await getUserId();
+  await assertTransfersOpen(supabase);
+  const team = await getOrCreateFantasyTeam(supabase, userId);
+  const { data: gameweek, error: gameweekError } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id")
+    .eq("id", input.gameweekId)
+    .gt("lock_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (gameweekError) return { error: gameweekError.message };
+  if (!gameweek) return { error: "That gameweek is already locked." };
+
+  const { data: existingSelection, error: selectionError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("chip")
+    .eq("fantasy_team_id", team.id)
+    .eq("fantasy_gameweek_id", gameweek.id)
+    .maybeSingle();
+
+  if (selectionError) return { error: selectionError.message };
+  if (existingSelection) {
+    return existingSelection.chip === input.chip
+      ? { saved: true }
+      : { error: "A chip has already been confirmed for this gameweek." };
+  }
+
+  const { data: previousSelection, error: previousSelectionError } =
+    await supabase
+      .from("fantasy_team_chip_selections")
+      .select("fantasy_gameweek_id")
+      .eq("fantasy_team_id", team.id)
+      .eq("chip", input.chip)
+      .maybeSingle();
+
+  if (previousSelectionError) return { error: previousSelectionError.message };
+  if (previousSelection) {
+    return { error: "That chip has already been used this season." };
+  }
+
+  const { error } = await supabase.from("fantasy_team_chip_selections").insert({
+    fantasy_team_id: team.id,
+    fantasy_gameweek_id: gameweek.id,
+    chip: input.chip,
+    selected_at: new Date().toISOString(),
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/overview");
+  return { saved: true };
+}
+
 export async function addPlayerToTeam(formData: FormData) {
   const playerId = getString(formData, "player_id");
   const requestedPosition = getString(formData, "position");

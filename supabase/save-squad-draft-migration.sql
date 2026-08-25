@@ -22,6 +22,7 @@ declare
   valid_player_count integer;
   squad_cost numeric;
   target_lock_at timestamptz;
+  confirmed_chip text;
 begin
   if current_user_id is null then
     raise exception 'You must be signed in to save a team.';
@@ -146,12 +147,21 @@ begin
     raise exception 'No upcoming gameweek found for the selected chip.';
   end if;
 
-  if p_chip is not null and exists (
+  select chip
+  into confirmed_chip
+  from public.fantasy_team_chip_selections
+  where fantasy_team_id = current_team_id
+    and fantasy_gameweek_id = p_gameweek_id;
+
+  if confirmed_chip is not null and p_chip is distinct from confirmed_chip then
+    raise exception 'The confirmed chip cannot be changed for this gameweek.';
+  end if;
+
+  if p_chip is not null and confirmed_chip is null and exists (
     select 1
     from public.fantasy_team_chip_selections
     where fantasy_team_id = current_team_id
       and chip = p_chip
-      and locked_at is not null
   ) then
     raise exception 'That chip has already been used this season.';
   end if;
@@ -177,12 +187,7 @@ begin
   );
 
   if p_gameweek_id is not null then
-    delete from public.fantasy_team_chip_selections
-    where fantasy_team_id = current_team_id
-      and fantasy_gameweek_id = p_gameweek_id
-      and locked_at is null;
-
-    if p_chip is not null then
+    if p_chip is not null and confirmed_chip is null then
       insert into public.fantasy_team_chip_selections (
         fantasy_team_id,
         fantasy_gameweek_id,
