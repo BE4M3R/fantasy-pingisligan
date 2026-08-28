@@ -3,8 +3,28 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-const PUBLIC_SITE_URL = "https://fantasy-pingisligan.vercel.app";
 const DEVELOPER_SIGNUP_CODE = "pingisligan-dev";
+
+function getSiteUrl() {
+  const configuredSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
+
+  if (!configuredSiteUrl) return null;
+
+  const siteUrl = /^https?:\/\//i.test(configuredSiteUrl)
+    ? configuredSiteUrl
+    : `https://${configuredSiteUrl}`;
+
+  try {
+    const url = new URL(siteUrl);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -49,14 +69,22 @@ export async function signIn(formData: FormData) {
 
 export async function sendPasswordReset(formData: FormData) {
   const email = getString(formData, "email");
+  const siteUrl = getSiteUrl();
 
   if (!email) {
     redirectWithMessage("/login", "Email is required to reset your password.");
   }
 
+  if (!siteUrl) {
+    redirectWithMessage(
+      "/login",
+      "Password reset is temporarily unavailable. Please try again later.",
+    );
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${PUBLIC_SITE_URL}/auth/reset-password`,
+    redirectTo: `${siteUrl}/auth/reset-password`,
   });
 
   if (error) {
@@ -73,6 +101,7 @@ export async function signUp(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
   const developerCode = getString(formData, "developer_code");
+  const siteUrl = getSiteUrl();
 
   if (!email || !password || !developerCode) {
     redirectWithMessage(
@@ -83,6 +112,13 @@ export async function signUp(formData: FormData) {
 
   if (developerCode !== DEVELOPER_SIGNUP_CODE) {
     redirectWithMessage("/signup", "The developer code is not correct.");
+  }
+
+  if (!siteUrl) {
+    redirectWithMessage(
+      "/signup",
+      "Account confirmation is temporarily unavailable. Please try again later.",
+    );
   }
 
   const supabase = await createClient();
@@ -104,7 +140,7 @@ export async function signUp(formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${PUBLIC_SITE_URL}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   });
 

@@ -474,6 +474,11 @@ export async function deleteAccount() {
     dashboardMessage(error.message);
   }
 
+  // Deleting the Auth user invalidates its refresh tokens, but the current
+  // access-token cookie can otherwise remain valid until the JWT expires.
+  // Clear the local session so public pages no longer redirect to dashboard.
+  await supabase.auth.signOut({ scope: "local" });
+
   redirect("/");
 }
 

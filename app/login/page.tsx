@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/app/auth/actions";
-import PasswordResetDialog from "@/app/login/password-reset-dialog";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
@@ -107,7 +106,12 @@ export default async function LoginPage({
               Create one
             </Link>
           </p>
-          <PasswordResetDialog />
+          <Link
+            className="mt-4 inline-block text-sm font-semibold text-[var(--pf-logo-gold)] transition hover:text-[var(--pf-logo-gold-hover)] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-logo-gold-ring)]"
+            href="/forgot-password"
+          >
+            Forgot your password?
+          </Link>
         </div>
       </section>
     </main>

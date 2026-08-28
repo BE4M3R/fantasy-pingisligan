@@ -17,6 +17,7 @@ of the project URL:
 ```dotenv
 APP_ENV=staging
 STAGING_PROJECT_REF=your-staging-project-ref
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 The command reads `.env.staging.local` directly. It stops unless `APP_ENV` is

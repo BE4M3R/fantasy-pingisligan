@@ -19,6 +19,7 @@ Create a Supabase project, then add these values to `.env.local`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 Do not commit service role keys or other private tokens.
@@ -36,9 +37,11 @@ In Supabase Auth settings, add these redirect URLs for local development:
 
 ```text
 http://localhost:3000/auth/callback
+http://localhost:3000/auth/reset-password
 ```
 
-Add the matching deployed Vercel callback URL when you deploy.
+For production, set `NEXT_PUBLIC_SITE_URL` to the deployed site URL in Vercel
+and add the matching deployed callback URLs in Supabase.
 
 ## Getting Started
 
