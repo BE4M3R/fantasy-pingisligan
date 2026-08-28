@@ -8,7 +8,7 @@
 
 (Fixed) In reuslt mode have arrows to go beteween gameweeks
 
-We should get 1 trasfer every second week. Do we get 2 trasnfers currently
+(Yes or no?) We should get 1 trasfer every second week. Do we get 2 trasnfers currently
 
 (Fixed) If you select a chip and click Yes you can not deselect it, have a warning pop up.
 
@@ -17,3 +17,7 @@ Wildcard buggy
 After delete account take us to the front page
 
 Testa vad händer om man inte har fullt lag när det låser sig
+
+Once we know what name to use create a domain and fix with email in production and mailtrap
+
+Maybe create some notication box if something is not working properly or just to send out some info on page?
