@@ -34,31 +34,22 @@ moments.
 
 ## Public landing page
 
-The public page uses a dark, atmospheric table-tennis surface so the white,
-blue and gold logo remains the focus.
-
-| Token | Value | Use |
-| --- | --- | --- |
-| `--pf-public-blue` | `#082f49` | Base public-page background |
-| `--pf-public-blue-bright` | `#0c4a6e` | Bright end of the public background gradient |
-| `--pf-public-blue-mid` | `#075985` | Middle of the public background gradient |
-| `--pf-public-blue-deep` | `#083344` | Deep end of the public background gradient |
-| `--pf-public-glow-rgb` | `14 165 233` | Decorative blue glow; stored as RGB for opacity support |
-
-Use logo gold for the public primary CTA and key headline accent. Use
-white or `--pf-text` for primary copy and `--pf-text-muted` for supporting copy.
+The public page uses the same blue table-tennis court surface as the logged-in
+app. Reuse the `--pf-page-blue*` background tokens and court-line treatment so
+the experience has one consistent color profile. Use logo gold for the public
+primary CTA and key headline accent. Use white or `--pf-text` for primary copy
+and `--pf-text-muted` for supporting copy.
 
 ## Logged-in app
 
-The dashboard is brighter and more functional than the landing page. Its page
-background resembles a blue table-tennis court, while content sits on navy
-cards.
+The app page background resembles a blue table-tennis court shared with the
+public landing page, while content sits on navy cards.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--pf-page-blue` | `#0a4d86` | Main logged-in page background |
-| `--pf-page-blue-bright` | `#10619f` | Bright end of the dashboard gradient |
-| `--pf-page-blue-deep` | `#084778` | Deep end of the dashboard gradient |
+| `--pf-page-blue` | `#0a4d86` | Main shared page background |
+| `--pf-page-blue-bright` | `#10619f` | Bright end of the shared page gradient |
+| `--pf-page-blue-deep` | `#084778` | Deep end of the shared page gradient |
 | `--pf-table-blue` | `#0b6fb5` | Explicit table/court surfaces |
 | `--pf-table-blue-deep` | `#07558c` | Dark table/court variation |
 | `--pf-card-border` | `#123a55` | Default border on navy cards |

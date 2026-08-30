@@ -12,7 +12,7 @@ export function FixtureResultsLink({ className = "" }: { className?: string }) {
         </h2>
       </div>
       <a
-        className="mt-3 inline-flex shrink-0 items-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] px-4 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue-hover)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue-hover)] sm:mt-0"
+        className="mt-3 inline-flex shrink-0 items-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] px-4 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue-hover)] hover:text-[var(--pf-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue-hover)] sm:mt-0"
         href={FIXTURE_RESULTS_URL}
         rel="noreferrer"
         target="_blank"
