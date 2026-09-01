@@ -1,5 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_HREF,
+  INSTAGRAM_URL,
+} from "@/app/contact-links";
 
 const footerLinkClassName =
   "group flex min-h-11 items-center justify-between gap-3 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]";
@@ -114,7 +119,7 @@ export function PublicFooter() {
           <a
             aria-label="Follow Fantasy Pingisligan on Instagram"
             className={footerLinkClassName}
-            href="https://www.instagram.com/"
+            href={INSTAGRAM_URL}
             rel="noreferrer"
             target="_blank"
           >
@@ -130,9 +135,9 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label="Email Fantasy Pingisligan at test@gmail.com"
+            aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
             className={footerLinkClassName}
-            href="mailto:test@gmail.com"
+            href={CONTACT_EMAIL_HREF}
           >
             <span className="flex min-w-0 items-center gap-2">
               <MailIcon />

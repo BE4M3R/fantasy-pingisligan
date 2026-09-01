@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { BackButton } from "@/app/about/back-button";
 import { PublicFooter } from "@/app/public-footer";
 
 export const metadata: Metadata = {
@@ -38,12 +39,7 @@ export default function AboutPage() {
               width={154}
             />
           </Link>
-          <Link
-            className="shrink-0 rounded-md border border-white/25 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--pf-text)] transition hover:border-white/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-text)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy-deep)] sm:px-4"
-            href="/"
-          >
-            Back to start
-          </Link>
+          <BackButton />
         </nav>
       </header>
 
@@ -75,14 +71,6 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="mt-8">
-            <Link
-              className="inline-flex rounded-lg bg-[var(--pf-logo-gold)] px-6 py-3 font-black text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-logo-gold-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--pf-text)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy-deep)]"
-              href="/signup"
-            >
-              Build your team
-            </Link>
-          </div>
         </article>
       </section>
 

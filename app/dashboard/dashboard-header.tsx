@@ -1,14 +1,24 @@
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_HREF,
+  INSTAGRAM_URL,
+} from "@/app/contact-links";
 import { updateTeamName } from "@/app/dashboard/actions";
+import { ChangeTeamNameDialog } from "@/app/dashboard/change-team-name-dialog";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
+import { SettingsMenu } from "@/app/dashboard/settings-menu";
 import { createClient } from "@/lib/supabase/server";
 
 type TeamSettings = {
   name: string;
   onboarding_completed: boolean;
 };
+
+const settingsMenuLinkClassName =
+  "group flex min-h-10 items-center justify-between gap-3 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-3 text-sm font-semibold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]";
 
 function SettingsIcon() {
   return (
@@ -24,6 +34,59 @@ function SettingsIcon() {
     >
       <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.37.36.7.65.96.3.25.67.4 1.06.44H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51.6Z" />
+    </svg>
+  );
+}
+
+function AboutIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 text-[var(--pf-text-muted)]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 text-[var(--pf-text-muted)]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      <rect height="17" rx="5" width="17" x="3.5" y="3.5" />
+      <circle cx="12" cy="12" r="3.7" />
+      <circle cx="17.4" cy="6.7" fill="currentColor" r="1" stroke="none" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 text-[var(--pf-text-muted)]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      <rect height="14" rx="2" width="18" x="3" y="5" />
+      <path d="m4 7 8 6 8-6" />
     </svg>
   );
 }
@@ -141,27 +204,80 @@ export async function DashboardHeader() {
             />
           </Link>
 
-          <details className="group relative ml-auto">
-              <summary
-                aria-label="Open settings"
-                className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
-              >
-                <SettingsIcon />
-              </summary>
-              <div className="absolute right-0 top-10 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:top-12">
-                <div>
-                  <h2 className="font-bold text-white">Settings</h2>
+          <SettingsMenu summary={<SettingsIcon />}>
+              <div className="absolute right-0 top-10 z-50 max-h-[calc(100dvh-4rem)] w-[min(22rem,calc(100vw-3rem))] overflow-y-auto rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:top-12">
+                <section
+                  aria-labelledby="settings-title"
+                >
+                  <h2 className="font-bold text-white" id="settings-title">
+                    Settings
+                  </h2>
                   <p className="mt-1 truncate text-sm text-sky-100/55">
                     {team?.name ?? "Your fantasy team"}
                   </p>
-                </div>
 
-                <div className="mt-5">
-                  <TeamNameForm
-                    defaultValue={team?.name === "My team" ? "" : team?.name}
-                    submitLabel="Save team name"
+                  <ChangeTeamNameDialog
+                    currentName={team?.name ?? "My team"}
                   />
-                </div>
+
+                  <Link
+                    className={`${settingsMenuLinkClassName} mt-2`}
+                    href="/about"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <AboutIcon />
+                      <span>About the game</span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="text-[var(--pf-text-muted)]"
+                    >
+                      →
+                    </span>
+                  </Link>
+                </section>
+
+                <section
+                  aria-labelledby="settings-contact-title"
+                  className="mt-5 border-t border-white/10 pt-5"
+                >
+                  <h2
+                    className="font-bold text-[var(--pf-text)]"
+                    id="settings-contact-title"
+                  >
+                    Contact us
+                  </h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <a
+                      aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
+                      className={settingsMenuLinkClassName}
+                      href={CONTACT_EMAIL_HREF}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <MailIcon />
+                        <span>Email</span>
+                      </span>
+                      <span aria-hidden="true" className="text-[var(--pf-text-muted)]">
+                        →
+                      </span>
+                    </a>
+                    <a
+                      aria-label="Follow Fantasy Pingisligan on Instagram"
+                      className={settingsMenuLinkClassName}
+                      href={INSTAGRAM_URL}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <InstagramIcon />
+                        <span>Instagram</span>
+                      </span>
+                      <span aria-hidden="true" className="text-[var(--pf-text-muted)]">
+                        ↗
+                      </span>
+                    </a>
+                  </div>
+                </section>
 
                 <form
                   action={signOut}
@@ -175,7 +291,7 @@ export async function DashboardHeader() {
 
                 <DeleteAccountForm />
               </div>
-          </details>
+          </SettingsMenu>
         </div>
       </header>
 
