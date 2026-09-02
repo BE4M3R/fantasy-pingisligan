@@ -273,6 +273,7 @@ export async function addPlayerToTeam(formData: FormData) {
     .from("players")
     .select("id, price, club_id")
     .eq("id", playerId)
+    .eq("active", true)
     .maybeSingle();
 
   if (playerError || !player) {
@@ -566,6 +567,7 @@ export async function swapPlayerIntoTeam(formData: FormData) {
     .from("players")
     .select("id, price, club_id")
     .eq("id", incomingPlayerId)
+    .eq("active", true)
     .maybeSingle();
 
   if (incomingError || !incomingPlayer) {

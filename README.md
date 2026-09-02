@@ -111,6 +111,15 @@ For existing Supabase databases created before the importer, run
 run again after the squad builder update; it also normalizes fantasy team
 budgets to the same whole-number currency unit as player prices.
 
+Apply `supabase/player-identity-migration.sql` and
+`supabase/allow-owned-inactive-players-migration.sql`, followed by
+`supabase/player-gameweek-club-snapshots-migration.sql`, before using the current
+importer. Current and historical licenses then resolve to one permanent player.
+Players outside the latest selected club rosters are retained at their last
+price but marked inactive; existing owners may keep them while new owners
+cannot select them. Locked player-club rosters keep historical fixture-win
+bonuses stable when old gameweeks are recalculated after a transfer.
+
 To test parsing without writing to Supabase:
 
 ```bash
@@ -166,10 +175,11 @@ STUPA_STAGE_ID=4521 npm run import:results:dry
 See [Data imports](docs/data-imports.md) for the required import order, Windows
 commands, rerun behavior and troubleshooting.
 
-Stupa's player `meta_data.license_id` is matched to the existing Profixio ID.
-Unmatched players are retained in the raw result tables and reported instead of
-being silently discarded. Each successful import idempotently recalculates all
-gameweeks affected by the imported results.
+Stupa's player `meta_data.license_id` and `user_role_id` are matched through the
+player's historical external identities. Unmatched players are retained in the
+raw result tables and reported instead of being silently discarded. Conflicting
+license and role mappings stop the import. Each successful import idempotently
+recalculates all gameweeks affected by the imported results.
 
 ## Deploy
 

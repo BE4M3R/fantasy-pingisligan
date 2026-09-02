@@ -59,6 +59,25 @@ create unique index if not exists fantasy_team_players_one_captain
 on public.fantasy_team_players (fantasy_team_id)
 where is_captain;
 
+create table if not exists public.player_external_identities (
+  provider text not null,
+  external_id text not null,
+  player_id uuid not null references public.players(id) on delete cascade,
+  is_current boolean not null default false,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  primary key (provider, external_id),
+  constraint player_external_identities_provider_check
+    check (provider in ('sbtf_license', 'stupa_user_role'))
+);
+
+create index if not exists player_external_identities_player_idx
+on public.player_external_identities (player_id, provider);
+
+create unique index if not exists player_external_identities_one_current
+on public.player_external_identities (player_id, provider)
+where is_current;
+
 create or replace function public.enforce_fantasy_team_club_limit()
 returns trigger
 language plpgsql
@@ -198,6 +217,18 @@ create table if not exists public.fantasy_team_gameweek_players (
   constraint fantasy_team_gameweek_players_position_check
     check (position in ('starter', 'bench'))
 );
+
+create table if not exists public.player_gameweek_club_snapshots (
+  fantasy_gameweek_id uuid not null references public.fantasy_gameweeks(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete restrict,
+  club_id_at_lock uuid references public.clubs(id) on delete set null,
+  active_at_lock boolean not null,
+  snapshotted_at timestamptz not null default now(),
+  primary key (fantasy_gameweek_id, player_id)
+);
+
+create index if not exists player_gameweek_club_snapshots_club_idx
+on public.player_gameweek_club_snapshots (fantasy_gameweek_id, club_id_at_lock);
 
 create index if not exists fantasy_team_gameweek_snapshots_gameweek_idx
 on public.fantasy_team_gameweek_snapshots (fantasy_gameweek_id, fantasy_team_id);
@@ -428,9 +459,173 @@ create table if not exists public.player_submatch_results (
   unique (stupa_submatch_id, stupa_user_role_id)
 );
 
+create or replace function public.merge_player_records(
+  keep_player_id uuid,
+  duplicate_player_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  keep_role_id integer;
+  duplicate_role_id integer;
+begin
+  if keep_player_id is null
+    or duplicate_player_id is null
+    or keep_player_id = duplicate_player_id then
+    raise exception 'Choose two different player records to merge.';
+  end if;
+
+  select players.stupa_user_role_id
+  into keep_role_id
+  from public.players
+  where players.id = keep_player_id
+  for update;
+
+  if not found then
+    raise exception 'The player record to keep was not found.';
+  end if;
+
+  select players.stupa_user_role_id
+  into duplicate_role_id
+  from public.players
+  where players.id = duplicate_player_id
+  for update;
+
+  if not found then
+    raise exception 'The duplicate player record was not found.';
+  end if;
+
+  if exists (
+    select 1
+    from public.fantasy_team_players as duplicate_squad
+    join public.fantasy_team_players as kept_squad
+      on kept_squad.fantasy_team_id = duplicate_squad.fantasy_team_id
+      and kept_squad.player_id = keep_player_id
+    where duplicate_squad.player_id = duplicate_player_id
+  ) then
+    raise exception 'A fantasy team currently owns both player records.';
+  end if;
+
+  if exists (
+    select 1
+    from public.fantasy_team_gameweek_players as duplicate_snapshot
+    join public.fantasy_team_gameweek_players as kept_snapshot
+      on kept_snapshot.fantasy_team_id = duplicate_snapshot.fantasy_team_id
+      and kept_snapshot.fantasy_gameweek_id =
+        duplicate_snapshot.fantasy_gameweek_id
+      and kept_snapshot.player_id = keep_player_id
+    where duplicate_snapshot.player_id = duplicate_player_id
+  ) then
+    raise exception 'A locked fantasy squad contains both player records.';
+  end if;
+
+  if exists (
+    select 1
+    from public.player_match_stats as duplicate_stats
+    join public.player_match_stats as kept_stats
+      on kept_stats.match_id = duplicate_stats.match_id
+      and kept_stats.player_id = keep_player_id
+    where duplicate_stats.player_id = duplicate_player_id
+  ) then
+    raise exception 'A match contains statistics for both player records.';
+  end if;
+
+  if exists (
+    select 1
+    from public.player_gameweek_club_snapshots as duplicate_roster
+    join public.player_gameweek_club_snapshots as kept_roster
+      on kept_roster.fantasy_gameweek_id = duplicate_roster.fantasy_gameweek_id
+      and kept_roster.player_id = keep_player_id
+    where duplicate_roster.player_id = duplicate_player_id
+      and kept_roster.club_id_at_lock is distinct from duplicate_roster.club_id_at_lock
+      and kept_roster.club_id_at_lock is not null
+      and duplicate_roster.club_id_at_lock is not null
+  ) then
+    raise exception 'The player records have conflicting locked club histories.';
+  end if;
+
+  update public.fantasy_team_players
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  update public.fantasy_team_gameweek_players
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  update public.player_gameweek_club_snapshots as kept_roster
+  set club_id_at_lock = coalesce(
+        kept_roster.club_id_at_lock,
+        duplicate_roster.club_id_at_lock
+      ),
+      active_at_lock = kept_roster.active_at_lock or duplicate_roster.active_at_lock
+  from public.player_gameweek_club_snapshots as duplicate_roster
+  where kept_roster.player_id = keep_player_id
+    and duplicate_roster.player_id = duplicate_player_id
+    and duplicate_roster.fantasy_gameweek_id = kept_roster.fantasy_gameweek_id;
+
+  delete from public.player_gameweek_club_snapshots as duplicate_roster
+  where duplicate_roster.player_id = duplicate_player_id
+    and exists (
+      select 1
+      from public.player_gameweek_club_snapshots as kept_roster
+      where kept_roster.fantasy_gameweek_id = duplicate_roster.fantasy_gameweek_id
+        and kept_roster.player_id = keep_player_id
+    );
+
+  update public.player_gameweek_club_snapshots
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  update public.player_match_stats
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  update public.player_submatch_results
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  update public.player_external_identities as duplicate_identity
+  set is_current = false
+  where duplicate_identity.player_id = duplicate_player_id
+    and duplicate_identity.is_current
+    and exists (
+      select 1
+      from public.player_external_identities as kept_identity
+      where kept_identity.player_id = keep_player_id
+        and kept_identity.provider = duplicate_identity.provider
+        and kept_identity.is_current
+    );
+
+  update public.player_external_identities
+  set player_id = keep_player_id
+  where player_id = duplicate_player_id;
+
+  if keep_role_id is null and duplicate_role_id is not null then
+    update public.players
+    set stupa_user_role_id = null
+    where id = duplicate_player_id;
+
+    update public.players
+    set stupa_user_role_id = duplicate_role_id
+    where id = keep_player_id;
+  end if;
+
+  delete from public.players
+  where id = duplicate_player_id;
+end;
+$$;
+
+revoke all on function public.merge_player_records(uuid, uuid) from public;
+grant execute on function public.merge_player_records(uuid, uuid)
+to service_role;
+
 alter table public.profiles enable row level security;
 alter table public.clubs enable row level security;
 alter table public.players enable row level security;
+alter table public.player_external_identities enable row level security;
 alter table public.fantasy_teams enable row level security;
 alter table public.fantasy_team_players enable row level security;
 alter table public.leagues enable row level security;
@@ -443,6 +638,7 @@ alter table public.fantasy_gameweeks enable row level security;
 alter table public.fantasy_team_gameweek_points enable row level security;
 alter table public.fantasy_team_gameweek_snapshots enable row level security;
 alter table public.fantasy_team_gameweek_players enable row level security;
+alter table public.player_gameweek_club_snapshots enable row level security;
 alter table public.fantasy_team_chip_selections enable row level security;
 
 create policy "Profiles are readable by signed-in users"
@@ -1060,7 +1256,13 @@ begin
   )
   join public.players
     on players.id = draft.player_id
-    and players.active;
+  where players.active
+    or exists (
+      select 1
+      from public.fantasy_team_players as owned_player
+      where owned_player.fantasy_team_id = current_team_id
+        and owned_player.player_id = players.id
+    );
 
   if valid_player_count <> squad_count then
     raise exception 'One or more selected players are unavailable.';
@@ -1234,6 +1436,23 @@ begin
   from public.fantasy_gameweeks
   where now() >= lock_at
     and now() <= unlock_at;
+
+  insert into public.player_gameweek_club_snapshots (
+    fantasy_gameweek_id,
+    player_id,
+    club_id_at_lock,
+    active_at_lock
+  )
+  select
+    fantasy_gameweeks.id,
+    players.id,
+    players.club_id,
+    players.active
+  from public.fantasy_gameweeks
+  cross join public.players
+  where now() >= fantasy_gameweeks.lock_at
+    and now() <= fantasy_gameweeks.unlock_at
+  on conflict (fantasy_gameweek_id, player_id) do nothing;
 
   insert into public.fantasy_team_gameweek_snapshots (
     fantasy_team_id,
@@ -1522,14 +1741,29 @@ begin
     from public.matches
     where matches.fantasy_gameweek_id = target_gameweek_id
   ),
+  gameweek_roster as (
+    select
+      roster.player_id,
+      roster.club_id_at_lock,
+      roster.active_at_lock
+        or exists (
+          select 1
+          from public.fantasy_team_gameweek_players as owned_snapshot
+          where owned_snapshot.fantasy_gameweek_id = target_gameweek_id
+            and owned_snapshot.player_id = roster.player_id
+        ) as eligible_for_club_bonus
+    from public.player_gameweek_club_snapshots as roster
+    where roster.fantasy_gameweek_id = target_gameweek_id
+  ),
   match_players as (
     select result_totals.match_id, result_totals.player_id
     from result_totals
     union
-    select winning_clubs.match_id, players.id
+    select winning_clubs.match_id, gameweek_roster.player_id
     from winning_clubs
-    join public.players on players.club_id = winning_clubs.club_id
-    where winning_clubs.club_id is not null
+    join gameweek_roster
+      on gameweek_roster.club_id_at_lock = winning_clubs.club_id
+      and gameweek_roster.eligible_for_club_bonus
   )
   insert into public.player_match_stats (
     match_id,
@@ -1548,14 +1782,18 @@ begin
     coalesce(result_totals.won_sets, 0),
     coalesce(result_totals.lost_sets, 0),
     coalesce(result_totals.points, 0)
-      + case when winning_clubs.club_id = players.club_id then 3 else 0 end
+      + case
+          when gameweek_roster.eligible_for_club_bonus
+            and winning_clubs.club_id = gameweek_roster.club_id_at_lock then 3
+          else 0
+        end
       + case when singles_bonus.bonus_match_id = match_players.match_id then 2 else 0 end
   from match_players
-  join public.players on players.id = match_players.player_id
   left join result_totals
     on result_totals.match_id = match_players.match_id
     and result_totals.player_id = match_players.player_id
   left join winning_clubs on winning_clubs.match_id = match_players.match_id
+  left join gameweek_roster on gameweek_roster.player_id = match_players.player_id
   left join singles_bonus on singles_bonus.player_id = match_players.player_id;
 
   get diagnostics inserted_stat_count = row_count;

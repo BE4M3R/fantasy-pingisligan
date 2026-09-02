@@ -9,6 +9,48 @@ negative Stupa identifiers and never changes imported current-season matches.
 The harness requires at least two completed staging fantasy teams with valid
 six-player squads.
 
+## Generate test accounts and squads
+
+The account seeder creates 20 confirmed Auth users by default. Every generated
+user gets a completed fantasy team with four starters, two bench players, and
+one captain. Squads are varied between accounts and respect both the SEK 100m
+budget and the maximum of two players per club.
+
+Add a shared password for the generated accounts to `.env.staging.local`:
+
+```dotenv
+STAGING_TEST_ACCOUNT_PASSWORD=choose-a-staging-only-password
+```
+
+Then seed the accounts:
+
+```bash
+npm run seed:staging-accounts
+```
+
+Use `--count` to choose another number, or inspect the generated accounts:
+
+```bash
+npm run seed:staging-accounts -- seed --count 20
+npm run seed:staging-accounts -- status
+```
+
+The generated addresses are `fantasy-squad-test-01@example.com` and upwards.
+They carry a private Auth metadata marker so the script can safely distinguish
+them from manually registered accounts. Re-running the seed repairs only these
+marked accounts and resets their current squads. It never changes other Auth
+users, including the manually registered accounts listed below.
+
+Delete only accounts carrying the seeder's marker, together with their
+cascading fantasy data, by explicitly confirming cleanup:
+
+```bash
+npm run seed:staging-accounts -- cleanup --yes
+```
+
+The service-role key and test password must remain only in the ignored
+`.env.staging.local` file.
+
 ## Safety configuration
 
 Add the staging project reference to `.env.staging.local`. It is the first part

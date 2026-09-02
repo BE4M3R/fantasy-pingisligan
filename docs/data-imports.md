@@ -10,7 +10,9 @@ developer. Dry runs remain local and do not write database data.
 
 ## Required order
 
-1. **Players** creates clubs and players from Profixio rankings.
+1. **Players** reconciles clubs and permanent player identities from Profixio
+   rankings, updates the selected roster, and marks missing roster players
+   inactive without deleting or repricing them.
 2. **Schedule** creates Stupa rounds as gameweeks and their parent matches.
 3. **Results** attaches Stupa submatches and player results, then recalculates
    player and fantasy-team points for every affected gameweek.
@@ -51,9 +53,37 @@ STUPA_STAGE_ID=4521 npm run import:results:dry
 | `npm run import:results` | Stupa completed submatches | Raw result tables, `player_match_stats`, snapshot player points, team gameweek totals |
 
 Each command has a `:dry` variant. Use it first when changing a stage, source
-endpoint or parser. The writers use stable source identifiers and upserts, so a
-later run refreshes existing source rows instead of intentionally duplicating
-them.
+endpoint or parser. With Supabase credentials available, the player dry run
+also previews creates, updates, license changes, and duplicate merges. The
+writers retain historical source identities so a later run refreshes existing
+people instead of intentionally duplicating them.
+
+## Player roster and identity reconciliation
+
+The Profixio importer first selects up to ten ranked players for each club in
+`clubs.txt`. It refuses a live import if any configured club unexpectedly
+returns zero players, preventing a partial source response from deactivating a
+whole roster.
+
+Each selected source row is resolved in this order:
+
+1. Match any historical or current SBTF license exactly.
+2. If the license is unknown, match a unique normalized name and birth year.
+   Club confirms duplicates but is not permanent identity because players can
+   transfer.
+3. Create a player only when no existing identity matches. Stop for manual
+   review when the evidence is ambiguous.
+
+The current source license is stored on `players.profixio_id`, while every old
+and current license remains in `player_external_identities`. Confirmed duplicate
+records are merged without changing fantasy squad, snapshot, result, or stats
+ownership. Selected players become active and receive their current club,
+ranking, and price. Previously imported players missing from the selected list
+become inactive; their stored price and historical references are unchanged.
+
+Inactive players are hidden from the picker. A team that already owns one may
+keep and save that player at the preserved price, but no team can newly select
+or re-add an inactive player.
 
 ## Player-price refresh and transfer reopening
 
@@ -80,10 +110,18 @@ as UTC timestamps.
 
 ## Result identity matching
 
-Stupa's player `meta_data.license_id` is matched to `players.profixio_id`. A
-matched import also records `stupa_user_role_id` on the player. Unmatched people
-are retained in `player_submatch_results` with a null `player_id` and reported
-to the console; this preserves source data for later reconciliation.
+Stupa's `meta_data.license_id` is matched against every historical SBTF license
+in `player_external_identities`. Its `user_role_id` is an independent fallback
+identity, so a known role can still resolve a newly changed license. Each new
+license and role association is retained for later imports. If the license and
+role resolve to different players, the live import stops rather than assigning
+points incorrectly.
+
+Unmatched people remain in `player_submatch_results` with a null `player_id`
+and are reported to the console. Run the Profixio player import first, then
+rerun the results import to resolve newly known licenses. Names are diagnostic
+only because they are neither unique nor consistently formatted across both
+sources.
 
 ## Troubleshooting
 
@@ -101,4 +139,7 @@ Every results import reloads the full Stupa stage. New or changed source rows
 replace their stored rows, and every gameweek present in that result set is
 recalculated against its locked squad snapshots. This means a later import also
 repairs points for an earlier gameweek when a previously missing or inaccurate
-score has changed upstream.
+score has changed upstream. Player club-win bonuses use the immutable
+`player_gameweek_club_snapshots` roster captured at that gameweek's lock, not
+the current club on `players`. Inactive players retained in a locked fantasy
+squad remain eligible for their historical club-win bonus.

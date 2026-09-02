@@ -673,8 +673,24 @@ async function lock(supabase, definition, waitForCron = false) {
     .select("*", { count: "exact", head: true })
     .eq("fantasy_gameweek_id", gameweek.id);
   ensureNoError(countError, "Could not count test snapshots");
+  const [{ count: rosterCount, error: rosterError }, { count: playerCount, error: playerError }] =
+    await Promise.all([
+      supabase
+        .from("player_gameweek_club_snapshots")
+        .select("*", { count: "exact", head: true })
+        .eq("fantasy_gameweek_id", gameweek.id),
+      supabase.from("players").select("*", { count: "exact", head: true }),
+    ]);
+  ensureNoError(rosterError, "Could not count locked player-club roster");
+  ensureNoError(playerError, "Could not count players for locked roster");
+  if (rosterCount !== playerCount) {
+    throw new Error(
+      `Locked player-club roster has ${rosterCount ?? 0} of ${playerCount ?? 0} players.`,
+    );
+  }
   console.log("Snapshot RPC result:", snapshotResult);
   console.log(`Stored ${count ?? 0} team snapshots for ${definition.key}.`);
+  console.log(`Stored ${rosterCount ?? 0} player-club snapshots for ${definition.key}.`);
 }
 
 function resultWinner(result) {

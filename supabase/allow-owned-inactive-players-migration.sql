@@ -1,4 +1,6 @@
--- Save the complete editable squad and upcoming chip selection atomically.
+-- An inactive player may remain in the squad that already owns them, at their
+-- preserved price. They still cannot be selected by a new owner or re-added
+-- after being transferred out.
 
 create or replace function public.save_my_fantasy_team(
   p_gameweek_id uuid,
@@ -38,12 +40,7 @@ begin
     raise exception 'Fantasy team not found.';
   end if;
 
-  if exists (
-    select 1
-    from public.fantasy_gameweeks
-    where now() >= lock_at
-      and now() <= unlock_at
-  ) then
+  if public.transfers_are_locked() then
     raise exception 'The transfer window is closed.';
   end if;
 

@@ -35,6 +35,36 @@ them to the same shared project:
 Your friend should stop here when the shared database has already been migrated
 and imported. Pulling application code does not require running an importer.
 
+## Permanent player identities and inactive squads
+
+Before running the updated player or Stupa result importers, apply these once
+in this order:
+
+1. `supabase/player-identity-migration.sql`
+2. `supabase/allow-owned-inactive-players-migration.sql`
+3. `supabase/player-gameweek-club-snapshots-migration.sql`
+
+The first migration backfills aliases from existing Profixio licenses and Stupa
+role IDs. The next player import then reconciles confirmed duplicate records,
+including changed licenses, and marks players outside the current selected
+roster inactive without deleting them or changing their last price. The second
+migration lets an existing owner retain an inactive player while continuing to
+block newly selecting that player. The third migration freezes every player's
+club and active state per gameweek and makes historical fixture-win bonuses use
+that frozen roster. It requires the squad snapshot and scoring migrations from
+the section below to have already been installed.
+
+Run the identity tests locally, then preview the live source reconciliation:
+
+```bash
+npm run test:imports
+npm run import:players:dry
+```
+
+Review the create, reidentify, and merge counts before running the real player
+import. Apply all three migrations to every Supabase environment before deploying
+the updated application and import scripts.
+
 ## Data operator only
 
 Only the developer responsible for refreshing the shared sports data should
@@ -88,6 +118,10 @@ order by snapshotted_at desc;
 select *
 from public.fantasy_team_gameweek_players
 order by created_at desc;
+
+select *
+from public.player_gameweek_club_snapshots
+order by snapshotted_at desc;
 ```
 
 The first call during a new locked gameweek reports inserted rows. Running it

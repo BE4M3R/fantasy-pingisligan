@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 const STUPA_API_BASE_URL = "https://testbackend.stupaevents.com";
 const STUPA_TENANT = "sbtf";
 const DEFAULT_STAGE_ID = 5727;
+const LICENSE_PROVIDER = "sbtf_license";
+const ROLE_PROVIDER = "stupa_user_role";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -95,12 +97,19 @@ async function fetchStage(stageId) {
   return payload.data.flatMap((group) => group.matches ?? []);
 }
 
-function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, allowMissingParents = false) {
+function buildImportRows(
+  parentMatches,
+  matchesByStupaId,
+  playersByLicenseId,
+  playersByRoleId,
+  allowMissingParents = false,
+) {
   const matchUpdates = [];
   const gameweekIds = new Set();
   const submatches = [];
   const playerResults = [];
   const unmatchedPlayers = new Map();
+  const identityConflicts = new Map();
   const missingParentMatches = new Set();
   const now = new Date().toISOString();
 
@@ -153,7 +162,26 @@ function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, al
           const stupaUserRoleId = integer(detail?.user_role_id, null);
           if (!stupaUserRoleId || !detail?.name) continue;
 
-          const player = licenseId ? playersByLicenseId.get(licenseId) : null;
+          const licensePlayer = licenseId
+            ? playersByLicenseId.get(licenseId)
+            : null;
+          const rolePlayer = playersByRoleId.get(String(stupaUserRoleId));
+          const identitiesDisagree =
+            licensePlayer && rolePlayer && licensePlayer.id !== rolePlayer.id;
+          const player = identitiesDisagree
+            ? null
+            : (licensePlayer ?? rolePlayer ?? null);
+
+          if (identitiesDisagree) {
+            identityConflicts.set(`${stupaUserRoleId}:${licenseId}`, {
+              licenseId: licenseId || null,
+              licensePlayerId: licensePlayer.id,
+              name: detail.name,
+              rolePlayerId: rolePlayer.id,
+              stupaUserRoleId,
+            });
+          }
+
           if (!player) {
             unmatchedPlayers.set(`${stupaUserRoleId}:${licenseId}`, {
               name: detail.name,
@@ -193,29 +221,126 @@ function buildImportRows(parentMatches, matchesByStupaId, playersByLicenseId, al
     submatches,
     playerResults,
     unmatchedPlayers: [...unmatchedPlayers.values()],
+    identityConflicts: [...identityConflicts.values()],
     missingParentMatches: [...missingParentMatches],
   };
 }
 
 async function loadDatabaseLookups(supabase) {
-  const [{ data: matches, error: matchError }, { data: players, error: playerError }] =
-    await Promise.all([
-      supabase
-        .from("matches")
-        .select("id, stupa_match_id, fantasy_gameweek_id")
-        .not("stupa_match_id", "is", null),
-      supabase.from("players").select("id, profixio_id, stupa_user_role_id"),
-    ]);
+  const [
+    { data: matches, error: matchError },
+    { data: players, error: playerError },
+    { data: identities, error: identityError },
+  ] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id, stupa_match_id, fantasy_gameweek_id")
+      .not("stupa_match_id", "is", null),
+    supabase.from("players").select("id, profixio_id, stupa_user_role_id"),
+    supabase
+      .from("player_external_identities")
+      .select("provider, external_id, player_id"),
+  ]);
 
   if (matchError) throw new Error(`Could not load matches: ${matchError.message}`);
   if (playerError) throw new Error(`Could not load players: ${playerError.message}`);
+  if (identityError) {
+    throw new Error(
+      "Could not load player identities. Apply supabase/player-identity-migration.sql first: " +
+        identityError.message,
+    );
+  }
+
+  const playersById = new Map(players.map((player) => [player.id, player]));
+  const playersByLicenseId = new Map();
+  const playersByRoleId = new Map();
+
+  for (const identity of identities ?? []) {
+    const player = playersById.get(identity.player_id);
+    if (!player) continue;
+
+    if (identity.provider === LICENSE_PROVIDER) {
+      playersByLicenseId.set(identity.external_id, player);
+    } else if (identity.provider === ROLE_PROVIDER) {
+      playersByRoleId.set(identity.external_id, player);
+    }
+  }
+
+  for (const player of players) {
+    if (player.profixio_id && !playersByLicenseId.has(String(player.profixio_id))) {
+      playersByLicenseId.set(String(player.profixio_id), player);
+    }
+    if (
+      player.stupa_user_role_id &&
+      !playersByRoleId.has(String(player.stupa_user_role_id))
+    ) {
+      playersByRoleId.set(String(player.stupa_user_role_id), player);
+    }
+  }
 
   return {
     matchesByStupaId: new Map(matches.map((match) => [integer(match.stupa_match_id), match])),
-    playersByLicenseId: new Map(
-      players.filter((player) => player.profixio_id).map((player) => [String(player.profixio_id), player]),
-    ),
+    playersByLicenseId,
+    playersByRoleId,
   };
+}
+
+async function persistPlayerIdentities(supabase, playerResults) {
+  const seenAt = new Date().toISOString();
+  const identitiesByKey = new Map();
+
+  for (const result of playerResults) {
+    if (!result.player_id) continue;
+
+    if (result.stupa_license_id) {
+      identitiesByKey.set(`${LICENSE_PROVIDER}:${result.stupa_license_id}`, {
+        external_id: result.stupa_license_id,
+        is_current: false,
+        last_seen_at: seenAt,
+        player_id: result.player_id,
+        provider: LICENSE_PROVIDER,
+      });
+    }
+
+    identitiesByKey.set(`${ROLE_PROVIDER}:${result.stupa_user_role_id}`, {
+      external_id: String(result.stupa_user_role_id),
+      is_current: false,
+      last_seen_at: seenAt,
+      player_id: result.player_id,
+      provider: ROLE_PROVIDER,
+    });
+  }
+
+  const identityRows = [...identitiesByKey.values()];
+  if (identityRows.length === 0) return;
+
+  for (const provider of [LICENSE_PROVIDER, ROLE_PROVIDER]) {
+    const externalIds = identityRows
+      .filter((identity) => identity.provider === provider)
+      .map((identity) => identity.external_id);
+    if (externalIds.length === 0) continue;
+
+    const { error: updateError } = await supabase
+      .from("player_external_identities")
+      .update({ last_seen_at: seenAt })
+      .eq("provider", provider)
+      .in("external_id", externalIds);
+    if (updateError) {
+      throw new Error(
+        `Could not refresh Stupa player identities: ${updateError.message}`,
+      );
+    }
+  }
+
+  const { error } = await supabase
+    .from("player_external_identities")
+    .upsert(identityRows, {
+      ignoreDuplicates: true,
+      onConflict: "provider,external_id",
+    });
+  if (error) {
+    throw new Error(`Could not save Stupa player identities: ${error.message}`);
+  }
 }
 
 async function persistRows(supabase, rows) {
@@ -253,6 +378,8 @@ async function persistRows(supabase, rows) {
         if (error) throw new Error(`Could not link Stupa player identity: ${error.message}`);
       }
     }
+
+    await persistPlayerIdentities(supabase, rows.playerResults);
   }
 }
 
@@ -280,7 +407,11 @@ async function main() {
   const parentMatches = await fetchStage(stageId);
 
   let supabase = null;
-  let lookups = { matchesByStupaId: new Map(), playersByLicenseId: new Map() };
+  let lookups = {
+    matchesByStupaId: new Map(),
+    playersByLicenseId: new Map(),
+    playersByRoleId: new Map(),
+  };
 
   const hasSupabaseCredentials = Boolean(
     (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL) &&
@@ -300,11 +431,20 @@ async function main() {
     parentMatches,
     lookups.matchesByStupaId,
     lookups.playersByLicenseId,
+    lookups.playersByRoleId,
     dryRun,
   );
 
   let scoredGameweekCount = 0;
   if (!dryRun) {
+    if (rows.identityConflicts.length > 0) {
+      const conflict = rows.identityConflicts[0];
+      throw new Error(
+        `Stupa license and role identities resolve to different players for ${conflict.name} ` +
+          `(license ${conflict.licenseId ?? "missing"}, role ${conflict.stupaUserRoleId}). ` +
+          "Run a dry run and repair the aliases before importing.",
+      );
+    }
     await persistRows(supabase, rows);
     scoredGameweekCount = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
   }
@@ -326,9 +466,18 @@ async function main() {
       `Unmatched Stupa player: ${player.name} (license ${player.licenseId ?? "missing"}, role ${player.stupaUserRoleId})`,
     );
   }
+  for (const conflict of rows.identityConflicts) {
+    console.warn(
+      `Conflicting Stupa identity: ${conflict.name} (license ${conflict.licenseId ?? "missing"} -> ${conflict.licensePlayerId}, role ${conflict.stupaUserRoleId} -> ${conflict.rolePlayerId})`,
+    );
+  }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+export { buildImportRows };

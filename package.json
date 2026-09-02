@@ -13,6 +13,8 @@
     "import:schedule:dry": "node scripts/import-stupa-schedule.mjs --dry-run",
     "import:results": "node scripts/import-stupa-results.mjs",
     "import:results:dry": "node scripts/import-stupa-results.mjs --dry-run",
+    "seed:staging-accounts": "node scripts/seed-staging-accounts.mjs",
+    "test:imports": "node --test scripts/player-identity.test.mjs",
     "test:staging": "node scripts/staging-gameweek-test.mjs"
   },
   "dependencies": {

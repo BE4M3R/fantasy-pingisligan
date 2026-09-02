@@ -10,7 +10,11 @@ erDiagram
     FANTASY_TEAMS ||--o{ LEAGUE_MEMBERS : joins
     LEAGUES ||--o{ LEAGUE_MEMBERS : contains
     PLAYERS ||--o{ FANTASY_TEAM_PLAYERS : selected
+    PLAYERS ||--o{ PLAYER_EXTERNAL_IDENTITIES : identified_by
+    PLAYERS ||--o{ PLAYER_GAMEWEEK_CLUB_SNAPSHOTS : registered_as
     CLUBS ||--o{ PLAYERS : represents
+    CLUBS o|--o{ PLAYER_GAMEWEEK_CLUB_SNAPSHOTS : frozen_for
+    FANTASY_GAMEWEEKS ||--o{ PLAYER_GAMEWEEK_CLUB_SNAPSHOTS : freezes
     FANTASY_GAMEWEEKS ||--o{ MATCHES : groups
     MATCHES ||--o{ STUPA_SUBMATCHES : contains
     STUPA_SUBMATCHES ||--o{ PLAYER_SUBMATCH_RESULTS : records
@@ -30,8 +34,10 @@ erDiagram
   creator is added as the first member and can share the league's invite code.
 - `fantasy_team_chip_selections` stores each team's pre-deadline chip pick for a
   gameweek, then records when that chip locks and when it is used.
-- `players` and `clubs` contain imported ranking data. `profixio_id` is also used
-  to match Stupa's `license_id`; `stupa_user_role_id` stores the Stupa identity.
+- `players` and `clubs` contain imported ranking data. A player's UUID remains
+  permanent when an upstream license changes. `player_external_identities`
+  maps historical and current SBTF license and Stupa role IDs to that UUID;
+  `players.profixio_id` remains the current license for compatibility.
 - `fantasy_gameweeks` is created from Stupa rounds. Its first and last match
   timestamps produce the transfer lock window; `data_refreshed_at` records when
   the post-gameweek results and player-price refresh has reopened transfers.
@@ -41,12 +47,19 @@ erDiagram
   `player_id` may be null when an imported identity cannot be matched.
 - `player_match_stats` stores calculated singles, doubles, set, fixture-bonus,
   walkover and gameweek-bonus points derived from the raw Stupa rows.
+- `player_gameweek_club_snapshots` freezes every player's club and active state
+  when a gameweek locks. Historical fixture-win bonuses use this roster instead
+  of the player's current club, so later transfers and imports cannot change an
+  old gameweek during recalculation. An inactive player retained in a locked
+  fantasy squad remains eligible for their frozen club's win bonus.
 
 ## Authorization and business rules
 
 RLS is enabled on application tables. Public sports data has read policies;
 team data is limited to its owner. Server Actions still validate business rules
 such as the four-starter/two-bench limit, one captain, budget and transfer lock.
+An inactive player already owned by a team may remain at their preserved price,
+but inactive players cannot be newly selected or re-added after transfer.
 The two-players-per-club rule is also enforced by a database trigger so writes
 outside the application cannot bypass it. Completed fantasy teams must have a
 unique name, compared case-insensitively; unfinished teams may share the
