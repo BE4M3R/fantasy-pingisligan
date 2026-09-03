@@ -2,33 +2,32 @@
 
 import { useEffect } from "react";
 
-type BodyStyles = {
-  overflow: string;
-  position: string;
-  top: string;
-  width: string;
+type ScrollLockStyles = {
+  bodyOverflow: string;
+  bodyOverscrollBehavior: string;
+  rootOverflow: string;
+  rootOverscrollBehavior: string;
 };
 
 let activeLocks = 0;
-let originalStyles: BodyStyles | null = null;
-let originalScrollPosition = 0;
+let originalStyles: ScrollLockStyles | null = null;
 
 function lockBodyScroll() {
   if (activeLocks === 0) {
     const body = document.body;
+    const root = document.documentElement;
 
-    originalScrollPosition = window.scrollY;
     originalStyles = {
-      overflow: body.style.overflow,
-      position: body.style.position,
-      top: body.style.top,
-      width: body.style.width,
+      bodyOverflow: body.style.overflow,
+      bodyOverscrollBehavior: body.style.overscrollBehavior,
+      rootOverflow: root.style.overflow,
+      rootOverscrollBehavior: root.style.overscrollBehavior,
     };
 
     body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${originalScrollPosition}px`;
-    body.style.width = "100%";
+    body.style.overscrollBehavior = "none";
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
   }
 
   activeLocks += 1;
@@ -43,14 +42,13 @@ function lockBodyScroll() {
     if (activeLocks !== 0 || !originalStyles) return;
 
     const body = document.body;
-    const scrollPosition = originalScrollPosition;
+    const root = document.documentElement;
 
-    body.style.overflow = originalStyles.overflow;
-    body.style.position = originalStyles.position;
-    body.style.top = originalStyles.top;
-    body.style.width = originalStyles.width;
+    body.style.overflow = originalStyles.bodyOverflow;
+    body.style.overscrollBehavior = originalStyles.bodyOverscrollBehavior;
+    root.style.overflow = originalStyles.rootOverflow;
+    root.style.overscrollBehavior = originalStyles.rootOverscrollBehavior;
     originalStyles = null;
-    window.scrollTo(0, scrollPosition);
   };
 }
 

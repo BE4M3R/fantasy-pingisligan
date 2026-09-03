@@ -884,11 +884,7 @@ begin
     and team_points.fantasy_gameweek_id = gameweeks.id
   where fantasy_teams.user_id = p_user_id
     and fantasy_teams.onboarding_completed
-    and exists (
-      select 1
-      from public.fantasy_team_gameweek_points as scored_gameweek
-      where scored_gameweek.fantasy_gameweek_id = gameweeks.id
-    )
+    and now() > gameweeks.unlock_at
   order by
     gameweeks.round_order nulls last,
     gameweeks.first_match_starts_at,

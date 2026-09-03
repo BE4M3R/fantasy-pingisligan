@@ -22,7 +22,7 @@ Once we know what name to use create a domain and fix with email in production a
 
 Maybe create some notication box if something is not working properly or just to send out some info on page?
 
-Fix global league page to only show top 5 players. and below that ... and then your place. Add a button below to the right that lets you expand full
+(FIXED) Fix global league page to only show top 5 players. and below that ... and then your place. Add a button below to the right that lets you expand full
 
 Some startig guide and welcome message first time logging in??
 
@@ -30,6 +30,8 @@ What happens if a player that plays for eslöv in competions player for another 
 
 Go throuhg times we lock/unlock, read scores from stupa and update player prices
 
-Can not see friends results in more than first gameweek
+(FIXED) Can not see friends results in more than first gameweek
+
+Update real database to be insinc with database migrations
 
 
