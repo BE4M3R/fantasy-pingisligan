@@ -119,7 +119,11 @@ export default async function LeaguePage({
                 : "Run supabase/player-import-migration.sql in Supabase to enable the league table."}
             </div>
           ) : (
-            <LeagueTable currentUserId={userId} rows={leagueTable} />
+            <LeagueTable
+              currentUserId={userId}
+              initialRowCount={isGlobalLeague ? 10 : undefined}
+              rows={leagueTable}
+            />
           )}
         </section>
       </section>

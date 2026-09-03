@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
 export type LeagueTableRow = {
@@ -35,18 +35,37 @@ function getRankClass(rank: number) {
 
 export function LeagueTable({
   currentUserId,
+  initialRowCount,
   rows,
 }: {
   currentUserId: string;
+  initialRowCount?: number;
   rows: LeagueTableRow[];
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [showAll, setShowAll] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<LeagueTableRow | null>(null);
   const [gameweekScores, setGameweekScores] = useState<GameweekScore[]>([]);
   const [gameweekIndex, setGameweekIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const selectedGameweek = gameweekScores[gameweekIndex];
+  const rankedRows = rows.map((row, index) => ({ rank: index + 1, row }));
+  const currentUserRow = rankedRows.find(
+    ({ row }) => row.user_id === currentUserId,
+  );
+  const hasCollapsedRows =
+    initialRowCount !== undefined && rows.length > initialRowCount;
+  const isCompact = hasCollapsedRows && !showAll;
+  const showCurrentUserSeparately = Boolean(
+    isCompact && currentUserRow && currentUserRow.rank > initialRowCount,
+  );
+  const visibleRows = isCompact
+    ? [
+        ...rankedRows.slice(0, initialRowCount),
+        ...(showCurrentUserSeparately && currentUserRow ? [currentUserRow] : []),
+      ]
+    : rankedRows;
 
   async function openGameweekScores(row: LeagueTableRow) {
     setSelectedTeam(row);
@@ -78,44 +97,54 @@ export function LeagueTable({
     <>
       <div className="mt-5 space-y-2 md:hidden">
         {rows.length ? (
-          rows.map((row, index) => {
+          visibleRows.map(({ rank, row }) => {
             const isCurrentUser = row.user_id === currentUserId;
 
             return (
-              <button
-                className="flex w-full items-center gap-3 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-4 text-left transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                key={row.user_id}
-                onClick={() => openGameweekScores(row)}
-                type="button"
-              >
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black ${getRankClass(
-                    index + 1,
-                  )}`}
-                >
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-[var(--pf-text)]">
-                      {row.team_name}
-                    </p>
-                    {isCurrentUser ? (
-                      <span className="shrink-0 rounded-sm bg-[var(--pf-brand-blue)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pf-navy-deep)]">
-                        You
-                      </span>
-                    ) : null}
+              <Fragment key={row.user_id}>
+                {showCurrentUserSeparately && isCurrentUser ? (
+                  <div className="flex items-center gap-3 py-1" role="separator">
+                    <span className="h-px flex-1 bg-[var(--pf-card-border)]" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
+                      Your position
+                    </span>
+                    <span className="h-px flex-1 bg-[var(--pf-card-border)]" />
                   </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
-                    Total
-                  </p>
-                  <p className="mt-0.5 text-lg font-black text-[var(--pf-text)]">
-                    {formatPoints(row.total_points)}
-                  </p>
-                </div>
-              </button>
+                ) : null}
+                <button
+                  className="flex w-full items-center gap-3 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-4 text-left transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                  onClick={() => openGameweekScores(row)}
+                  type="button"
+                >
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black ${getRankClass(
+                      rank,
+                    )}`}
+                  >
+                    {rank}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-semibold text-[var(--pf-text)]">
+                        {row.team_name}
+                      </p>
+                      {isCurrentUser ? (
+                        <span className="shrink-0 rounded-sm bg-[var(--pf-brand-blue)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pf-navy-deep)]">
+                          You
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
+                      Total
+                    </p>
+                    <p className="mt-0.5 text-lg font-black text-[var(--pf-text)]">
+                      {formatPoints(row.total_points)}
+                    </p>
+                  </div>
+                </button>
+              </Fragment>
             );
           })
         ) : (
@@ -136,41 +165,53 @@ export function LeagueTable({
           </thead>
           <tbody className="divide-y divide-[var(--pf-card-border)]">
             {rows.length ? (
-              rows.map((row, index) => {
+              visibleRows.map(({ rank, row }) => {
                 const isCurrentUser = row.user_id === currentUserId;
 
                 return (
-                  <tr
-                    className="transition hover:bg-[var(--pf-brand-blue-soft)]"
-                    key={row.user_id}
-                  >
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border font-black ${getRankClass(
-                          index + 1,
-                        )}`}
-                      >
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-[var(--pf-text)]">
-                      <button
-                        className="flex items-center gap-2 text-left hover:text-[var(--pf-brand-blue-hover)] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                        onClick={() => openGameweekScores(row)}
-                        type="button"
-                      >
-                        <span>{row.team_name}</span>
-                        {isCurrentUser ? (
-                          <span className="rounded-sm bg-[var(--pf-brand-blue)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pf-navy-deep)]">
-                            You
-                          </span>
-                        ) : null}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[var(--pf-text)]">
-                      {formatPoints(row.total_points)}
-                    </td>
-                  </tr>
+                  <Fragment key={row.user_id}>
+                    {showCurrentUserSeparately && isCurrentUser ? (
+                      <tr>
+                        <td className="px-4 py-2" colSpan={3}>
+                          <div className="flex items-center gap-3">
+                            <span className="h-px flex-1 bg-[var(--pf-card-border)]" />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
+                              Your position
+                            </span>
+                            <span className="h-px flex-1 bg-[var(--pf-card-border)]" />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    <tr className="transition hover:bg-[var(--pf-brand-blue-soft)]">
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border font-black ${getRankClass(
+                            rank,
+                          )}`}
+                        >
+                          {rank}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-[var(--pf-text)]">
+                        <button
+                          className="flex items-center gap-2 text-left hover:text-[var(--pf-brand-blue-hover)] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                          onClick={() => openGameweekScores(row)}
+                          type="button"
+                        >
+                          <span>{row.team_name}</span>
+                          {isCurrentUser ? (
+                            <span className="rounded-sm bg-[var(--pf-brand-blue)] px-1.5 py-0.5 text-[10px] font-black uppercase text-[var(--pf-navy-deep)]">
+                              You
+                            </span>
+                          ) : null}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-[var(--pf-text)]">
+                        {formatPoints(row.total_points)}
+                      </td>
+                    </tr>
+                  </Fragment>
                 );
               })
             ) : (
@@ -186,6 +227,18 @@ export function LeagueTable({
           </tbody>
         </table>
       </div>
+
+      {hasCollapsedRows ? (
+        <button
+          aria-expanded={showAll}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+          onClick={() => setShowAll((isShowingAll) => !isShowingAll)}
+          type="button"
+        >
+          {showAll ? `Show top ${initialRowCount}` : `Show all ${rows.length} teams`}
+          <span aria-hidden="true">{showAll ? "↑" : "↓"}</span>
+        </button>
+      ) : null}
 
       <dialog
         aria-labelledby="gameweek-score-title"

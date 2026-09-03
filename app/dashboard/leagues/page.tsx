@@ -166,7 +166,11 @@ export default async function LeaguesPage({
               the league table.
             </div>
           ) : (
-            <LeagueTable currentUserId={userId} rows={globalLeagueTable} />
+            <LeagueTable
+              currentUserId={userId}
+              initialRowCount={10}
+              rows={globalLeagueTable}
+            />
           )}
         </section>
       </section>
