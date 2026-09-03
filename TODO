@@ -16,7 +16,7 @@ Wildcard buggy
 
 (FIXED) After delete account take us to the front page
 
-Testa vad händer om man inte har fullt lag när det låser sig
+(FIXED, can not save team with less than 6 players) Testa vad händer om man inte har fullt lag när det låser sig
 
 Once we know what name to use create a domain and fix with email in production and mailtrap
 
@@ -28,5 +28,8 @@ Some startig guide and welcome message first time logging in??
 
 What happens if a player that plays for eslöv in competions player for another team in the league? What happens with team bonus scoring and player sync between results and owned players?
 
+Go throuhg times we lock/unlock, read scores from stupa and update player prices
+
+Can not see friends results in more than first gameweek
 
 

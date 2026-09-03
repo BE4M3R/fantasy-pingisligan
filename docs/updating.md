@@ -96,6 +96,7 @@ Apply these migrations once, in this order:
 7. `supabase/chip-state-from-lock-migration.sql`
 8. `supabase/midnight-unlock-migration.sql`
 9. `supabase/remove-lost-set-penalty-migration.sql`
+10. `supabase/require-complete-squads-migration.sql`
 
 Before the second migration, enable **Cron** under **Integrations** in the
 Supabase Dashboard if it is not already enabled. The migration creates the
@@ -105,6 +106,15 @@ runs. The chip-state migration removes the older `mark-used-chips` job. A chip
 choice becomes permanent as soon as the user confirms it and is marked as
 locked when the snapshot job runs. A snapshot run outside a locked gameweek
 correctly reports zero new snapshots.
+
+The complete-squad migration is the final migration in the current sequence;
+if other migrations in this document are still pending, apply it after
+`allow-owned-inactive-players-migration.sql` and
+`dynamic-player-prices-migration.sql`. It must be applied before the relevant
+deadline. It requires atomic six-player saves and makes the snapshot job skip
+incomplete legacy squads. A user skipped in one gameweek can complete their
+squad after transfers reopen and enter the next gameweek as a new team, without
+transfer penalties from the missed gameweek.
 
 To test from the SQL editor after temporarily closing a gameweek, run:
 

@@ -226,9 +226,9 @@ sleep 360
 npm run test:staging -- status gw1
 ```
 
-The snapshot count must equal the number of completed fantasy teams that
-existed at the deadline. You can also inspect **Integrations > Cron > Jobs >
-snapshot-locked-squads > History** in Supabase.
+The snapshot count must equal the number of fantasy teams with a complete
+four-starter, two-bench squad at the deadline. You can also inspect
+**Integrations > Cron > Jobs > snapshot-locked-squads > History** in Supabase.
 
 For a faster snapshot-function test that bypasses the scheduler, use:
 

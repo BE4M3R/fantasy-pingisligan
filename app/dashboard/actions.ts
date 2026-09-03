@@ -166,16 +166,27 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
 export async function saveSquadDraft(
   input: SaveSquadDraftInput,
 ): Promise<SaveSquadDraftResult> {
+  const starterCount = Array.isArray(input.players)
+    ? input.players.filter((player) => player.position === "starter").length
+    : 0;
+  const benchCount = Array.isArray(input.players)
+    ? input.players.filter((player) => player.position === "bench").length
+    : 0;
+
   if (
     !Array.isArray(input.players) ||
-    input.players.length > SQUAD_SIZE ||
+    input.players.length !== SQUAD_SIZE ||
+    starterCount !== STARTER_SIZE ||
+    benchCount !== BENCH_SIZE ||
     (input.chip !== null && !isChip(input.chip))
   ) {
-    return { error: "The squad draft is invalid." };
+    return {
+      error: "Select exactly four starters and two bench players before saving.",
+    };
   }
 
   const { supabase } = await getUserId();
-  const { error } = await supabase.rpc("save_my_fantasy_team", {
+  const { error } = await supabase.rpc("save_my_complete_fantasy_team", {
     p_chip: input.chip,
     p_gameweek_id: input.gameweekId,
     p_squad: input.players,
@@ -183,8 +194,8 @@ export async function saveSquadDraft(
 
   if (error) {
     return {
-      error: error.message.includes("save_my_fantasy_team")
-        ? "Database migration needed: run supabase/save-squad-draft-migration.sql."
+      error: error.message.includes("save_my_complete_fantasy_team")
+        ? "Database migration needed: run supabase/require-complete-squads-migration.sql."
         : error.message,
     };
   }

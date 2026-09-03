@@ -21,6 +21,10 @@ fantasy points.
 - Bench: **2 players**.
 - There are no player positions or formation requirements.
 
+A squad can be saved only when all six slots are filled: exactly four starters
+and two bench players. Until then, the selection is only an unsaved draft in
+the browser.
+
 Only starters score points by default. The two bench slots have a clear first
 and second priority.
 
@@ -43,14 +47,14 @@ active chip lock at that deadline. They can be changed again when the transfer
 window reopens at 00:00 Swedish time on the day after the final scheduled team
 fixture.
 
-If a squad is incomplete at the deadline, its selected starters still score.
-Every empty slot contributes no points. Automatic substitutions can use only
-players already selected on that team's bench at the deadline.
+Only a complete saved squad receives a gameweek snapshot and scores points. If
+a user has not saved all six players before a deadline, they do not enter that
+gameweek. When they save a complete squad after transfers reopen, their first
+entry is the following gameweek and is treated as their initial squad rather
+than as six charged transfers.
 
-If no captain has been selected, the system assigns one of the selected
-starters at random when the transfer window closes. The assignment is stored in
-the locked gameweek snapshot so recalculating the gameweek cannot select a
-different captain. No captain is assigned if the team has no starters.
+Automatic substitutions can use only players selected on that team's bench at
+the deadline.
 
 ## Player scoring
 

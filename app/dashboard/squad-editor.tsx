@@ -436,14 +436,15 @@ export function SquadEditor({
     selectedChip,
     selectedPlayerIds,
   ]);
-  const saveDisabled = !isDirty || isSaving || transfersLocked;
+  const saveDisabled =
+    !isDirty || isSaving || transfersLocked || !isSquadComplete;
   const saveDisabledReason = transfersLocked
     ? "Transfer window closed"
-    : !isDirty
-      ? isSquadComplete
+    : !isSquadComplete
+      ? "Complete your squad"
+      : !isDirty
         ? "No changes"
-        : "Complete your squad"
-      : "";
+        : "";
   const saveButtonLabel = isSaving
     ? "Saving…"
     : saveDisabledReason === "No changes"

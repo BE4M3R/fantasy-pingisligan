@@ -771,30 +771,6 @@ using (
   )
 );
 
-create policy "Users can manage their squad"
-on public.fantasy_team_players for all
-to authenticated
-using (
-  not public.transfers_are_locked()
-  and
-  exists (
-    select 1
-    from public.fantasy_teams
-    where fantasy_teams.id = fantasy_team_players.fantasy_team_id
-      and fantasy_teams.user_id = auth.uid()
-  )
-)
-with check (
-  not public.transfers_are_locked()
-  and
-  exists (
-    select 1
-    from public.fantasy_teams
-    where fantasy_teams.id = fantasy_team_players.fantasy_team_id
-      and fantasy_teams.user_id = auth.uid()
-  )
-);
-
 create policy "Users can read leagues they own or joined"
 on public.leagues for select
 to authenticated
@@ -1226,8 +1202,8 @@ begin
     is_captain boolean
   );
 
-  if squad_count > 6 then
-    raise exception 'A squad can contain at most six players.';
+  if squad_count <> 6 then
+    raise exception 'A squad must contain exactly six players.';
   end if;
 
   if distinct_player_count <> squad_count then
@@ -1238,8 +1214,8 @@ begin
     raise exception 'Every player must be a main or bench player.';
   end if;
 
-  if starter_count > 4 or bench_count > 2 then
-    raise exception 'A squad can contain at most four main and two bench players.';
+  if starter_count <> 4 or bench_count <> 2 then
+    raise exception 'Select exactly four main and two bench players.';
   end if;
 
   if (squad_count = 0 and captain_count <> 0)
@@ -1371,7 +1347,51 @@ $$;
 revoke all on function public.save_my_fantasy_team(uuid, jsonb, text)
 from public;
 
-grant execute on function public.save_my_fantasy_team(uuid, jsonb, text)
+revoke execute on function public.save_my_fantasy_team(uuid, jsonb, text)
+from anon, authenticated;
+
+create or replace function public.save_my_complete_fantasy_team(
+  p_gameweek_id uuid,
+  p_squad jsonb,
+  p_chip text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  squad_count integer;
+  starter_count integer;
+  bench_count integer;
+begin
+  if jsonb_typeof(p_squad) is distinct from 'array' then
+    raise exception 'The squad must be an array.';
+  end if;
+
+  select
+    count(*)::integer,
+    count(*) filter (where draft.position = 'starter')::integer,
+    count(*) filter (where draft.position = 'bench')::integer
+  into squad_count, starter_count, bench_count
+  from jsonb_to_recordset(p_squad) as draft(
+    player_id uuid,
+    position text,
+    is_captain boolean
+  );
+
+  if squad_count <> 6 or starter_count <> 4 or bench_count <> 2 then
+    raise exception 'Select exactly four main and two bench players before saving.';
+  end if;
+
+  perform public.save_my_fantasy_team(p_gameweek_id, p_squad, p_chip);
+end;
+$$;
+
+revoke all on function public.save_my_complete_fantasy_team(uuid, jsonb, text)
+from public;
+
+grant execute on function public.save_my_complete_fantasy_team(uuid, jsonb, text)
 to authenticated;
 
 create or replace function public.current_transfer_lock()
@@ -1491,6 +1511,14 @@ begin
     end
   from public.fantasy_gameweeks
   cross join public.fantasy_teams
+  join lateral (
+    select true as is_complete
+    from public.fantasy_team_players as selected_players
+    where selected_players.fantasy_team_id = fantasy_teams.id
+    having count(*) = 6
+      and count(*) filter (where selected_players.position = 'starter') = 4
+      and count(*) filter (where selected_players.position = 'bench') = 2
+  ) as complete_squad on true
   left join public.fantasy_team_chip_selections as chip_selections
     on chip_selections.fantasy_team_id = fantasy_teams.id
     and chip_selections.fantasy_gameweek_id = fantasy_gameweeks.id
@@ -1552,7 +1580,26 @@ begin
   where fantasy_gameweeks.id = chip_selections.fantasy_gameweek_id
     and chip_selections.locked_at is null
     and now() >= fantasy_gameweeks.lock_at
-    and now() <= fantasy_gameweeks.unlock_at;
+    and now() <= fantasy_gameweeks.unlock_at
+    and exists (
+      select 1
+      from public.fantasy_team_gameweek_snapshots as snapshots
+      where snapshots.fantasy_team_id = chip_selections.fantasy_team_id
+        and snapshots.fantasy_gameweek_id = chip_selections.fantasy_gameweek_id
+    );
+
+  delete from public.fantasy_team_chip_selections as chip_selections
+  using public.fantasy_gameweeks
+  where fantasy_gameweeks.id = chip_selections.fantasy_gameweek_id
+    and chip_selections.locked_at is null
+    and now() >= fantasy_gameweeks.lock_at
+    and now() <= fantasy_gameweeks.unlock_at
+    and not exists (
+      select 1
+      from public.fantasy_team_gameweek_snapshots as snapshots
+      where snapshots.fantasy_team_id = chip_selections.fantasy_team_id
+        and snapshots.fantasy_gameweek_id = chip_selections.fantasy_gameweek_id
+    );
 
   insert into public.fantasy_team_gameweek_players (
     fantasy_team_id,

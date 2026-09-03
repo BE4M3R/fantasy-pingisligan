@@ -56,8 +56,9 @@ erDiagram
 ## Authorization and business rules
 
 RLS is enabled on application tables. Public sports data has read policies;
-team data is limited to its owner. Server Actions still validate business rules
-such as the four-starter/two-bench limit, one captain, budget and transfer lock.
+team data is limited to its owner. Squad mutations go through one atomic RPC
+and require exactly four starters and two bench players. Server Actions also
+validate business rules such as one captain, budget and transfer lock.
 An inactive player already owned by a team may remain at their preserved price,
 but inactive players cannot be newly selected or re-added after transfer.
 The two-players-per-club rule is also enforced by a database trigger so writes
@@ -66,7 +67,9 @@ unique name, compared case-insensitively; unfinished teams may share the
 placeholder name used during onboarding. A player-price trigger uses the latest
 pending gameweek snapshot to preserve each completed team's cash when a player
 from that squad is repriced. Squad and chip writes remain blocked until the
-post-gameweek data refresh succeeds.
+post-gameweek data refresh succeeds. The lock job skips incomplete legacy
+squads, so their first complete squad enters the next available gameweek with
+no transfer history from a missed gameweek.
 
 The database functions `current_transfer_lock()`, `get_my_gameweek_progress()`,
 `get_my_played_gameweek_progress()`,
