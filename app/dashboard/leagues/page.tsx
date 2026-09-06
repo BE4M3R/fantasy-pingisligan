@@ -84,8 +84,8 @@ export default async function LeaguesPage({
 
         {privateMigrationMissing ? (
           <div className="mb-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-            Run supabase/private-leaderboards-migration.sql in Supabase to
-            enable private leagues.
+            The database schema is out of date. Deploy pending Supabase
+            migrations to enable private leagues.
           </div>
         ) : null}
 
@@ -162,8 +162,8 @@ export default async function LeaguesPage({
 
           {globalResult.error ? (
             <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-              Run supabase/player-import-migration.sql in Supabase to enable
-              the league table.
+              The database schema is out of date. Deploy pending Supabase
+              migrations to enable the league table.
             </div>
           ) : (
             <LeagueTable

@@ -281,7 +281,7 @@ async function loadPlayerIdentityState(supabase) {
   }
   if (identityResult.error) {
     throw new Error(
-      "Could not load player identities. Apply supabase/player-identity-migration.sql first: " +
+      "Could not load player identities. Deploy pending Supabase migrations first: " +
         identityResult.error.message,
     );
   }

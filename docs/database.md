@@ -1,7 +1,10 @@
 # Database model
 
-`supabase/schema.sql` is the complete schema for a new Supabase project. The
-separate migration files update projects that already have the schema installed.
+`supabase/migrations/20260906000000_baseline_schema.sql` is the complete schema
+baseline for a new Supabase project. Later timestamped files in that directory
+move databases forward. See `docs/database-migrations.md` for the deployment
+workflow. The files in `supabase/legacy/` are audit history from the former
+manual process and must not be applied again.
 
 ```mermaid
 erDiagram

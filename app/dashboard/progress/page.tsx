@@ -37,8 +37,8 @@ export default async function ProgressPage() {
 
           {progressError ? (
             <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-              Run supabase/progress-gameweek-stats-migration.sql in Supabase to
-              enable gameweek statistics.
+              The database schema is out of date. Deploy pending Supabase
+              migrations to enable gameweek statistics.
             </div>
           ) : (
             <ProgressTable rows={progress} />

@@ -185,7 +185,8 @@ export function ChipSelector({
     >
       {migrationMissing ? (
         <div className="mb-3 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] px-3 py-2 text-xs text-[var(--pf-coral-text)]">
-          Run supabase/chips-migration.sql in Supabase to enable chips.
+          The database schema is out of date. Deploy pending Supabase
+          migrations to enable chips.
         </div>
       ) : null}
 

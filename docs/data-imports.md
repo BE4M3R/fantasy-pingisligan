@@ -130,8 +130,8 @@ sources.
   stage before importing results.
 - **Unmatched Stupa player:** check the Stupa license ID against the player's
   Profixio ID; the raw row is retained and can be linked later.
-- **Database column/table missing:** apply the migration named in the root README
-  or [update guide](updating.md), then retry.
+- **Database column/table missing:** check the environment's migration status in
+  GitHub Actions and deploy the pending timestamped migration before retrying.
 - **Unexpected source response:** use a dry run and confirm that the configured
   stage exists and the upstream endpoint still returns its expected shape.
 

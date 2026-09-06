@@ -1,0 +1,43 @@
+name: Check database migration status
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Database environment to inspect
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+
+      - name: Link selected project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Compare local and remote migration history
+        run: supabase migration list
+
+      - name: Preview pending migrations
+        run: supabase db push --dry-run

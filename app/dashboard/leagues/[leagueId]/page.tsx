@@ -115,8 +115,8 @@ export default async function LeaguePage({
           {leagueResult.error ? (
             <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
               {selectedLeague
-                ? "Private league table data could not be loaded. Run supabase/private-leaderboards-migration.sql in Supabase."
-                : "Run supabase/player-import-migration.sql in Supabase to enable the league table."}
+                ? "Private league data could not be loaded. Deploy pending Supabase migrations."
+                : "Deploy pending Supabase migrations to enable the league table."}
             </div>
           ) : (
             <LeagueTable

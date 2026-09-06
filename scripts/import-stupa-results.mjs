@@ -246,7 +246,7 @@ async function loadDatabaseLookups(supabase) {
   if (playerError) throw new Error(`Could not load players: ${playerError.message}`);
   if (identityError) {
     throw new Error(
-      "Could not load player identities. Apply supabase/player-identity-migration.sql first: " +
+      "Could not load player identities. Deploy pending Supabase migrations first: " +
         identityError.message,
     );
   }

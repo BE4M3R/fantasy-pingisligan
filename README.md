@@ -24,14 +24,11 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 Do not commit service role keys or other private tokens.
 
-In the Supabase SQL editor, run:
-
-```sql
--- contents of supabase/schema.sql
-```
-
-That creates starter tables for profiles, clubs, players, fantasy teams,
-leagues, matches and player stats, plus row-level security policies.
+The database schema is managed by timestamped Supabase CLI migrations. Existing
+staging and production projects require a one-time baseline; new projects can
+apply the migration history directly. Follow the [database migration and
+deployment guide](docs/database-migrations.md). Do not apply schema files
+manually in a remote SQL Editor.
 
 In Supabase Auth settings, add these redirect URLs for local development:
 
@@ -68,6 +65,7 @@ Useful routes:
 - [Architecture](docs/architecture.md) — application boundaries and request flows
 - [Design system](docs/design-system.md) — brand colors, UI tokens and usage rules
 - [Database](docs/database.md) — main tables and relationships
+- [Database migrations](docs/database-migrations.md) — local changes, staging and production deployments
 - [Data imports](docs/data-imports.md) — importer order, operation and troubleshooting
 - [Updating a checkout](docs/updating.md) — pull, migrate and verify safely
 
@@ -99,22 +97,15 @@ column contains a world ranking such as `WR02`, the rounded surcharge
 `50000000 / sqrt(world_rank)` is added to that player's price (`WR02` is
 treated as world rank `2`).
 
-After applying `supabase/dynamic-player-prices-migration.sql`, the nightly
-workflow imports available results and then refreshes player prices from the
+The nightly workflow imports available results and then refreshes player prices from the
 pending gameweek's locked snapshot. Price changes preserve a completed team's
 unspent cash and instead increase or decrease its total team value. Transfers
 reopen only after both workflow steps succeed. A plain `npm run import:players`
 is reserved for preseason; in-season refreshes use `--after-unlock`.
 
-For existing Supabase databases created before the importer, run
-`supabase/player-import-migration.sql` in the Supabase SQL editor. It is safe to
-run again after the squad builder update; it also normalizes fantasy team
-budgets to the same whole-number currency unit as player prices.
-
-Apply `supabase/player-identity-migration.sql` and
-`supabase/allow-owned-inactive-players-migration.sql`, followed by
-`supabase/player-gameweek-club-snapshots-migration.sql`, before using the current
-importer. Current and historical licenses then resolve to one permanent player.
+The baselined schema includes the importer, permanent-identity, inactive-player,
+and gameweek club-snapshot database support. Current and historical licenses
+therefore resolve to one permanent player.
 Players outside the latest selected club rosters are retained at their last
 price but marked inactive; existing owners may keep them while new owners
 cannot select them. Locked player-club rosters keep historical fixture-win
@@ -132,9 +123,7 @@ The schedule importer reads rounds, teams, dates and match times from Stupa's
 stage-based group-match endpoint. It also creates fantasy gameweeks and their
 transfer lock windows.
 
-For an existing Supabase database, first run
-`supabase/stupa-stage-schedule-migration.sql` in the Supabase SQL editor. The
-importer defaults to the upcoming Pingisligan stage (`5727`). Then run:
+The importer defaults to the upcoming Pingisligan stage (`5727`). Run:
 
 ```bash
 npm run import:schedule
@@ -149,17 +138,7 @@ STUPA_STAGE_ID=4521 npm run import:schedule:dry
 ### Result imports
 
 To import scored Stupa submatches, calculate player points, and refresh fantasy
-team totals, first run these migrations in the Supabase SQL editor:
-
-1. `supabase/stupa-results-migration.sql`
-2. `supabase/scoring-rules-migration.sql`
-3. `supabase/remove-lost-set-penalty-migration.sql`
-4. `supabase/automatic-bench-substitutions-migration.sql`
-5. `supabase/split-set-points-breakdown-migration.sql`
-6. `supabase/result-gameweek-navigation-migration.sql`
-
-The scoring migrations expect the squad snapshot and chips migrations described
-in [Updating](docs/updating.md) to have been applied already. Then run:
+team totals, first ensure the database migration status is current, then run:
 
 ```bash
 npm run import:results

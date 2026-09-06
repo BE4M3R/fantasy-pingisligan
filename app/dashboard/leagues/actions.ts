@@ -30,7 +30,7 @@ async function getAuthenticatedClient() {
 function migrationMessage(errorMessage: string) {
   return errorMessage.includes("Could not find the function") ||
     errorMessage.includes("does not exist")
-    ? "Database migration needed: run supabase/private-leaderboards-migration.sql."
+    ? "Database schema is out of date. Deploy pending Supabase migrations."
     : errorMessage;
 }
 

@@ -95,7 +95,7 @@ async function getOrCreateFantasyTeam(supabase: Awaited<ReturnType<typeof create
   if (createdError) {
     if (createdError.message.includes("numeric field overflow")) {
       dashboardMessage(
-        "Database migration needed: run supabase/player-import-migration.sql again to update fantasy team budgets.",
+        "Database schema is out of date. Deploy pending Supabase migrations to update fantasy team budgets.",
       );
     }
 
@@ -195,7 +195,7 @@ export async function saveSquadDraft(
   if (error) {
     return {
       error: error.message.includes("save_my_complete_fantasy_team")
-        ? "Database migration needed: run supabase/require-complete-squads-migration.sql."
+        ? "Database schema is out of date. Deploy pending Supabase migrations."
         : error.message,
     };
   }
@@ -427,7 +427,7 @@ export async function selectGameweekChip(formData: FormData) {
     if (error) {
       dashboardMessage(
         error.message.includes("fantasy_team_chip_selections")
-          ? "Database migration needed: run supabase/chips-migration.sql to enable chips."
+          ? "Database schema is out of date. Deploy pending Supabase migrations to enable chips."
           : error.message,
       );
     }
@@ -448,7 +448,7 @@ export async function selectGameweekChip(formData: FormData) {
   if (usedChipError) {
     dashboardMessage(
       usedChipError.message.includes("fantasy_team_chip_selections")
-        ? "Database migration needed: run supabase/chips-migration.sql to enable chips."
+        ? "Database schema is out of date. Deploy pending Supabase migrations to enable chips."
         : usedChipError.message,
     );
   }

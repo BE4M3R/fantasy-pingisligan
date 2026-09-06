@@ -15,7 +15,13 @@
     "import:results:dry": "node scripts/import-stupa-results.mjs --dry-run",
     "seed:staging-accounts": "node scripts/seed-staging-accounts.mjs",
     "test:imports": "node --test scripts/player-identity.test.mjs",
-    "test:staging": "node scripts/staging-gameweek-test.mjs"
+    "test:staging": "node scripts/staging-gameweek-test.mjs",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:lint": "supabase db lint --local --level error --fail-on error",
+    "db:new": "supabase migration new",
+    "db:status": "supabase migration list"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -31,6 +37,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "supabase": "^2.116.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
