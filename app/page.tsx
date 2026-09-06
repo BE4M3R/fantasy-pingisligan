@@ -70,9 +70,9 @@ async function HomeContent() {
             </Link>
           </div>
 
-          <div className="mt-4 flex flex-col items-center">
+          <div className="mt-4 flex flex-col items-start">
             <p className="text-xs font-medium tracking-wide text-[var(--pf-text-muted)]">
-              Collaboration with
+              In collaboration with
             </p>
             <a
               aria-label="Visit Svenska Bordtennisförbundet"
