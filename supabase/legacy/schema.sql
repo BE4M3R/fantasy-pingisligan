@@ -2382,7 +2382,6 @@ $$;
 
 revoke all on function public.get_my_latest_squad_result() from public;
 grant execute on function public.get_my_latest_squad_result() to authenticated;
-+
 
 create or replace function public.get_my_latest_squad_set_breakdown()
 returns table (
