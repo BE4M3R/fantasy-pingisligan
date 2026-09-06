@@ -59,6 +59,101 @@ Useful routes:
 - `/dashboard` protected app area with squad builder
 - `/test-supabase` simple database smoke test
 
+## Local testing
+
+Install dependencies, then run the local application checks from the repository
+root:
+
+```bash
+npm install
+npm run test:imports
+npm run lint
+npm run build
+```
+
+`test:imports` runs the Node.js tests for importer and player-identity logic.
+Lint checks the TypeScript and React code, while the production build also
+catches compilation and type errors.
+
+To validate the database migrations locally, Docker must be running and the
+Supabase CLI dependencies must be installed. Start the local Supabase stack,
+recreate its database from the migration history, and lint the resulting
+schema:
+
+```bash
+npm run db:start
+npm run db:reset
+npm run db:lint
+npm run db:stop
+```
+
+`db:reset` deletes and recreates only the local Supabase database.
+
+### Staging gameweek lifecycle tests
+
+The staging harness runs from your local terminal and reads and writes the
+configured staging Supabase project. Before the first run, create
+`.env.staging.local` and ensure staging has at least two complete fantasy teams.
+Follow the [staging gameweek test guide](docs/staging-testing.md) for that
+one-time setup.
+
+#### Start a clean testing session
+
+Run these commands from the repository root. They remove an earlier set of
+synthetic gameweeks, validate the test fixture, install a fresh set, and show
+their initial state:
+
+```bash
+npm run test:staging -- cleanup
+npm run test:staging -- validate
+npm run test:staging -- setup
+npm run test:staging -- status
+```
+
+To inspect the website during the test, start the app against staging in a
+second terminal:
+
+```bash
+set -a
+source .env.staging.local
+set +a
+npm run dev
+```
+
+#### Run a complete gameweek lifecycle
+
+The following recipe takes Gameweek 1 through locking, scoring, unlocking, and
+the final price refresh. The `status` checks make it easy to confirm each state
+transition:
+
+```bash
+npm run test:staging -- status gw1
+npm run test:staging -- lock gw1
+npm run test:staging -- status gw1
+npm run test:staging -- score gw1
+npm run test:staging -- status gw1
+npm run test:staging -- unlock gw1
+npm run test:staging -- status gw1
+npm run test:staging -- refresh-prices gw1
+npm run test:staging -- status gw1
+```
+
+Repeat the lifecycle with `gw2`, `gw3`, or `gw4` as needed. Use `lock-cron`
+instead of `lock` when specifically testing the scheduled snapshot job; the
+full guide explains the required wait and checks.
+
+#### End the testing session
+
+Remove all synthetic gameweeks after testing:
+
+```bash
+npm run test:staging -- cleanup
+```
+
+The harness only accepts a staging environment and uses reserved test IDs, but
+it still changes remote staging data. It does not remove staging accounts,
+fantasy squads, leagues, imported players, or real match data.
+
 ## Developer documentation
 
 - [Repository guide](docs/README.md) — where code lives and where to start
