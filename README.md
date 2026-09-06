@@ -59,6 +59,21 @@ Useful routes:
 - `/dashboard` protected app area with squad builder
 - `/test-supabase` simple database smoke test
 
+## Branch and release flow
+
+`develop` is the staging branch and `main` is the production branch. Start work
+from `develop`, use a feature branch, and open a pull request back into
+`develop`. After testing the resulting staging deployment, promote the same
+changes with a pull request from `develop` into `main`.
+
+```text
+feature branch -> develop -> staging -> main -> production
+```
+
+Database migrations deploy automatically when they reach `develop` or `main`.
+Application deployments remain handled by Vercel. Avoid pushing feature work
+directly to `main`.
+
 ## Local testing
 
 Install dependencies, then run the local application checks from the repository
