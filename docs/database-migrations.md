@@ -86,8 +86,9 @@ The workflows then behave as follows:
 - Merges to `develop` apply pending migrations to staging.
 - Merges to `main` apply the same pending migrations to production after the
   production environment approval.
-- **Actions > Check database migration status > Run workflow** compares Git and
-  remote history for either environment without applying changes.
+- **Actions > Check database migration status > Run workflow** compares the
+  tracked schema and migration history with either remote environment without
+  applying changes.
 
 ## Making a schema change
 

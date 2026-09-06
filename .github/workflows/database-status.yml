@@ -17,7 +17,7 @@ permissions:
 jobs:
   status:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: ${{ inputs.environment }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -35,6 +35,16 @@ jobs:
 
       - name: Link selected project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Compare tracked and remote schemas
+        run: |
+          supabase db diff --linked --schema public --output schema-diff.sql
+          if [ -s schema-diff.sql ]; then
+            echo "::error::The remote public schema differs from the tracked migrations."
+            cat schema-diff.sql
+            exit 1
+          fi
+          echo "Remote public schema matches the tracked migrations."
 
       - name: Compare local and remote migration history
         run: supabase migration list
