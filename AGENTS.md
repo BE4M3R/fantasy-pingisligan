@@ -43,6 +43,15 @@ Never expose or commit:
   approved migrations.
 
 ## Workflow
+- Use the branch-promotion order `feature branch` → `develop` → `main`.
+  Open feature pull requests into `develop`; do not push feature work directly
+  to `main`. After staging has been tested, promote the exact tested `develop`
+  commit with a pull request into `main`.
+- For schema changes, merging into `develop` deploys pending migrations to
+  staging. Merging the tested `develop` commit into `main` deploys those
+  migrations to production. Do not deploy a migration to production before it
+  has been tested on staging.
+
 Before making changes:
 - Inspect existing files first.
 - Explain the plan briefly.
