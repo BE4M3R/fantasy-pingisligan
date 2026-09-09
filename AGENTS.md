@@ -19,7 +19,10 @@ This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based
 - Do not expose or commit secret keys.
 
 ## Environment variables
-Local development uses `.env.local`.
+Local development uses `.env.local`, and it must point to the local Supabase
+stack shown by `npx supabase status` (`http://127.0.0.1:54321` by default).
+Use `.env.staging.local` only for explicit staging commands. Keep production
+values in Vercel and GitHub environment secrets, not in `.env.local`.
 
 Expected public variables:
 - `NEXT_PUBLIC_SUPABASE_URL`
@@ -30,17 +33,27 @@ Never expose or commit:
 - Vercel tokens
 - Any private API keys
 
+## Database changes
+- Treat `supabase/migrations/` as the source of truth for the database schema.
+- Read `docs/database-migrations.md` before changing the schema.
+- Develop and test schema changes only against the local Supabase stack.
+- Create a new migration for every schema change; never edit a deployed
+  migration or mutate a hosted database directly.
+- Never run linked/remote reset or push commands. GitHub Actions deploys
+  approved migrations.
+
 ## Workflow
 Before making changes:
 - Inspect existing files first.
 - Explain the plan briefly.
 - Prefer small, focused changes.
 - Show diffs before large changes.
+- Ask user for input if uncertain
 
 After making code changes:
 - Run `npm run lint` if relevant.
 - Run `npm run dev` only when needed to verify behavior.
-- Mention any Supabase SQL changes that the user must run manually.
+- Mention migrations created and validation performed.
 - Mention any Vercel environment variables that the user must add manually.
 
 ## Coding style
