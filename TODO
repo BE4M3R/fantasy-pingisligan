@@ -33,5 +33,3 @@ Go throuhg times we lock/unlock, read scores from stupa and update player prices
 (FIXED) Can not see friends results in more than first gameweek
 
 Update real database to be insinc with database migrations
-
-

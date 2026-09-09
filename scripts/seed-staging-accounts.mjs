@@ -10,6 +10,7 @@ const SQUAD_SIZE = 6;
 const STARTER_SIZE = 4;
 const MAX_PLAYERS_PER_CLUB = 2;
 const SEED_SOURCE = "fantasy-pingisligan-staging-squads-v1";
+const LOCAL_TEST_ACCOUNT_PASSWORD = "test12";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -33,46 +34,61 @@ function parseEnvFile(content) {
   return values;
 }
 
-async function loadStagingEnvironment({ requirePassword }) {
-  const filePath = path.join(projectRoot, ".env.staging.local");
+async function loadEnvironment(target, { requirePassword }) {
+  const isStaging = target === "staging";
+  const fileName = isStaging ? ".env.staging.local" : ".env.local";
+  const filePath = path.join(projectRoot, fileName);
   let content;
 
   try {
     content = await readFile(filePath, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") throw new Error("Missing .env.staging.local.");
+    if (error.code === "ENOENT") throw new Error(`Missing ${fileName}.`);
     throw error;
   }
 
   const values = parseEnvFile(content);
   const supabaseUrl = values.SUPABASE_URL ?? values.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = values.SUPABASE_SERVICE_ROLE_KEY;
-  const expectedProjectRef = values.STAGING_PROJECT_REF;
-  const password = values.STAGING_TEST_ACCOUNT_PASSWORD;
+  const password = isStaging
+    ? values.TEST_ACCOUNT_PASSWORD ?? values.STAGING_TEST_ACCOUNT_PASSWORD
+    : LOCAL_TEST_ACCOUNT_PASSWORD;
 
-  if (values.APP_ENV !== "staging") {
-    throw new Error("APP_ENV must be exactly 'staging'.");
-  }
-  if (!supabaseUrl || !serviceKey || !expectedProjectRef) {
+  if (!supabaseUrl || !serviceKey) {
     throw new Error(
-      "Staging URL, service key, and STAGING_PROJECT_REF are required in .env.staging.local.",
+      `Supabase URL and service key are required in ${fileName}.`,
     );
   }
 
-  const hostname = new URL(supabaseUrl).hostname;
-  if (hostname !== `${expectedProjectRef}.supabase.co`) {
+  const url = new URL(supabaseUrl);
+  if (!isStaging) {
+    if (url.hostname !== "127.0.0.1" || url.port !== "54321") {
+      throw new Error(
+        "Local safety check failed: NEXT_PUBLIC_SUPABASE_URL must be http://127.0.0.1:54321.",
+      );
+    }
+  } else {
+    const expectedProjectRef = values.STAGING_PROJECT_REF;
+    if (values.APP_ENV !== "staging") {
+      throw new Error("APP_ENV must be exactly 'staging' in .env.staging.local.");
+    }
+    if (!expectedProjectRef) {
+      throw new Error("STAGING_PROJECT_REF is required in .env.staging.local.");
+    }
+    if (url.hostname !== `${expectedProjectRef}.supabase.co`) {
+      throw new Error(
+        `Staging safety check failed: ${url.hostname} does not match STAGING_PROJECT_REF.`,
+      );
+    }
+  }
+
+  if (requirePassword && isStaging && (!password || password.length < 8)) {
     throw new Error(
-      `Staging safety check failed: ${hostname} does not match STAGING_PROJECT_REF.`,
+      "TEST_ACCOUNT_PASSWORD must contain at least eight characters in .env.staging.local.",
     );
   }
 
-  if (requirePassword && (!password || password.length < 8)) {
-    throw new Error(
-      "STAGING_TEST_ACCOUNT_PASSWORD must contain at least eight characters.",
-    );
-  }
-
-  return { password, serviceKey, supabaseUrl };
+  return { password, serviceKey, supabaseUrl, target };
 }
 
 function ensureNoError(error, context) {
@@ -387,14 +403,14 @@ async function seedAccounts(supabase, password, count) {
 
   console.table(completed);
   console.log(
-    `Seeded ${completed.length} staging accounts. Their shared password is read from STAGING_TEST_ACCOUNT_PASSWORD.`,
+    `Seeded ${completed.length} test accounts. Their shared password is ${password === LOCAL_TEST_ACCOUNT_PASSWORD ? "the local default" : "read from TEST_ACCOUNT_PASSWORD"}.`,
   );
 }
 
 async function showStatus(supabase) {
   const users = (await listAllUsers(supabase)).filter(isSeededUser);
   if (users.length === 0) {
-    console.log("No marked staging squad accounts found.");
+    console.log("No marked test squad accounts found.");
     return;
   }
 
@@ -459,14 +475,20 @@ async function cleanupAccounts(supabase, confirmed) {
     console.log(`[${index + 1}/${users.length}] Deleted ${user.email ?? user.id}`);
   }
 
-  console.log(`Deleted ${users.length} marked staging accounts and their teams.`);
+  console.log(`Deleted ${users.length} marked test accounts and their teams.`);
 }
 
 async function main() {
-  const options = parseArguments(process.argv.slice(2));
-  const environment = await loadStagingEnvironment({
+  const [flag, target, ...commandArgs] = process.argv.slice(2);
+  if (flag !== "--env" || !["local", "staging"].includes(target)) {
+    throw new Error("Choose a target explicitly: --env local or --env staging.");
+  }
+
+  const options = parseArguments(commandArgs);
+  const environment = await loadEnvironment(target, {
     requirePassword: options.command === "seed",
   });
+  console.log(`Target confirmed: ${target === "local" ? "local Supabase" : "staging"}.`);
   const supabase = createClient(environment.supabaseUrl, environment.serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
