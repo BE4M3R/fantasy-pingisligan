@@ -37,42 +37,57 @@ function parseEnvFile(content) {
   return values;
 }
 
-async function loadStagingEnvironment() {
-  const filePath = path.join(projectRoot, ".env.staging.local");
+async function loadEnvironment(target) {
+  const isStaging = target === "staging";
+  const fileName = isStaging ? ".env.staging.local" : ".env.local";
+  const filePath = path.join(projectRoot, fileName);
   let content;
 
   try {
     content = await readFile(filePath, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") throw new Error("Missing .env.staging.local.");
+    if (error.code === "ENOENT") throw new Error(`Missing ${fileName}.`);
     throw error;
   }
 
   const values = parseEnvFile(content);
   const supabaseUrl = values.SUPABASE_URL ?? values.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = values.SUPABASE_SERVICE_ROLE_KEY;
-  const expectedProjectRef = values.STAGING_PROJECT_REF;
-  const fixtureFile = values.STAGING_TEST_DATA_FILE
-    ? path.resolve(projectRoot, values.STAGING_TEST_DATA_FILE)
+  const fixturePath = values.GAMEWEEK_TEST_DATA_FILE ?? values.STAGING_TEST_DATA_FILE;
+  const fixtureFile = fixturePath
+    ? path.resolve(projectRoot, fixturePath)
     : defaultFixtureFile;
 
-  if (values.APP_ENV !== "staging") {
-    throw new Error("APP_ENV must be exactly 'staging'.");
+  if (isStaging && values.APP_ENV !== "staging") {
+    throw new Error("APP_ENV must be exactly 'staging' in .env.staging.local.");
   }
-  if (!supabaseUrl || !serviceKey || !expectedProjectRef) {
+  if (!supabaseUrl || !serviceKey) {
     throw new Error(
-      "Staging URL, service key, and STAGING_PROJECT_REF are required in .env.staging.local.",
+      `Supabase URL and service key are required in ${fileName}.`,
     );
   }
 
-  const hostname = new URL(supabaseUrl).hostname;
-  if (hostname !== `${expectedProjectRef}.supabase.co`) {
+  const url = new URL(supabaseUrl);
+  if (!isStaging) {
+    if (url.hostname !== "127.0.0.1" || url.port !== "54321") {
+      throw new Error(
+        "Local safety check failed: NEXT_PUBLIC_SUPABASE_URL must be http://127.0.0.1:54321.",
+      );
+    }
+    return { fixtureFile, serviceKey, supabaseUrl, target };
+  }
+
+  const expectedProjectRef = values.STAGING_PROJECT_REF;
+  if (!expectedProjectRef) {
+    throw new Error("STAGING_PROJECT_REF is required in .env.staging.local.");
+  }
+  if (url.hostname !== `${expectedProjectRef}.supabase.co`) {
     throw new Error(
-      `Staging safety check failed: ${hostname} does not match STAGING_PROJECT_REF.`,
+      `Staging safety check failed: ${url.hostname} does not match STAGING_PROJECT_REF.`,
     );
   }
 
-  return { expectedProjectRef, fixtureFile, serviceKey, supabaseUrl };
+  return { expectedProjectRef, fixtureFile, serviceKey, supabaseUrl, target };
 }
 
 function addMinutes(date, minutes) {
@@ -150,8 +165,8 @@ function validateTeam(team, context) {
 }
 
 function validateScenario(raw) {
-  assert(raw && typeof raw === "object", "The staging fixture must be a JSON object.");
-  assert(raw.version === 1, "The staging fixture version must be 1.");
+  assert(raw && typeof raw === "object", "The test fixture must be a JSON object.");
+  assert(raw.version === 1, "The test fixture version must be 1.");
   assert(
     Number.isInteger(raw.stageId) && raw.stageId <= -900000,
     "stageId must be a reserved integer at or below -900000.",
@@ -293,7 +308,7 @@ async function loadScenario(filePath) {
   try {
     raw = JSON.parse(await readFile(filePath, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") throw new Error(`Missing staging fixture file: ${filePath}.`);
+    if (error.code === "ENOENT") throw new Error(`Missing test fixture file: ${filePath}.`);
     if (error instanceof SyntaxError) throw new Error(`Invalid JSON in ${filePath}: ${error.message}`);
     throw error;
   }
@@ -310,7 +325,7 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
   ensureNoError(teamError, "Could not load fantasy teams");
 
   if ((teams ?? []).length < 2) {
-    throw new Error("Create at least two completed staging fantasy teams first.");
+    throw new Error("Create at least two completed fantasy teams first.");
   }
 
   const sourceTable = gameweekId
@@ -348,7 +363,7 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
   for (const team of teams ?? []) {
     const rows = rowsByTeam.get(team.id) ?? [];
     if (rows.length !== 6 || rows.some((row) => !row.player)) {
-      throw new Error(`Staging team "${team.name}" must have six valid players.`);
+      throw new Error(`Test team "${team.name}" must have six valid players.`);
     }
   }
 
@@ -378,7 +393,7 @@ function uniqueMap(rows, getKey, entityName) {
   const map = new Map();
   for (const row of rows) {
     const key = getKey(row);
-    if (map.has(key)) throw new Error(`Staging contains duplicate ${entityName}: ${key}.`);
+    if (map.has(key)) throw new Error(`Test data contains duplicate ${entityName}: ${key}.`);
     map.set(key, row);
   }
   return map;
@@ -403,13 +418,13 @@ async function resolveScenario(supabase, scenario) {
     fixtures: gameweek.fixtures.map((fixture) => {
       const homeClub = clubsByName.get(normalized(fixture.home.club));
       const awayClub = clubsByName.get(normalized(fixture.away.club));
-      if (!homeClub) throw new Error(`Unknown staging club: ${fixture.home.club}.`);
-      if (!awayClub) throw new Error(`Unknown staging club: ${fixture.away.club}.`);
+      if (!homeClub) throw new Error(`Unknown test club: ${fixture.home.club}.`);
+      if (!awayClub) throw new Error(`Unknown test club: ${fixture.away.club}.`);
 
       const resolvePlayers = (names, club, side) =>
         names.map((name) => {
           const player = playersByName.get(normalized(name));
-          if (!player) throw new Error(`Unknown active staging player: ${name}.`);
+          if (!player) throw new Error(`Unknown active test player: ${name}.`);
           if (player.club_id !== club.id) {
             const registeredClub = clubsById.get(player.club_id);
             throw new Error(
@@ -517,7 +532,7 @@ async function setup(supabase, scenario) {
   ensureNoError(gameweekError, "Could not check existing test gameweeks");
   ensureNoError(matchError, "Could not check existing test fixtures");
   if ((existingGameweeks?.length ?? 0) > 0 || (existingMatches?.length ?? 0) > 0) {
-    throw new Error("Staging test data already exists. Run cleanup before setup again.");
+    throw new Error("Test data already exists. Run cleanup before setup again.");
   }
 
   await loadTeamsAndSquads(supabase);
@@ -571,7 +586,7 @@ async function setup(supabase, scenario) {
     });
   }
 
-  console.log(`Created ${inserted.length} configured staging gameweeks.`);
+  console.log(`Created ${inserted.length} configured test gameweeks.`);
   console.table(inserted);
   console.log("Choose a gameweek key when running lock, score, or unlock.");
 }
@@ -1341,7 +1356,7 @@ async function status(supabase, scenario, key) {
 }
 
 function printValidatedScenario(scenario, fixtureFile) {
-  console.log(`Validated ${path.relative(projectRoot, fixtureFile)} against staging.`);
+  console.log(`Validated ${path.relative(projectRoot, fixtureFile)} against the selected target.`);
   console.table(
     scenario.gameweeks.map((gameweek) => ({
       fixtures: gameweek.fixtures.length,
@@ -1389,14 +1404,13 @@ async function cleanup(supabase, scenario, key) {
   }
   console.log(
     definition
-      ? `Removed staging gameweek ${definition.key}.`
-      : "Removed all configured staging gameweeks. Real stage data was untouched.",
+      ? `Removed test gameweek ${definition.key}.`
+      : "Removed all configured test gameweeks. Real stage data was untouched.",
   );
 }
 
 async function main() {
-  const action = process.argv[2];
-  const key = process.argv[3];
+  const [, , flag, target, action, key] = process.argv;
   const actions = new Set([
     "validate",
     "setup",
@@ -1408,6 +1422,11 @@ async function main() {
     "status",
     "cleanup",
   ]);
+  if (flag !== "--env" || !["local", "staging"].includes(target)) {
+    throw new Error(
+      "Choose a target explicitly: --env local or --env staging.",
+    );
+  }
   if (!actions.has(action)) {
     throw new Error(
       "Choose an action: validate, setup, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
@@ -1417,9 +1436,11 @@ async function main() {
     throw new Error("setup creates every gameweek in the JSON fixture and does not accept a key.");
   }
 
-  const environment = await loadStagingEnvironment();
+  const environment = await loadEnvironment(target);
   const scenario = await loadScenario(environment.fixtureFile);
-  console.log(`Target confirmed: staging (${environment.expectedProjectRef}).`);
+  const targetDescription =
+    target === "staging" ? `staging (${environment.expectedProjectRef})` : "local Supabase";
+  console.log(`Target confirmed: ${targetDescription}.`);
   console.log(`Fixture file: ${path.relative(projectRoot, environment.fixtureFile)}.`);
   const supabase = createClient(environment.supabaseUrl, environment.serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },

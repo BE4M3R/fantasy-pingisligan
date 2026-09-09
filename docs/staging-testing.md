@@ -1,13 +1,13 @@
-# Staging gameweek tests
+# Gameweek lifecycle tests
 
-The staging lifecycle harness reads its schedule and results from
+The gameweek lifecycle harness reads its schedule and results from
 [`test-data/staging-gameweeks.json`](../test-data/staging-gameweeks.json). The
 default file contains four synthetic gameweeks covering all seven Pingisligan
 clubs. Each round has three fixtures and one club with a bye. It uses reserved
 negative Stupa identifiers and never changes imported current-season matches.
 
-The harness requires at least two completed staging fantasy teams with valid
-six-player squads.
+The harness requires at least two completed fantasy teams with valid six-player
+squads in the selected database.
 
 ## Generate test accounts and squads
 
@@ -16,23 +16,25 @@ user gets a completed fantasy team with four starters, two bench players, and
 one captain. Squads are varied between accounts and respect both the SEK 100m
 budget and the maximum of two players per club.
 
-Add a shared password for the generated accounts to `.env.staging.local`:
+Local generated accounts always use the password `test12`. For staging, add a
+shared password with at least eight characters to `.env.staging.local`:
 
 ```dotenv
-STAGING_TEST_ACCOUNT_PASSWORD=choose-a-staging-only-password
+TEST_ACCOUNT_PASSWORD=choose-a-test-only-password
 ```
 
-Then seed the accounts:
+Then seed the accounts. Choose the target explicitly:
 
 ```bash
+npm run seed:local-accounts
 npm run seed:staging-accounts
 ```
 
 Use `--count` to choose another number, or inspect the generated accounts:
 
 ```bash
-npm run seed:staging-accounts -- seed --count 20
-npm run seed:staging-accounts -- status
+npm run seed:local-accounts -- seed --count 20
+npm run seed:local-accounts -- status
 ```
 
 The generated addresses are `fantasy-squad-test-01@example.com` and upwards.
@@ -45,11 +47,11 @@ Delete only accounts carrying the seeder's marker, together with their
 cascading fantasy data, by explicitly confirming cleanup:
 
 ```bash
-npm run seed:staging-accounts -- cleanup --yes
+npm run seed:local-accounts -- cleanup --yes
 ```
 
 The service-role key and test password must remain only in the ignored
-`.env.staging.local` file.
+environment files.
 
 ## Safety configuration
 
@@ -73,6 +75,36 @@ STAGING_TEST_DATA_FILE=test-data/my-staging-gameweeks.json
 ```
 
 Never put Supabase keys in a JSON fixture.
+
+## Run against local Supabase
+
+The harness supports local and staging targets, selected explicitly by command.
+For local testing, add these values to `.env.local` (using the service-role key
+from `npx supabase status`):
+
+```dotenv
+SUPABASE_SERVICE_ROLE_KEY=your-local-secret-key
+```
+
+The local URL must remain `http://127.0.0.1:54321`. Start Supabase, then run
+the same lifecycle commands using `test:local`:
+
+```bash
+npm run db:start
+npm run test:local -- cleanup
+npm run test:local -- setup
+npm run test:local -- lock gw1
+npm run test:local -- score gw1
+npm run test:local -- unlock gw1
+npm run test:local -- refresh-prices gw1
+```
+
+The selected database must already contain the clubs and active players named
+in the fixture, plus two completed fantasy teams with valid squads. For a clean
+local database, run the player import first and create the test teams locally.
+
+`test:staging` remains a staging-only shortcut. For scripts or automation, use
+the explicit command: `npm run test:gameweek -- --env local|staging <action> [gameweek]`.
 
 ## Run the app against staging
 
