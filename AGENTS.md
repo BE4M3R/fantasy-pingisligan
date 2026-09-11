@@ -14,6 +14,7 @@ This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based
 ## Important architecture
 - Frontend/app code lives in this repo.
 - Supabase is used for auth, users, players, clubs, matches, fantasy teams, leagues and points.
+- Design and implement for many concurrent users: always consider efficient page loading, including appropriate caching where possible, minimizing database queries and payload sizes, and avoiding unnecessary client-side work.
 - Do not put scraping logic in browser/client components.
 - Scraping/importing Profixio data must run server-side, for example via GitHub Actions, Supabase Edge Functions, or a server-only script.
 - Do not expose or commit secret keys.

@@ -22,6 +22,12 @@ export default async function SignupPage({
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
+        <Link
+          className="mb-4 self-start rounded-md border border-white/25 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--pf-text)] transition hover:border-white/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-text)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy-deep)] sm:px-4"
+          href="/"
+        >
+          Back to start
+        </Link>
         <div className="table-panel rounded-xl border p-6 sm:p-8">
           <Link
             aria-label="Fantasy Pingisligan home"
@@ -85,18 +91,6 @@ export default async function SignupPage({
                 type="password"
                 autoComplete="new-password"
                 minLength={6}
-                required
-                suppressHydrationWarning
-              />
-            </label>
-
-            <label className="block text-sm font-medium text-[var(--pf-text)]">
-              Developer code
-              <input
-                className="mt-2 w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-3 text-[var(--pf-text)] outline-none transition placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)] focus:ring-2 focus:ring-[rgb(var(--pf-brand-blue-rgb)/0.25)]"
-                name="developer_code"
-                type="password"
-                autoComplete="off"
                 required
                 suppressHydrationWarning
               />
