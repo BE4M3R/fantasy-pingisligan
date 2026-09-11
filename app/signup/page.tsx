@@ -22,6 +22,12 @@ export default async function SignupPage({
   return (
     <main className="table-tennis-surface min-h-screen text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
+        <Link
+          className="mb-4 self-start rounded-md border border-white/25 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--pf-text)] transition hover:border-white/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-text)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy-deep)] sm:px-4"
+          href="/"
+        >
+          Back to start
+        </Link>
         <div className="table-panel rounded-xl border p-6 sm:p-8">
           <Link
             aria-label="Fantasy Pingisligan home"
