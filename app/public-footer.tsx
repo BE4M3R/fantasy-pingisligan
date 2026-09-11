@@ -65,44 +65,27 @@ function MailIcon() {
 export function PublicFooter() {
   return (
     <footer className="border-t border-[var(--pf-card-border)] bg-[var(--pf-navy)]">
-      <div className="mx-auto max-w-6xl px-6 py-6 sm:py-7">
-        <div>
-          <div className="flex items-center gap-3">
-            <Image
-              alt="Pingisligan Fantasy"
-              className="h-9 w-9 shrink-0"
-              height={36}
-              src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
-              unoptimized
-              width={36}
-            />
-            <a
-              aria-label="Visit Svenska Bordtennisförbundet"
-              className="shrink-0 rounded-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-text)]"
-              href="https://sbtf.se/"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Image
-                alt="Svenska Bordtennisförbundet"
-                className="h-9 w-9 brightness-0 invert"
-                height={596}
-                src="/branding/sbtf-logo.webp"
-                width={596}
-              />
-            </a>
-          </div>
-          <p className="mt-2 text-xs text-[var(--pf-text-muted)]">
-            Pingisligan Fantasy in collaboration with SBTF
+      <div className="mx-auto grid max-w-6xl gap-5 px-5 py-6 sm:px-6 sm:py-7 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-10">
+        <div className="flex items-center gap-3">
+          <Image
+            alt=""
+            className="h-9 w-9 shrink-0"
+            height={36}
+            src="/branding/pingisligan-fantasy-mark-transparent-v2.png"
+            unoptimized
+            width={36}
+          />
+          <p className="text-sm font-bold text-[var(--pf-text)]">
+            Pingisligan Fantasy
           </p>
         </div>
 
         <nav
           aria-label="Footer"
-          className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3"
+          className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3"
         >
           <Link
-            className={`${footerLinkClassName} col-span-2 sm:col-span-1`}
+            className={`${footerLinkClassName} min-[360px]:col-span-2 sm:col-span-1`}
             href="/about"
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -152,7 +135,7 @@ export function PublicFooter() {
           </a>
         </nav>
 
-        <p className="mt-5 border-t border-[var(--pf-card-border)] pt-4 text-xs text-[var(--pf-text-muted)]">
+        <p className="border-t border-[var(--pf-card-border)] pt-4 text-xs text-[var(--pf-text-muted)] lg:col-span-2">
           © 2026 Pingisligan Fantasy
         </p>
       </div>

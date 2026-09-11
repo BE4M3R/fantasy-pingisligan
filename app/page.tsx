@@ -56,7 +56,7 @@ async function HomeContent() {
 
       <section className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-x-10 gap-y-8 overflow-hidden px-5 py-8 sm:px-6 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
-          <h1 className="max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+          <h1 className="max-w-3xl text-4xl font-extrabold leading-[1.05] tracking-tight min-[380px]:text-5xl sm:text-6xl">
             Build your Pingisligan{" "}
             <span className="text-[var(--pf-logo-gold)]">Fantasy team</span>
           </h1>
@@ -69,32 +69,10 @@ async function HomeContent() {
               Get started
             </Link>
           </div>
-
-          <div className="mt-4 flex flex-col items-start">
-            <p className="text-xs font-medium tracking-wide text-[var(--pf-text-muted)]">
-              In collaboration with
-            </p>
-            <a
-              aria-label="Visit Svenska Bordtennisförbundet"
-              className="mt-2 rounded-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-text)]"
-              href="https://sbtf.se/"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Image
-                alt="Svenska Bordtennisförbundet"
-                className="h-auto w-[100px] brightness-0 invert"
-                height={596}
-                src="/branding/sbtf-logo.webp"
-                width={596}
-              />
-            </a>
-          </div>
-
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="table-panel grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
+        <div className="grid gap-4 sm:gap-6">
+          <div className="table-panel grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-3 overflow-hidden rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-4 sm:p-5">
             <div>
               <h2 className="text-base font-semibold text-[var(--pf-text)] sm:text-lg">Build your squad</h2>
               <p className="mt-1 text-sm leading-relaxed text-[var(--pf-text-muted)]">
@@ -112,7 +90,7 @@ async function HomeContent() {
             />
           </div>
 
-          <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)] items-center gap-4 overflow-hidden rounded-lg border p-5 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
+          <div className="table-panel grid min-h-28 grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-3 overflow-hidden rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-4 sm:p-5">
             <div>
               <h2 className="text-base font-semibold text-[var(--pf-text)] sm:text-lg">
                 Compete for bragging rights
