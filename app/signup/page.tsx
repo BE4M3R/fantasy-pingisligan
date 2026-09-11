@@ -96,18 +96,6 @@ export default async function SignupPage({
               />
             </label>
 
-            <label className="block text-sm font-medium text-[var(--pf-text)]">
-              Developer code
-              <input
-                className="mt-2 w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-3 text-[var(--pf-text)] outline-none transition placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)] focus:ring-2 focus:ring-[rgb(var(--pf-brand-blue-rgb)/0.25)]"
-                name="developer_code"
-                type="password"
-                autoComplete="off"
-                required
-                suppressHydrationWarning
-              />
-            </label>
-
             <button className="w-full rounded-md bg-[var(--pf-logo-gold)] px-4 py-3 text-sm font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-logo-gold-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-logo-gold-ring)]">
               Sign up
             </button>

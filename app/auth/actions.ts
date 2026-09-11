@@ -3,8 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-const DEVELOPER_SIGNUP_CODE = "pingisligan-dev";
-
 function getSiteUrl() {
   const configuredSiteUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -100,18 +98,10 @@ export async function sendPasswordReset(formData: FormData) {
 export async function signUp(formData: FormData) {
   const email = getString(formData, "email");
   const password = getString(formData, "password");
-  const developerCode = getString(formData, "developer_code");
   const siteUrl = getSiteUrl();
 
-  if (!email || !password || !developerCode) {
-    redirectWithMessage(
-      "/signup",
-      "Email, password and developer code are required.",
-    );
-  }
-
-  if (developerCode !== DEVELOPER_SIGNUP_CODE) {
-    redirectWithMessage("/signup", "The developer code is not correct.");
+  if (!email || !password) {
+    redirectWithMessage("/signup", "Email and password are required.");
   }
 
   if (!siteUrl) {
