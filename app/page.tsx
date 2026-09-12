@@ -2,15 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PublicFooter } from "@/app/public-footer";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 export default function Home() {
   return <HomeContent />;
 }
 
 async function HomeContent() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data } = await getClaims();
   const claims = data?.claims;
 
   if (claims?.sub) {

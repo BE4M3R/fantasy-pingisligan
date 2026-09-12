@@ -134,6 +134,8 @@ A player wins 3-1 and the player's club wins the fixture:
 
 - Initial squad selection before the first deadline is unlimited and free.
 - Each team receives **1 free transfer per gameweek**.
+- The first free transfer becomes available after gameweek one; initial squad
+  selection does not create a carried transfer.
 - Unused free transfers roll over, up to a maximum of **4 available free
   transfers**.
 - Each additional transfer costs **4 points** in that gameweek.

@@ -1,3 +1,4 @@
+import { getGlobalLeaderboard, initialGlobalRows } from "@/lib/leaderboard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
@@ -6,7 +7,7 @@ import {
   type LeagueTableRow,
 } from "@/app/dashboard/league-table";
 import { InviteCode } from "@/app/dashboard/leagues/invite-code";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getClaims } from "@/lib/supabase/server";
 
 type PrivateLeague = {
   invite_code: string | null;
@@ -27,18 +28,17 @@ export default async function LeaguePage({
   const query = await searchParams;
   const isGlobalLeague = leagueId === "global";
   const supabase = await createClient();
-  const [claimsResult, initialResult] = await Promise.all([
-    supabase.auth.getClaims(),
-    isGlobalLeague
-      ? supabase.rpc("get_global_leaderboard")
-      : supabase.rpc("get_my_private_leagues"),
-  ]);
+  const claimsResult = await getClaims();
   const userId = claimsResult.data?.claims.sub;
 
   if (!userId) {
     const nextPath = `/dashboard/leagues/${encodeURIComponent(leagueId)}`;
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
+
+  const initialResult = isGlobalLeague
+    ? await getGlobalLeaderboard()
+    : await supabase.rpc("get_my_private_leagues");
 
   const selectedLeague = isGlobalLeague
     ? null
@@ -122,7 +122,8 @@ export default async function LeaguePage({
             <LeagueTable
               currentUserId={userId}
               initialRowCount={isGlobalLeague ? 10 : undefined}
-              rows={leagueTable}
+              rows={isGlobalLeague ? initialGlobalRows(leagueTable, userId) : leagueTable}
+              totalRowCount={isGlobalLeague ? leagueTable.length : undefined}
             />
           )}
         </section>

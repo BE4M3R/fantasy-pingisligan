@@ -4,6 +4,7 @@ import { Fragment, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
 export type LeagueTableRow = {
+  rank?: number;
   user_id: string;
   team_name: string;
   total_points: number | string;
@@ -15,6 +16,21 @@ type GameweekScore = {
   points: number | string;
   round_order: number | null;
 };
+
+type ScoreCache = Map<string, { scores: GameweekScore[]; expiresAt: number }>;
+
+async function loadGameweekScores(cache: ScoreCache, userId: string) {
+  const cached = cache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.scores;
+  const { data, error } = await createClient().rpc(
+    "get_leaderboard_team_gameweek_points", { p_user_id: userId },
+  );
+  if (error) throw new Error(error.message);
+  const scores = (data ?? []) as GameweekScore[];
+  if (cache.size >= 20) cache.clear();
+  cache.set(userId, { scores, expiresAt: Date.now() + 60_000 });
+  return scores;
+}
 
 function formatPoints(value: number | string | null | undefined) {
   return new Intl.NumberFormat("sv-SE").format(Number(value ?? 0));
@@ -37,25 +53,35 @@ export function LeagueTable({
   currentUserId,
   initialRowCount,
   rows,
+  totalRowCount,
 }: {
   currentUserId: string;
   initialRowCount?: number;
   rows: LeagueTableRow[];
+  totalRowCount?: number;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [showAll, setShowAll] = useState(false);
+  const [loadedRows, setLoadedRows] = useState<LeagueTableRow[]>([]);
+  const [isLoadingRows, setIsLoadingRows] = useState(false);
+  const [rowsError, setRowsError] = useState("");
+  const [remainingTotal, setRemainingTotal] = useState(totalRowCount ?? rows.length);
+  const scoresRequestRef = useRef(0);
+  const scoresCacheRef = useRef<ScoreCache>(new Map());
+  const paginated = totalRowCount !== undefined;
+  const displayedRows = paginated && showAll ? loadedRows : rows;
   const [selectedTeam, setSelectedTeam] = useState<LeagueTableRow | null>(null);
   const [gameweekScores, setGameweekScores] = useState<GameweekScore[]>([]);
   const [gameweekIndex, setGameweekIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const selectedGameweek = gameweekScores[gameweekIndex];
-  const rankedRows = rows.map((row, index) => ({ rank: index + 1, row }));
+  const rankedRows = displayedRows.map((row, index) => ({ rank: row.rank ?? index + 1, row }));
   const currentUserRow = rankedRows.find(
     ({ row }) => row.user_id === currentUserId,
   );
   const hasCollapsedRows =
-    initialRowCount !== undefined && rows.length > initialRowCount;
+    initialRowCount !== undefined && (totalRowCount ?? rows.length) > initialRowCount;
   const isCompact = hasCollapsedRows && !showAll;
   const showCurrentUserSeparately = Boolean(
     isCompact && currentUserRow && currentUserRow.rank > initialRowCount,
@@ -67,7 +93,27 @@ export function LeagueTable({
       ]
     : rankedRows;
 
+  async function loadMoreRows() {
+    if (isLoadingRows) return;
+    setIsLoadingRows(true);
+    setRowsError("");
+    try {
+      const offset = showAll ? loadedRows.length : 0;
+      const response = await fetch(`/api/leaderboard?offset=${offset}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Standings could not be loaded.");
+      const payload = await response.json() as { rows: LeagueTableRow[]; total: number };
+      setRemainingTotal(payload.total);
+      setLoadedRows((previous) => offset ? [...previous, ...payload.rows] : payload.rows);
+      setShowAll(true);
+    } catch {
+      setRowsError("Standings could not be loaded. Please try again.");
+    } finally {
+      setIsLoadingRows(false);
+    }
+  }
+
   async function openGameweekScores(row: LeagueTableRow) {
+    const requestId = ++scoresRequestRef.current;
     setSelectedTeam(row);
     setGameweekScores([]);
     setGameweekIndex(0);
@@ -75,22 +121,16 @@ export function LeagueTable({
     setIsLoading(true);
     dialogRef.current?.showModal();
 
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc(
-      "get_leaderboard_team_gameweek_points",
-      { p_user_id: row.user_id },
-    );
-
-    if (error) {
-      setLoadError(true);
-      setIsLoading(false);
-      return;
+    try {
+      const scores = await loadGameweekScores(scoresCacheRef.current, row.user_id);
+      if (requestId !== scoresRequestRef.current) return;
+      setGameweekScores(scores);
+      setGameweekIndex(Math.max(scores.length - 1, 0));
+    } catch {
+      if (requestId === scoresRequestRef.current) setLoadError(true);
+    } finally {
+      if (requestId === scoresRequestRef.current) setIsLoading(false);
     }
-
-    const scores = (data ?? []) as GameweekScore[];
-    setGameweekScores(scores);
-    setGameweekIndex(Math.max(scores.length - 1, 0));
-    setIsLoading(false);
   }
 
   return (
@@ -228,17 +268,20 @@ export function LeagueTable({
         </table>
       </div>
 
-      {hasCollapsedRows ? (
+      {hasCollapsedRows && (!paginated || !showAll || loadedRows.length < remainingTotal) ? (
         <button
           aria-expanded={showAll}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-          onClick={() => setShowAll((isShowingAll) => !isShowingAll)}
+          disabled={isLoadingRows}
+          onClick={() => paginated ? void loadMoreRows() : setShowAll((isShowingAll) => !isShowingAll)}
           type="button"
         >
-          {showAll ? `Show top ${initialRowCount}` : `Show all ${rows.length} teams`}
+          {paginated ? (isLoadingRows ? "Loading…" : "Show more teams") : showAll ? `Show top ${initialRowCount}` : `Show all ${rows.length} teams`}
           <span aria-hidden="true">{showAll ? "↑" : "↓"}</span>
         </button>
       ) : null}
+
+      {rowsError ? <p role="alert">{rowsError}</p> : null}
 
       <dialog
         aria-labelledby="gameweek-score-title"

@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
+import { cache } from "react";
 import { cookies } from "next/headers";
 
-export async function createClient() {
+export const createClient = cache(async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -27,4 +28,17 @@ export async function createClient() {
       },
     },
   });
-}
+});
+
+export const getClaims = cache(async () => {
+  const supabase = await createClient();
+  return supabase.auth.getClaims();
+});
+
+export const getMyTeam = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return supabase.from("fantasy_teams")
+    .select("id, name, budget, onboarding_completed")
+    .eq("user_id", userId)
+    .maybeSingle();
+});
