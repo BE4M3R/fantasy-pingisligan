@@ -24,6 +24,7 @@ Start with the root [README](../README.md) to install and run the application.
 5. [Data imports](data-imports.md)
 6. [Updating a checkout](updating.md)
 7. [Staging gameweek test](staging-testing.md)
+8. [Performance inventory](performance-inventory.md)
 
 ## Important rules
 

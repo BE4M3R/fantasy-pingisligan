@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function TestSupabasePage() {
+  if (process.env.NODE_ENV === "production") notFound();
   const supabase = await createClient();
   const { data, error } = await supabase.from("players").select("*").limit(5);
 

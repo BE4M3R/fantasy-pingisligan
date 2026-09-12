@@ -16,6 +16,7 @@
     "seed:accounts": "node scripts/seed-staging-accounts.mjs",
     "seed:local-accounts": "node scripts/seed-staging-accounts.mjs --env local",
     "seed:staging-accounts": "node scripts/seed-staging-accounts.mjs --env staging",
+    "test:performance": "node --test scripts/performance.test.mjs",
     "test:imports": "node --test scripts/player-identity.test.mjs",
     "test:gameweek": "node scripts/staging-gameweek-test.mjs",
     "test:local": "node scripts/staging-gameweek-test.mjs --env local",

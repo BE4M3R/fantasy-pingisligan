@@ -2,11 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PasswordResetForm } from "@/app/forgot-password/password-reset-form";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 export default async function ForgotPasswordPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data } = await getClaims();
 
   if (data?.claims?.sub) {
     redirect("/dashboard/overview");

@@ -59,6 +59,25 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
   );
 }
 
+// Shared by all six picker instances; retry failures and refresh on reopening.
+let catalogue: { players: DashboardPlayer[]; expiresAt: number } | undefined;
+let catalogueRequest: Promise<DashboardPlayer[]> | undefined;
+
+async function loadCatalogue() {
+  if (catalogue && catalogue.expiresAt > Date.now()) return catalogue.players;
+  if (!catalogueRequest) {
+    catalogueRequest = (async () => {
+      const response = await fetch("/api/players", { cache: "no-store" });
+      const payload = (await response.json()) as { players?: DashboardPlayer[]; error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Could not load players.");
+      const players = payload.players ?? [];
+      catalogue = { players, expiresAt: Date.now() + 60_000 };
+      return players;
+    })().finally(() => { catalogueRequest = undefined; });
+  }
+  return catalogueRequest;
+}
+
 export function PlayerPicker({
   onSelect,
   position,
@@ -88,14 +107,9 @@ export function PlayerPicker({
     dialogRef.current?.showModal();
     setPickerOpen(true);
 
-    if (players) return;
-
     setError("");
     try {
-      const response = await fetch("/api/players");
-      const payload = (await response.json()) as { players?: DashboardPlayer[]; error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Could not load players.");
-      setPlayers(payload.players ?? []);
+      setPlayers(await loadCatalogue());
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Could not load players.");
     }

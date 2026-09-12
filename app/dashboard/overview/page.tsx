@@ -1,8 +1,9 @@
+import { getGlobalLeaderboard } from "@/lib/leaderboard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import type { LeagueTableRow } from "@/app/dashboard/league-table";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getClaims, getMyTeam } from "@/lib/supabase/server";
 
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
@@ -59,16 +60,12 @@ function getPlayer(row: SquadRow) {
 
 export default async function OverviewPage() {
   const supabase = await createClient();
-  const { data: claimsResult } = await supabase.auth.getClaims();
+  const { data: claimsResult } = await getClaims();
   const userId = claimsResult?.claims?.sub;
 
   if (!userId) redirect("/login");
 
-  const { data: existingTeam } = await supabase
-    .from("fantasy_teams")
-    .select("id, name")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { data: existingTeam } = await getMyTeam(userId);
 
   let fantasyTeam = existingTeam as FantasyTeam | null;
 
@@ -96,7 +93,7 @@ export default async function OverviewPage() {
         : Promise.resolve({ data: [] }),
       supabase.rpc("current_transfer_lock"),
       supabase.rpc("get_my_gameweek_progress"),
-      supabase.rpc("get_global_leaderboard"),
+      getGlobalLeaderboard(),
     ]);
 
   const squad = (squadResult.data ?? []) as SquadRow[];

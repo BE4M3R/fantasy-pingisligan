@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { RulesContent } from "@/app/rules/rules-content";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Game rules | Fantasy Pingisligan",
@@ -10,8 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardRulesPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data } = await getClaims();
 
   if (!data?.claims?.sub) {
     redirect("/login");

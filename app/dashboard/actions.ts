@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -382,6 +382,7 @@ export async function updateTeamName(formData: FormData) {
     dashboardMessage(error.message);
   }
 
+  updateTag("global-standings");
   revalidatePath("/dashboard", "layout");
 }
 
@@ -485,6 +486,8 @@ export async function deleteAccount() {
   if (error) {
     dashboardMessage(error.message);
   }
+
+  updateTag("global-standings");
 
   // Deleting the Auth user invalidates its refresh tokens, but the current
   // access-token cookie can otherwise remain valid until the JWT expires.

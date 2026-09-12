@@ -10,7 +10,7 @@ import { updateTeamName } from "@/app/dashboard/actions";
 import { ChangeTeamNameDialog } from "@/app/dashboard/change-team-name-dialog";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { SettingsMenu } from "@/app/dashboard/settings-menu";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims, getMyTeam } from "@/lib/supabase/server";
 
 type TeamSettings = {
   name: string;
@@ -161,15 +161,10 @@ function TeamOnboarding() {
 }
 
 export async function DashboardHeader() {
-  const supabase = await createClient();
-  const { data: claimsResult } = await supabase.auth.getClaims();
+  const { data: claimsResult } = await getClaims();
   const userId = claimsResult?.claims?.sub;
   const { data } = userId
-    ? await supabase
-        .from("fantasy_teams")
-        .select("name, onboarding_completed")
-        .eq("user_id", userId)
-        .maybeSingle()
+    ? await getMyTeam(userId)
     : { data: null };
   const team = data as TeamSettings | null;
 

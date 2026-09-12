@@ -1,3 +1,4 @@
+import { getGlobalLeaderboard, initialGlobalRows } from "@/lib/leaderboard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
@@ -7,7 +8,7 @@ import {
 } from "@/app/dashboard/league-table";
 import { joinPrivateLeague } from "@/app/dashboard/leagues/actions";
 import { LeagueActions } from "@/app/dashboard/leagues/league-actions";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getClaims } from "@/lib/supabase/server";
 
 type PrivateLeague = {
   invite_code: string | null;
@@ -45,11 +46,7 @@ export default async function LeaguesPage({
     ?.replace(/[^a-z0-9]/gi, "")
     .toUpperCase()
     .slice(0, 8);
-  const [claimsResult, globalResult, privateLeaguesResult] = await Promise.all([
-    supabase.auth.getClaims(),
-    supabase.rpc("get_global_leaderboard"),
-    supabase.rpc("get_my_private_leagues"),
-  ]);
+  const claimsResult = await getClaims();
   const userId = claimsResult.data?.claims.sub;
 
   if (!userId) {
@@ -58,6 +55,11 @@ export default async function LeaguesPage({
       : "/dashboard/leagues";
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
+
+  const [globalResult, privateLeaguesResult] = await Promise.all([
+    getGlobalLeaderboard(),
+    supabase.rpc("get_my_private_leagues"),
+  ]);
 
   const privateLeagues = (privateLeaguesResult.data ?? []) as PrivateLeague[];
   const globalLeagueTable = (globalResult.data ?? []) as LeagueTableRow[];
@@ -169,7 +171,8 @@ export default async function LeaguesPage({
             <LeagueTable
               currentUserId={userId}
               initialRowCount={10}
-              rows={globalLeagueTable}
+              rows={initialGlobalRows(globalLeagueTable, userId)}
+              totalRowCount={globalLeagueTable.length}
             />
           )}
         </section>

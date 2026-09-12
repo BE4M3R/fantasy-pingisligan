@@ -13,7 +13,7 @@ import {
   type SquadSetBreakdownRow,
 } from "@/app/dashboard/result-data";
 import { SquadEditor } from "@/app/dashboard/squad-editor";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getClaims, getMyTeam } from "@/lib/supabase/server";
 
 const DEFAULT_BUDGET = 100000000;
 
@@ -138,7 +138,7 @@ export default async function SquadPage({
   }>;
 }) {
   const supabase = await createClient();
-  const { data: claimsResult } = await supabase.auth.getClaims();
+  const { data: claimsResult } = await getClaims();
   const userId = claimsResult?.claims?.sub;
 
   if (!userId) redirect("/login");
@@ -149,11 +149,7 @@ export default async function SquadPage({
     view,
   } = await searchParams;
 
-  const { data: existingTeam } = await supabase
-    .from("fantasy_teams")
-    .select("id, name, budget")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { data: existingTeam } = await getMyTeam(userId);
 
   let fantasyTeam = existingTeam as FantasyTeam | null;
 
@@ -177,8 +173,6 @@ export default async function SquadPage({
     upcomingGameweekResult,
     chipSelectionsResult,
     resultGameweeksResult,
-    latestSquadResult,
-    latestSetBreakdownResult,
   ] = await Promise.all([
     fantasyTeam
       ? supabase
@@ -210,8 +204,6 @@ export default async function SquadPage({
           )
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
-    supabase.rpc("get_my_latest_squad_result"),
-    supabase.rpc("get_my_latest_squad_set_breakdown"),
   ]);
 
   const transferLockRows = transferLockResult.data;
@@ -235,30 +227,23 @@ export default async function SquadPage({
   let selectedResultGameweek =
     resultGameweeks.find(({ id }) => id === requestedGameweekId) ??
     latestResultGameweek;
-  let selectedSquadResult = latestSquadResult;
-  let selectedSetBreakdownResult = latestSetBreakdownResult;
+  // Resolve the requested round first, so history navigation never loads and
+  // discards the latest round's two expensive result RPCs.
+  let [selectedSquadResult, selectedSetBreakdownResult] = selectedResultGameweek
+    ? await Promise.all([
+        supabase.rpc("get_my_squad_result", { target_gameweek_id: selectedResultGameweek.id }),
+        supabase.rpc("get_my_squad_set_breakdown", { target_gameweek_id: selectedResultGameweek.id }),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
   let resultHistoryMigrationMissing = false;
 
-  if (
-    selectedResultGameweek &&
-    latestResultGameweek &&
-    selectedResultGameweek.id !== latestResultGameweek.id
-  ) {
+  if (selectedSquadResult.error) {
+    resultHistoryMigrationMissing = true;
+    selectedResultGameweek = latestResultGameweek;
     [selectedSquadResult, selectedSetBreakdownResult] = await Promise.all([
-      supabase.rpc("get_my_squad_result", {
-        target_gameweek_id: selectedResultGameweek.id,
-      }),
-      supabase.rpc("get_my_squad_set_breakdown", {
-        target_gameweek_id: selectedResultGameweek.id,
-      }),
+      supabase.rpc("get_my_latest_squad_result"),
+      supabase.rpc("get_my_latest_squad_set_breakdown"),
     ]);
-
-    if (selectedSquadResult.error) {
-      resultHistoryMigrationMissing = true;
-      selectedResultGameweek = latestResultGameweek;
-      selectedSquadResult = latestSquadResult;
-      selectedSetBreakdownResult = latestSetBreakdownResult;
-    }
   }
 
   const resultModeMigrationMissing = Boolean(selectedSquadResult.error);
