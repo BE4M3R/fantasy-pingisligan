@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updatePassword } from "@/app/auth/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 export default async function ResetPasswordPage({
   searchParams,
 }: {
   searchParams: Promise<{ message?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data } = await getClaims();
   const claims = data?.claims;
 
   if (!claims?.sub) {

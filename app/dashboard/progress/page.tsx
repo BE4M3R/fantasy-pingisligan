@@ -1,19 +1,17 @@
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { ProgressTable, type ProgressRow } from "@/app/dashboard/progress-table";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getClaims } from "@/lib/supabase/server";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
-  const [claimsResult, progressResult] = await Promise.all([
-    supabase.auth.getClaims(),
-    supabase.rpc("get_my_played_gameweek_progress"),
-  ]);
+  const claimsResult = await getClaims();
 
   if (!claimsResult.data?.claims.sub) {
     redirect("/login");
   }
 
+  const progressResult = await supabase.rpc("get_my_played_gameweek_progress");
   const { data: progressRows, error: progressError } = progressResult;
 
   const progress = (progressRows ?? []) as ProgressRow[];

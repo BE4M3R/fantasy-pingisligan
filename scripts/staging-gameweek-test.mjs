@@ -683,11 +683,25 @@ async function lock(supabase, definition, waitForCron = false) {
     "snapshot_locked_squads",
   );
   ensureNoError(snapshotError, "Could not snapshot locked squads");
-  const { count, error: countError } = await supabase
+  const { data: snapshotRows, count, error: countError } = await supabase
     .from("fantasy_team_gameweek_snapshots")
-    .select("*", { count: "exact", head: true })
+    .select(
+      "free_transfers_at_lock, free_transfers_after_lock, transfer_penalty_points",
+      { count: "exact" },
+    )
     .eq("fantasy_gameweek_id", gameweek.id);
   ensureNoError(countError, "Could not count test snapshots");
+  for (const snapshot of snapshotRows ?? []) {
+    if (snapshot.free_transfers_at_lock !== null) continue;
+    assert(
+      snapshot.free_transfers_after_lock === 0,
+      "A team's first snapshot must bank zero transfers so gameweek two starts with one.",
+    );
+    assert(
+      snapshot.transfer_penalty_points === 0,
+      "A team's first snapshot must not apply a transfer penalty.",
+    );
+  }
   const [{ count: rosterCount, error: rosterError }, { count: playerCount, error: playerError }] =
     await Promise.all([
       supabase

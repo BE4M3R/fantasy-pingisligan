@@ -454,34 +454,6 @@ export function SquadEditor({
     saveDisabledReason === "No changes" ? "" : saveDisabledReason;
 
   useEffect(() => {
-    let cancelled = false;
-    const adjacentGameweekIds = [
-      previousResultGameweek?.id,
-      nextResultGameweek?.id,
-    ].filter((id): id is string => Boolean(id));
-
-    for (const gameweekId of adjacentGameweekIds) {
-      if (resultCacheRef.current.has(gameweekId)) continue;
-
-      void fetch(`/api/squad-results?gameweek=${gameweekId}`)
-        .then(async (response) => {
-          if (!response.ok) return null;
-          return (await response.json()) as ResultGameweekPayload;
-        })
-        .then((payload) => {
-          if (!cancelled && payload) {
-            resultCacheRef.current.set(gameweekId, payload);
-          }
-        })
-        .catch(() => undefined);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [nextResultGameweek?.id, previousResultGameweek?.id]);
-
-  useEffect(() => {
     if (!isDirty) return;
 
     const warnAboutUnsavedChanges = (event: BeforeUnloadEvent) => {

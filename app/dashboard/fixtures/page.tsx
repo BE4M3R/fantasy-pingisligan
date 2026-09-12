@@ -1,8 +1,9 @@
+import { createPublicClient } from "@/lib/supabase/public";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 const STOCKHOLM_TIME_ZONE = "Europe/Stockholm";
 
@@ -121,9 +122,13 @@ function FixtureTeam({
 }
 
 export default async function FixturesPage() {
-  const supabase = await createClient();
-  const [claimsResult, gameweeksResult, fixturesResult] = await Promise.all([
-    supabase.auth.getClaims(),
+  const claimsResult = await getClaims();
+  if (!claimsResult.data?.claims.sub) {
+    redirect("/login");
+  }
+
+  const supabase = createPublicClient();
+  const [gameweeksResult, fixturesResult] = await Promise.all([
     supabase
       .from("fantasy_gameweeks")
       .select("id, name, round_order, lock_at")
@@ -137,12 +142,15 @@ export default async function FixturesPage() {
       .order("starts_at", { ascending: true }),
   ]);
 
-  if (!claimsResult.data?.claims.sub) {
-    redirect("/login");
-  }
 
   const gameweeks = (gameweeksResult.data ?? []) as GameweekRow[];
   const fixtures = (fixturesResult.data ?? []) as FixtureRow[];
+  const fixturesByGameweek = new Map<string | null, FixtureRow[]>();
+  for (const fixture of fixtures) {
+    const group = fixturesByGameweek.get(fixture.fantasy_gameweek_id) ?? [];
+    group.push(fixture);
+    fixturesByGameweek.set(fixture.fantasy_gameweek_id, group);
+  }
   const fixtureError = gameweeksResult.error ?? fixturesResult.error;
 
   return (
@@ -182,9 +190,7 @@ export default async function FixturesPage() {
         {!fixtureError && gameweeks.length ? (
           <div className="space-y-4 sm:space-y-5">
             {gameweeks.map((gameweek) => {
-              const gameweekFixtures = fixtures.filter(
-                (fixture) => fixture.fantasy_gameweek_id === gameweek.id,
-              );
+              const gameweekFixtures = fixturesByGameweek.get(gameweek.id) ?? [];
               const fixtureGroups = groupFixturesByStart(gameweekFixtures);
 
               return (

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/app/auth/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/supabase/server";
 
 export default async function LoginPage({
   searchParams,
@@ -14,8 +14,7 @@ export default async function LoginPage({
     next === "/dashboard" || next?.startsWith("/dashboard/")
       ? next
       : "/dashboard/overview";
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const { data } = await getClaims();
   const claims = data?.claims;
 
   if (claims?.sub) {
