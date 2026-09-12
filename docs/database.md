@@ -29,6 +29,8 @@ erDiagram
 ## Main areas
 
 - `profiles` mirrors application-specific user information from Supabase Auth.
+  `created_at` records when the Auth user signed up, while nullable
+  `verified_at` mirrors the time their email was confirmed.
 - `fantasy_teams` is one user's team, name and budget. The budget represents
   current squad value plus unspent cash; it moves with owned-player price
   changes so a refresh does not change the team's available cash.
