@@ -36,7 +36,7 @@ jobs:
           version: 2.116.0
 
       - name: Link staging project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug
 
       - name: Verify the baseline is registered
         run: |

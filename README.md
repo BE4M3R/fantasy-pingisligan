@@ -35,7 +35,7 @@ Open http://localhost:3000.
 
 ### Rebuild a populated local database
 
-This starts local Supabase, deletes all local database data and Auth users,
+This starts local Supabase deletes all local database data and Auth users,
 rebuilds migrations, imports current players, creates 10 local test accounts,
 and installs the synthetic gameweek fixture. It needs network access for the
 player import.
