@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
@@ -27,9 +28,8 @@ function formatMoney(value: number | string) {
 }
 
 function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name
-    : player.clubs?.name ?? "Free agent";
+  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
+  return canonicalClubName(name ?? "Free agent");
 }
 
 function getClubId(player: DashboardPlayer) {

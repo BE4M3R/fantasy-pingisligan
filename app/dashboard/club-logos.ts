@@ -1,44 +1,14 @@
-export type ClubLogo = {
-  alt: string;
-  match: string;
-  src: string;
-};
+import { CLUBS, getClub } from "@/lib/clubs";
 
-export const CLUB_LOGOS: ClubLogo[] = [
-  { alt: "Eslövs logo", match: "eslov", src: "/club-logos/eslovs.webp" },
-  {
-    alt: "Söderhamn logo",
-    match: "soderhamn",
-    src: "/club-logos/soderhamn.webp",
-  },
-  { alt: "Rekord logo", match: "rekord", src: "/club-logos/rekord.webp" },
-  {
-    alt: "Halmstad logo",
-    match: "halmstad",
-    src: "/club-logos/halmstad.webp",
-  },
-  { alt: "Kosta logo", match: "kosta", src: "/club-logos/kosta.webp" },
-  {
-    alt: "Eskilstuna logo",
-    match: "eskilstuna",
-    src: "/club-logos/eskilstuna.webp",
-  },
-  {
-    alt: "Spårvägen logo",
-    match: "sparvagen",
-    src: "/club-logos/sparvagen.webp",
-  },
-];
+export const CLUB_LOGOS = CLUBS.map((club) => ({
+  alt: `${club.name} logo`,
+  match: club.key,
+  src: club.logo,
+}));
 
-function searchable(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("sv-SE");
-}
+export type ClubLogo = (typeof CLUB_LOGOS)[number];
 
 export function getClubLogo(clubName: string) {
-  const normalizedClubName = searchable(clubName);
-
-  return CLUB_LOGOS.find((logo) => normalizedClubName.includes(logo.match));
+  const club = getClub(clubName);
+  return club ? CLUB_LOGOS.find((logo) => logo.match === club.key) : undefined;
 }

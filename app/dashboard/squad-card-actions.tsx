@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
@@ -36,9 +37,8 @@ function formatMoney(value: number | string) {
 }
 
 function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name ?? "Free agent"
-    : player.clubs?.name ?? "Free agent";
+  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
+  return canonicalClubName(name ?? "Free agent");
 }
 
 function formatPoints(value: number) {

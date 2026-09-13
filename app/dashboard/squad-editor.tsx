@@ -13,6 +13,7 @@ import {
   type Chip,
   type ChipSelection,
 } from "@/app/dashboard/chip-selector";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
@@ -78,9 +79,8 @@ function formatPlayerCardName(player: DashboardPlayer) {
 }
 
 function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name
-    : player.clubs?.name ?? "Free agent";
+  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
+  return canonicalClubName(name ?? "Free agent");
 }
 
 function getClubId(player: DashboardPlayer) {

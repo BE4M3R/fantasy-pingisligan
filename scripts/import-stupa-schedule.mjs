@@ -1,3 +1,5 @@
+import { canonicalClubName } from "../lib/clubs.ts";
+import { getOrCreateClubId } from "./club-identity.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,25 +65,6 @@ async function loadEnvFile(filePath) {
       .replace(/^(['"])(.*)\1$/, "$2")
       .replace(/\\n/g, "\n");
   }
-}
-
-function searchable(value) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("sv-SE");
-}
-
-function canonicalClubName(value) {
-  const normalized = searchable(value);
-  const isEskilstunaByStiga = normalized.includes("eskilstuna by stiga");
-  const isLindenEskilstuna =
-    normalized.includes("linden") &&
-    (normalized.includes("eskilstuna") || normalized.includes("esklistuna"));
-
-  return isEskilstunaByStiga || isLindenEskilstuna
-    ? "Linden BTK Eskilstuna"
-    : value.trim();
 }
 
 function addHours(isoValue, hours) {
@@ -191,41 +174,6 @@ async function getClubs(supabase) {
   }
 
   return data ?? [];
-}
-
-function findExistingClubId(clubs, clubName) {
-  const needle = searchable(clubName);
-  const match = clubs.find((club) => {
-    const haystack = searchable(club.name);
-    return haystack === needle || haystack.includes(needle) || needle.includes(haystack);
-  });
-
-  return match?.id ?? null;
-}
-
-async function getOrCreateClubId(supabase, clubs, clubName) {
-  if (!clubName) {
-    return null;
-  }
-
-  const existingId = findExistingClubId(clubs, clubName);
-
-  if (existingId) {
-    return existingId;
-  }
-
-  const { data, error } = await supabase
-    .from("clubs")
-    .upsert({ name: clubName }, { onConflict: "name" })
-    .select("id, name")
-    .single();
-
-  if (error) {
-    throw new Error(`Could not upsert club "${clubName}": ${error.message}`);
-  }
-
-  clubs.push(data);
-  return data.id;
 }
 
 async function upsertGameweeks(supabase, gameweeks) {

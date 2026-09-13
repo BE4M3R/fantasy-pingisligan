@@ -1,6 +1,7 @@
 import { createPublicClient } from "@/lib/supabase/public";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { getClaims } from "@/lib/supabase/server";
@@ -83,7 +84,7 @@ function FixtureTeam({
   name: string | null;
   side: "away" | "home";
 }) {
-  const displayName = name ?? "TBC";
+  const displayName = canonicalClubName(name ?? "TBC");
   const logo = name ? getClubLogo(name) : undefined;
 
   return (
