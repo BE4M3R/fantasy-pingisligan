@@ -25,6 +25,12 @@ import type {
 } from "@/app/dashboard/player-types";
 import { getDisplayedResultPoints } from "@/app/dashboard/player-types";
 import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
+import {
+  canReplaceClub,
+  canTransferFromClub,
+  CLUB_LIMIT_MESSAGE,
+  getOverLimitClubIds,
+} from "@/lib/squad-club-limit";
 
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
@@ -398,6 +404,7 @@ export function SquadEditor({
   const selectedClubIds = draftSquad
     .map(getClubId)
     .filter((clubId): clubId is string => Boolean(clubId));
+  const clubRepairRequired = getOverLimitClubIds(selectedClubIds).size > 0;
   const usedBudget = draftSquad.reduce(
     (total, player) => total + Number(player.price),
     0,
@@ -437,10 +444,12 @@ export function SquadEditor({
     selectedPlayerIds,
   ]);
   const saveDisabled =
-    !isDirty || isSaving || transfersLocked || !isSquadComplete;
+    !isDirty || isSaving || transfersLocked || !isSquadComplete || clubRepairRequired;
   const saveDisabledReason = transfersLocked
     ? "Transfer window closed"
-    : !isSquadComplete
+    : clubRepairRequired
+      ? CLUB_LIMIT_MESSAGE
+      : !isSquadComplete
       ? "Complete your squad"
       : !isDirty
         ? "No changes"
@@ -602,6 +611,7 @@ export function SquadEditor({
   }
 
   function addPlayer(player: DashboardPlayer, position: SquadPosition) {
+    if (transfersLocked || clubRepairRequired) return;
     setSaveMessage("");
     setDraftSquad((currentSquad) => [
       ...currentSquad,
@@ -617,9 +627,14 @@ export function SquadEditor({
     outgoingPlayerId: string,
     incomingPlayer: DashboardPlayer,
   ) {
+    if (transfersLocked) return;
     setSaveMessage("");
-    setDraftSquad((currentSquad) =>
-      currentSquad.map((player) =>
+    setDraftSquad((currentSquad) => {
+      const outgoing = currentSquad.find((player) => player.id === outgoingPlayerId);
+      if (!outgoing || !canReplaceClub(
+        currentSquad.map(getClubId), getClubId(outgoing), getClubId(incomingPlayer),
+      )) return currentSquad;
+      return currentSquad.map((player) =>
         player.id === outgoingPlayerId
           ? {
               ...incomingPlayer,
@@ -627,16 +642,20 @@ export function SquadEditor({
               position: player.position,
             }
           : player,
-      ),
-    );
+      );
+    });
   }
 
   function removePlayer(playerId: string) {
+    if (transfersLocked) return;
     setSaveMessage("");
     setDraftSquad((currentSquad) => {
       const removedPlayer = currentSquad.find(
         (player) => player.id === playerId,
       );
+      if (!removedPlayer || !canTransferFromClub(currentSquad.map(getClubId), getClubId(removedPlayer))) {
+        return currentSquad;
+      }
       const remainingPlayers = currentSquad.filter(
         (player) => player.id !== playerId,
       );
@@ -653,6 +672,7 @@ export function SquadEditor({
   }
 
   function makeCaptain(playerId: string) {
+    if (transfersLocked || clubRepairRequired) return;
     setSaveMessage("");
     setDraftSquad((currentSquad) =>
       currentSquad.map((player) => ({
@@ -663,6 +683,7 @@ export function SquadEditor({
   }
 
   function swapPlayers(playerId: string, targetPlayerId: string) {
+    if (transfersLocked || clubRepairRequired) return;
     setSaveMessage("");
     setDraftSquad((currentSquad) => {
       const playerIndex = currentSquad.findIndex(
@@ -717,6 +738,7 @@ export function SquadEditor({
   }
 
   function saveChanges() {
+    if (saveDisabled) return;
     const input: SaveSquadDraftInput = {
       chip: selectedChip,
       gameweekId: upcomingGameweek?.id ?? null,
@@ -980,6 +1002,18 @@ export function SquadEditor({
           viewMode === "results" && !latestResult ? "hidden" : ""
         } ${viewMode === "results" && isResultLoading ? "opacity-55" : ""}`}
       >
+        {viewMode === "transfers" && clubRepairRequired ? (
+          <p
+            className="mx-auto mb-3 max-w-xl rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] px-3 py-2 text-sm text-[var(--pf-coral-text)]"
+            role="status"
+          >
+            <span className="font-semibold">{CLUB_LIMIT_MESSAGE}</span>
+            <span className="mt-1 block text-xs">
+              This includes main and bench players. Transfer a player from a club
+              over the limit before making other changes.
+            </span>
+          </p>
+        ) : null}
         <div className="mx-auto mb-2 flex max-w-xl items-end justify-between gap-4 px-1">
           <h2
             className="text-xl font-black tracking-tight sm:text-2xl"

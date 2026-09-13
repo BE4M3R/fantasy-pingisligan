@@ -16,7 +16,7 @@ fantasy points.
 
 - Budget: **SEK 100 million**.
 - Squad size: **6 players**.
-- Club limit: **maximum 2 players from the same club**.
+- Club limit: **maximum 2 players from the same club**, counting main and bench players together.
 - Starting lineup: **4 players**.
 - Bench: **2 players**.
 - There are no player positions or formation requirements.
@@ -24,6 +24,15 @@ fantasy points.
 A squad can be saved only when all six slots are filled: exactly four starters
 and two bench players. Until then, the selection is only an unsaved draft in
 the browser.
+
+If a club correction puts an existing saved squad over the club limit, its
+selection remains intact. Transfer mode shows a warning above “Select your
+squad”. Until the draft is within the limit, only players belonging to an
+over-limit club can be transferred out or removed; captain and lineup swaps
+are disabled. Incoming players must still satisfy the club limit. Normal
+editing resumes once the draft is corrected, and the complete squad must meet
+the two-player limit before it can be saved. These transfers follow the normal
+free-transfer and points-cost rules.
 
 Only starters score points by default. The two bench slots have a clear first
 and second priority.
