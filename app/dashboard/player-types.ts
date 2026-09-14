@@ -10,6 +10,10 @@ export type DashboardPlayer = {
 
 export type SquadPosition = "starter" | "bench";
 
+export type TransferPlayer = DashboardPlayer & {
+  ranking_points: number | null;
+};
+
 export type ResultGameweek = {
   id: string;
   lock_at: string;

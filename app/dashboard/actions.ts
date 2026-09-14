@@ -186,6 +186,19 @@ export async function saveSquadDraft(
   }
 
   const { supabase } = await getUserId();
+  const { data: unrankedPlayers, error: rankingError } = await supabase
+    .from("players")
+    .select("id, fantasy_team_players(player_id)")
+    .in("id", input.players.map((player) => player.player_id))
+    .is("ranking_points", null);
+
+  if (rankingError) return { error: rankingError.message };
+  // RLS limits nested squad rows to the signed-in owner's team. Existing
+  // owners may retain a player, but new transfers require ranking data.
+  if (unrankedPlayers?.some((player) => player.fantasy_team_players.length === 0)) {
+    return { error: "Players with no ranking cannot be added until their ranking is available." };
+  }
+
   const { error } = await supabase.rpc("save_my_complete_fantasy_team", {
     p_chip: input.chip,
     p_gameweek_id: input.gameweekId,
@@ -282,13 +295,16 @@ export async function addPlayerToTeam(formData: FormData) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, price, club_id")
+    .select("id, price, club_id, ranking_points")
     .eq("id", playerId)
     .eq("active", true)
     .maybeSingle();
 
   if (playerError || !player) {
     dashboardMessage(playerError?.message ?? "Player not found.");
+  }
+  if (player.ranking_points === null) {
+    dashboardMessage("Players with no ranking cannot be added until their ranking is available.");
   }
 
   const { data: squadRows, error: squadError } = await supabase
@@ -579,13 +595,16 @@ export async function swapPlayerIntoTeam(formData: FormData) {
 
   const { data: incomingPlayer, error: incomingError } = await supabase
     .from("players")
-    .select("id, price, club_id")
+    .select("id, price, club_id, ranking_points")
     .eq("id", incomingPlayerId)
     .eq("active", true)
     .maybeSingle();
 
   if (incomingError || !incomingPlayer) {
     dashboardMessage(incomingError?.message ?? "Player not found.");
+  }
+  if (incomingPlayer.ranking_points === null) {
+    dashboardMessage("Players with no ranking cannot be added until their ranking is available.");
   }
 
   const { data: squadRows, error: squadError } = await supabase

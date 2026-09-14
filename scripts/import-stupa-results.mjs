@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import roster from "../data/sbtf-rosters.json" with { type: "json" };
+import { canonicalClubName, normalizeClubName } from "../lib/clubs.ts";
 
 const STUPA_API_BASE_URL = "https://testbackend.stupaevents.com";
 const STUPA_TENANT = "sbtf";
@@ -97,12 +99,49 @@ async function fetchStage(stageId) {
   return payload.data.flatMap((group) => group.matches ?? []);
 }
 
+function rosterNameKey(club, name) {
+  return JSON.stringify([
+    normalizeClubName(canonicalClubName(club)),
+    name.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+      .toLocaleLowerCase("sv-SE").replace(/\s+/g, " ").trim(),
+  ]);
+}
+
+// Only explicitly anchored roster players can bootstrap an unknown Stupa ID.
+// Keep other database names in the candidate sets so namesakes are ambiguous.
+function buildManualPlayerLookup(players, squads = roster.clubs) {
+  const byId = new Map(players.map((player) => [player.id, player]));
+  const lookup = new Map();
+  for (const squad of squads) {
+    for (const entry of squad.players) {
+      if (!entry.playerId) continue;
+      const player = byId.get(entry.playerId);
+      if (!player?.active || !player.clubs?.name ||
+          normalizeClubName(canonicalClubName(player.clubs.name)) !==
+          normalizeClubName(canonicalClubName(squad.club))) continue;
+      for (const name of [entry.name, entry.rankingName, ...(entry.rankingAliases ?? [])]) {
+        const key = rosterNameKey(squad.club, name);
+        const candidates = lookup.get(key) ?? new Map();
+        candidates.set(player.id, player);
+        lookup.set(key, candidates);
+      }
+    }
+  }
+  for (const player of players) {
+    if (!player.clubs?.name) continue;
+    const key = rosterNameKey(player.clubs.name, `${player.first_name} ${player.last_name}`);
+    lookup.get(key)?.set(player.id, player);
+  }
+  return lookup;
+}
+
 function buildImportRows(
   parentMatches,
   matchesByStupaId,
   playersByLicenseId,
   playersByRoleId,
   allowMissingParents = false,
+  manualPlayersByNameAndClub = new Map(),
 ) {
   const matchUpdates = [];
   const gameweekIds = new Set();
@@ -166,18 +205,30 @@ function buildImportRows(
             ? playersByLicenseId.get(licenseId)
             : null;
           const rolePlayer = playersByRoleId.get(String(stupaUserRoleId));
+          const team = (parent.participants ?? []).find(
+            (participant) => integer(side.participant_id, null) !== null &&
+              integer(participant.participant_id, null) === integer(side.participant_id, null),
+          );
+          const rosterCandidates = team?.participant_name
+            ? [...(manualPlayersByNameAndClub.get(
+                rosterNameKey(team.participant_name, detail.name),
+              )?.values() ?? [])]
+            : [];
+          const rosterPlayer = rosterCandidates.length === 1 ? rosterCandidates[0] : null;
+          const candidates = [licensePlayer, rolePlayer, ...rosterCandidates].filter(Boolean);
           const identitiesDisagree =
-            licensePlayer && rolePlayer && licensePlayer.id !== rolePlayer.id;
+            new Set(candidates.map((candidate) => candidate.id)).size > 1;
           const player = identitiesDisagree
             ? null
-            : (licensePlayer ?? rolePlayer ?? null);
+            : (licensePlayer ?? rolePlayer ?? rosterPlayer ?? null);
 
           if (identitiesDisagree) {
             identityConflicts.set(`${stupaUserRoleId}:${licenseId}`, {
               licenseId: licenseId || null,
-              licensePlayerId: licensePlayer.id,
+              licensePlayerId: licensePlayer?.id ?? null,
               name: detail.name,
-              rolePlayerId: rolePlayer.id,
+              rolePlayerId: rolePlayer?.id ?? null,
+              rosterPlayerIds: rosterCandidates.map((candidate) => candidate.id),
               stupaUserRoleId,
             });
           }
@@ -215,6 +266,30 @@ function buildImportRows(
     }
   }
 
+  // Validate the whole batch before any writes: a newly observed identity must
+  // not be assigned to different players in separate fixtures or doubles rows.
+  const claims = new Map();
+  for (const result of playerResults) {
+    if (!result.player_id) continue;
+    for (const [provider, externalId] of [
+      [LICENSE_PROVIDER, result.stupa_license_id],
+      [ROLE_PROVIDER, result.stupa_user_role_id],
+    ]) {
+      if (!externalId) continue;
+      const key = `${provider}:${externalId}`;
+      const previous = claims.get(key);
+      if (previous && previous !== result.player_id) {
+        identityConflicts.set(key, {
+          name: result.player_name,
+          licenseId: result.stupa_license_id,
+          stupaUserRoleId: result.stupa_user_role_id,
+          reason: `${key} claimed by ${previous} and ${result.player_id}`,
+        });
+      }
+      claims.set(key, result.player_id);
+    }
+  }
+
   return {
     gameweekIds: [...gameweekIds],
     matchUpdates,
@@ -236,7 +311,9 @@ async function loadDatabaseLookups(supabase) {
       .from("matches")
       .select("id, stupa_match_id, fantasy_gameweek_id")
       .not("stupa_match_id", "is", null),
-    supabase.from("players").select("id, profixio_id, stupa_user_role_id"),
+    supabase.from("players").select(
+      "id, profixio_id, stupa_user_role_id, first_name, last_name, active, clubs(name)",
+    ),
     supabase
       .from("player_external_identities")
       .select("provider, external_id, player_id"),
@@ -282,6 +359,7 @@ async function loadDatabaseLookups(supabase) {
     matchesByStupaId: new Map(matches.map((match) => [integer(match.stupa_match_id), match])),
     playersByLicenseId,
     playersByRoleId,
+    manualPlayersByNameAndClub: buildManualPlayerLookup(players),
   };
 }
 
@@ -433,6 +511,7 @@ async function main() {
     lookups.playersByLicenseId,
     lookups.playersByRoleId,
     dryRun,
+    lookups.manualPlayersByNameAndClub,
   );
 
   let scoredGameweekCount = 0;
@@ -440,7 +519,7 @@ async function main() {
     if (rows.identityConflicts.length > 0) {
       const conflict = rows.identityConflicts[0];
       throw new Error(
-        `Stupa license and role identities resolve to different players for ${conflict.name} ` +
+        `Stupa identities or roster names resolve to different players for ${conflict.name} ` +
           `(license ${conflict.licenseId ?? "missing"}, role ${conflict.stupaUserRoleId}). ` +
           "Run a dry run and repair the aliases before importing.",
       );
@@ -468,7 +547,7 @@ async function main() {
   }
   for (const conflict of rows.identityConflicts) {
     console.warn(
-      `Conflicting Stupa identity: ${conflict.name} (license ${conflict.licenseId ?? "missing"} -> ${conflict.licensePlayerId}, role ${conflict.stupaUserRoleId} -> ${conflict.rolePlayerId})`,
+      `Conflicting Stupa identity: ${JSON.stringify(conflict)}`,
     );
   }
 }
@@ -480,4 +559,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   });
 }
 
-export { buildImportRows };
+export { buildImportRows, buildManualPlayerLookup };
