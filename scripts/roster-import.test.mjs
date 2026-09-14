@@ -79,6 +79,11 @@ test("club aliases resolve exactly without conflating other Eskilstuna clubs", (
   ], "Eskilstuna by STIGA"), /Multiple database clubs/);
 });
 
+test("test fixture club names retain their marker and resolve the shared logo", () => {
+  assert.equal(canonicalClubName("[TEST] Linden BTK Eskilstuna"), "[TEST] Eskilstuna by STIGA");
+  assert.equal(getClub("[TEST] BTK Rekord").logo, "/club-logos/sbtf-rekord.jpg");
+});
+
 test("renaming an existing club preserves its ID and never inserts a second club", async () => {
   const calls = [];
   const supabase = { from: () => ({ update: (payload) => ({ eq: async (key, id) => {

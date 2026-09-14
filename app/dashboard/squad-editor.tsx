@@ -262,7 +262,7 @@ function SquadCard({
             ) : null}
             {player.active === false ? (
               <span className="inline-flex items-center justify-center rounded-full bg-[var(--pf-coral-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-coral-text)] ring-1 ring-[var(--pf-coral)]/60">
-                Unavailable
+                N/A
               </span>
             ) : null}
             {result?.automatic_substitution ? (
@@ -1009,8 +1009,7 @@ export function SquadEditor({
           >
             <span className="font-semibold">{CLUB_LIMIT_MESSAGE}</span>
             <span className="mt-1 block text-xs">
-              This includes main and bench players. Transfer a player from a club
-              over the limit before making other changes.
+              This includes main and bench players.
             </span>
           </p>
         ) : null}

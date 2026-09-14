@@ -79,16 +79,23 @@ Prices retain the existing formula:
 supplement `round(25000000 / sqrt(world ranking position))` when present.
 Players below 2250 receive the same base price as a player on 2250 (5m).
 Fumiya Igarashi and Machi Asuka are included at a manual price of 10m each while
-unranked; their ranking and license fields remain null. Their configured UUIDs
+unranked internally; their ranking and license fields remain null. In the
+transfer list they show `-` for the price and a disabled `No ranking` action.
+They remain searchable but cannot be newly selected and are excluded from
+the affordable-only filter. Existing owners can retain them. As soon as a
+player update supplies ranking points, their normal price and Add action
+appear automatically when the catalogue refreshes. Their configured UUIDs
 are permanent identity anchors, so repeated imports and later Profixio matches
 preserve ownership. Newly available rankings replace the manual price using the
 normal formula. An import refuses to revert a previously ranked manual player
 to the fallback price when ranking data disappears.
 
-Without an SBTF license or Stupa role identity, these two players cannot yet
-receive individually matched Stupa results. The results importer retains and
-reports unmatched rows; confirm and register their real license/role identities
-when available, then rerun results. Do not invent license numbers.
+These two players can receive points without a ranking or license. The results
+importer can link their first result through an exact roster name and club,
+using their permanent UUIDs. It accepts the explicitly listed `Asuka Machi`
+name-order alias and the shared Eskilstuna club aliases. It then retains the
+real Stupa role ID and any real license from the result for later imports.
+No license numbers are invented, and existing squad ownership is preserved.
 
 ### Club names and logos
 
@@ -157,15 +164,46 @@ in `player_external_identities`. Its `user_role_id` is an independent fallback
 identity, so a known role can still resolve a newly changed license. Each new
 license and role association is retained for later imports. If the license and
 role resolve to different players, the live import stops rather than assigning
-points incorrectly.
+points incorrectly. The same check covers roster fallback matches and any
+new identity claimed by different players within the same import batch.
+
+For explicitly UUID-anchored roster entries (currently Fumiya Igarashi and
+Machi Asuka), an exact normalized roster name or approved alias together with
+the parent fixture's club can establish the first Stupa link. The anchored
+player must already exist, be active, and still belong to that roster club.
+Namesakes in the database are ambiguous and stop the import. This fallback
+does not perform fuzzy matching or infer arbitrary name-order changes.
 
 Unmatched people remain in `player_submatch_results` with a null `player_id`
 and are reported to the console. Run the Profixio player import first, then
-rerun the results import to resolve newly known licenses. Names are diagnostic
-only because they are neither unique nor consistently formatted across both
-sources.
+rerun the results import to resolve newly known licenses. Outside the explicitly
+anchored roster entries, names are diagnostic only because they are neither
+unique nor consistently formatted across both sources.
 
 ## Troubleshooting
+
+### Matching verification, 14 September 2026
+
+- The live stage `5727` returned 42 fixtures across the same seven clubs as the
+  SBTF roster. Importing its schedule locally created 14 gameweeks and 42
+  fixtures, using the existing club records.
+- The local roster contained all 53 players and the 51 configured SBTF license
+  identities. A separate scored Stupa sample (stage `4521`, a different
+  competition) matched 17 result rows for Hugo Jobs and Noa Dahlström through
+  their actual licenses without identity conflicts.
+- Regression tests cover both manual UUIDs, approved aliases, wrong clubs,
+  namesakes, identity conflicts within one batch, doubles, and all 51 roster
+  licenses. Run `npm run test:imports`.
+- A rollback-only local database check passed importer-generated unranked
+  results through `calculate_fantasy_gameweek_points`: each player earned 14
+  points (singles 7 + doubles 4 + club win 3), their locked squad received those
+  points, and the team total was 42 with captain doubling. Recalculation was
+  idempotent. No ranking or license was required.
+- The current season had **no scored submatches**, so real result coverage for
+  all 53 players remains unverified until Stupa publishes their appearances.
+  Unexpected names or missing identities will still be reported for review.
+
+### Import problems
 
 - **Missing environment variable:** add the named value to `.env.local`.
 - **Missing scheduled parent matches:** run the schedule importer for the same

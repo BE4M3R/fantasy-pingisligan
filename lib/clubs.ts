@@ -63,11 +63,15 @@ export function normalizeClubName(value: string): string {
 }
 
 export function getClub(value: string) {
-  const name = normalizeClubName(value);
+  const name = normalizeClubName(value).replace(/^\[test\]\s*/, "");
   return CLUBS.find((club) => [club.name, ...club.aliases]
     .some((alias) => normalizeClubName(alias) === name));
 }
 
 export function canonicalClubName(value: string): string {
-  return getClub(value)?.name ?? value.trim().replace(/\*+$/, "");
+  const club = getClub(value);
+  if (!club) return value.trim().replace(/\*+$/, "");
+
+  const prefix = /^\s*\[test\]\s*/i.test(value) ? "[TEST] " : "";
+  return `${prefix}${club.name}`;
 }
