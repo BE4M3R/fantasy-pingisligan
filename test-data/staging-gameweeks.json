@@ -1,6 +1,9 @@
 {
   "version": 1,
   "stageId": -900001,
+  "clubAliases": {
+    "Eskilstuna by STIGA": ["Linden BTK Eskilstuna"]
+  },
   "gameweeks": [
     {
       "key": "gw1",
@@ -14,23 +17,23 @@
           "durationMinutes": 120,
           "home": {
             "club": "Söderhamns UIF",
-            "players": ["Anton Källberg", "Anders Eriksson", "Jon Persson"]
+            "players": ["Viktor Brodd", "Anders Eriksson", "Jon Persson"]
           },
           "away": {
-            "club": "Linden BTK Eskilstuna",
+            "club": "Eskilstuna by STIGA",
             "players": ["Hampus Nordberg", "Kim Taehyun", "Marek Badowski"]
           },
           "winner": "home",
           "matches": [
             {
               "type": "singles",
-              "homePlayers": ["Anton Källberg"],
+              "homePlayers": ["Viktor Brodd"],
               "awayPlayers": ["Hampus Nordberg"],
               "result": { "homeSets": 3, "awaySets": 1 }
             },
             {
               "type": "singles",
-              "homePlayers": ["Anton Källberg"],
+              "homePlayers": ["Viktor Brodd"],
               "awayPlayers": ["Kim Taehyun"],
               "result": { "homeSets": 3, "awaySets": 2 }
             },
@@ -49,7 +52,7 @@
           "resultAvailableFromGameweek": "gw2",
           "home": {
             "club": "Halmstad BTK",
-            "players": ["Kristian Karlsson", "Mattias Karlsson", "Noa Dahlström"]
+            "players": ["Tobias Rasmussen", "Gabrielius Camara", "Noa Dahlström"]
           },
           "away": {
             "club": "BTK Rekord",
@@ -59,19 +62,19 @@
           "matches": [
             {
               "type": "singles",
-              "homePlayers": ["Kristian Karlsson"],
+              "homePlayers": ["Tobias Rasmussen"],
               "awayPlayers": ["Simon Arvidsson"],
               "result": { "homeSets": 2, "awaySets": 3 }
             },
             {
               "type": "singles",
-              "homePlayers": ["Mattias Karlsson"],
+              "homePlayers": ["Gabrielius Camara"],
               "awayPlayers": ["Simon Arvidsson"],
               "result": { "homeSets": 1, "awaySets": 3 }
             },
             {
               "type": "doubles",
-              "homePlayers": ["Mattias Karlsson", "Noa Dahlström"],
+              "homePlayers": ["Gabrielius Camara", "Noa Dahlström"],
               "awayPlayers": ["Hampus Söderlund", "Max Hedbom"],
               "result": { "homeSets": 2, "awaySets": 3 }
             }
@@ -83,11 +86,11 @@
           "durationMinutes": 120,
           "home": {
             "club": "Kosta SK",
-            "players": ["Pär Gerell", "Diego Carvalhos", "Mathieu De Saintilans"]
+            "players": ["Pär Gerell", "Diego Carvalhos", "Martin Fröseth"]
           },
           "away": {
             "club": "Spårvägens BTK",
-            "players": ["Harald Andersson", "Amir Hodaei", "Charlie Carlsson"]
+            "players": ["Harald Andersson", "Simon Berglund", "Charlie Carlsson"]
           },
           "winner": "away",
           "matches": [
@@ -105,8 +108,8 @@
             },
             {
               "type": "doubles",
-              "homePlayers": ["Diego Carvalhos", "Mathieu De Saintilans"],
-              "awayPlayers": ["Amir Hodaei", "Charlie Carlsson"],
+              "homePlayers": ["Diego Carvalhos", "Martin Fröseth"],
+              "awayPlayers": ["Simon Berglund", "Charlie Carlsson"],
               "result": { "homeSets": 1, "awaySets": 3 }
             }
           ]
@@ -125,10 +128,10 @@
           "durationMinutes": 120,
           "home": {
             "club": "Eslövs AI BTK",
-            "players": ["Truls Möregårdh", "Vladislav Ursu", "Hugo Jobs"]
+            "players": ["Truls Möregårdh", "Vladislav Ursu", "Elias Sjögren"]
           },
           "away": {
-            "club": "Linden BTK Eskilstuna",
+            "club": "Eskilstuna by STIGA",
             "players": ["Hampus Nordberg", "Kim Taehyun", "Marek Badowski"]
           },
           "winner": "home",
@@ -147,7 +150,7 @@
             },
             {
               "type": "doubles",
-              "homePlayers": ["Vladislav Ursu", "Hugo Jobs"],
+              "homePlayers": ["Vladislav Ursu", "Elias Sjögren"],
               "awayPlayers": ["Kim Taehyun", "Marek Badowski"],
               "result": { "homeSets": 3, "awaySets": 2 }
             }
@@ -159,17 +162,17 @@
           "durationMinutes": 120,
           "home": {
             "club": "Söderhamns UIF",
-            "players": ["Anton Källberg", "Anders Eriksson", "Jon Persson"]
+            "players": ["Viktor Brodd", "Anders Eriksson", "Jon Persson"]
           },
           "away": {
             "club": "Spårvägens BTK",
-            "players": ["Harald Andersson", "Amir Hodaei", "Charlie Carlsson"]
+            "players": ["Harald Andersson", "Simon Berglund", "Charlie Carlsson"]
           },
           "winner": "home",
           "matches": [
             {
               "type": "singles",
-              "homePlayers": ["Anton Källberg"],
+              "homePlayers": ["Viktor Brodd"],
               "awayPlayers": ["Harald Andersson"],
               "result": { "homeSets": 3, "awaySets": 2 }
             },
@@ -182,7 +185,7 @@
             {
               "type": "doubles",
               "homePlayers": ["Anders Eriksson", "Jon Persson"],
-              "awayPlayers": ["Amir Hodaei", "Charlie Carlsson"],
+              "awayPlayers": ["Simon Berglund", "Charlie Carlsson"],
               "result": { "homeSets": 3, "awaySets": 0 }
             }
           ]
@@ -193,30 +196,30 @@
           "durationMinutes": 120,
           "home": {
             "club": "Halmstad BTK",
-            "players": ["Kristian Karlsson", "Mattias Karlsson", "Noa Dahlström"]
+            "players": ["Tobias Rasmussen", "Gabrielius Camara", "Noa Dahlström"]
           },
           "away": {
             "club": "Kosta SK",
-            "players": ["Pär Gerell", "Diego Carvalhos", "Mathieu De Saintilans"]
+            "players": ["Pär Gerell", "Diego Carvalhos", "Martin Fröseth"]
           },
           "winner": "home",
           "matches": [
             {
               "type": "singles",
-              "homePlayers": ["Kristian Karlsson"],
+              "homePlayers": ["Tobias Rasmussen"],
               "awayPlayers": ["Pär Gerell"],
               "result": { "homeSets": 3, "awaySets": 1 }
             },
             {
               "type": "singles",
-              "homePlayers": ["Mattias Karlsson"],
+              "homePlayers": ["Gabrielius Camara"],
               "awayPlayers": ["Pär Gerell"],
               "result": { "homeSets": 3, "awaySets": 2 }
             },
             {
               "type": "doubles",
-              "homePlayers": ["Mattias Karlsson", "Noa Dahlström"],
-              "awayPlayers": ["Diego Carvalhos", "Mathieu De Saintilans"],
+              "homePlayers": ["Gabrielius Camara", "Noa Dahlström"],
+              "awayPlayers": ["Diego Carvalhos", "Martin Fröseth"],
               "result": { "homeSets": 3, "awaySets": 1 }
             }
           ]
@@ -235,7 +238,7 @@
           "durationMinutes": 120,
           "home": {
             "club": "Eslövs AI BTK",
-            "players": ["Truls Möregårdh", "Vladislav Ursu", "Hugo Jobs"]
+            "players": ["Truls Möregårdh", "Vladislav Ursu", "Elias Sjögren"]
           },
           "away": {
             "club": "BTK Rekord",
@@ -257,7 +260,7 @@
             },
             {
               "type": "doubles",
-              "homePlayers": ["Vladislav Ursu", "Hugo Jobs"],
+              "homePlayers": ["Vladislav Ursu", "Elias Sjögren"],
               "awayPlayers": ["Hampus Söderlund", "Max Hedbom"],
               "result": { "homeSets": 2, "awaySets": 3 }
             }
@@ -268,12 +271,12 @@
           "startsAfterMinutes": 30,
           "durationMinutes": 120,
           "home": {
-            "club": "Linden BTK Eskilstuna",
+            "club": "Eskilstuna by STIGA",
             "players": ["Hampus Nordberg", "Kim Taehyun", "Marek Badowski"]
           },
           "away": {
             "club": "Spårvägens BTK",
-            "players": ["Harald Andersson", "Amir Hodaei", "Charlie Carlsson"]
+            "players": ["Harald Andersson", "Simon Berglund", "Charlie Carlsson"]
           },
           "winner": "home",
           "matches": [
@@ -292,7 +295,7 @@
             {
               "type": "doubles",
               "homePlayers": ["Kim Taehyun", "Marek Badowski"],
-              "awayPlayers": ["Amir Hodaei", "Charlie Carlsson"],
+              "awayPlayers": ["Simon Berglund", "Charlie Carlsson"],
               "result": { "homeSets": 3, "awaySets": 2 }
             }
           ]
@@ -303,30 +306,30 @@
           "durationMinutes": 120,
           "home": {
             "club": "Söderhamns UIF",
-            "players": ["Anton Källberg", "Anders Eriksson", "Jon Persson"]
+            "players": ["Viktor Brodd", "Anders Eriksson", "Jon Persson"]
           },
           "away": {
             "club": "Halmstad BTK",
-            "players": ["Kristian Karlsson", "Mattias Karlsson", "Noa Dahlström"]
+            "players": ["Tobias Rasmussen", "Gabrielius Camara", "Noa Dahlström"]
           },
           "winner": "away",
           "matches": [
             {
               "type": "singles",
-              "homePlayers": ["Anton Källberg"],
-              "awayPlayers": ["Kristian Karlsson"],
+              "homePlayers": ["Viktor Brodd"],
+              "awayPlayers": ["Tobias Rasmussen"],
               "result": { "homeSets": 1, "awaySets": 3 }
             },
             {
               "type": "singles",
               "homePlayers": ["Anders Eriksson"],
-              "awayPlayers": ["Kristian Karlsson"],
+              "awayPlayers": ["Tobias Rasmussen"],
               "result": { "homeSets": 0, "awaySets": 3 }
             },
             {
               "type": "doubles",
               "homePlayers": ["Anders Eriksson", "Jon Persson"],
-              "awayPlayers": ["Mattias Karlsson", "Noa Dahlström"],
+              "awayPlayers": ["Gabrielius Camara", "Noa Dahlström"],
               "result": { "homeSets": 1, "awaySets": 3 }
             }
           ]
@@ -345,11 +348,11 @@
           "durationMinutes": 120,
           "home": {
             "club": "Eslövs AI BTK",
-            "players": ["Truls Möregårdh", "Vladislav Ursu", "Hugo Jobs"]
+            "players": ["Truls Möregårdh", "Vladislav Ursu", "Elias Sjögren"]
           },
           "away": {
             "club": "Spårvägens BTK",
-            "players": ["Harald Andersson", "Amir Hodaei", "Charlie Carlsson"]
+            "players": ["Harald Andersson", "Simon Berglund", "Charlie Carlsson"]
           },
           "winner": "home",
           "matches": [
@@ -362,13 +365,13 @@
             {
               "type": "singles",
               "homePlayers": ["Truls Möregårdh"],
-              "awayPlayers": ["Amir Hodaei"],
+              "awayPlayers": ["Simon Berglund"],
               "result": { "homeSets": 3, "awaySets": 2 }
             },
             {
               "type": "doubles",
-              "homePlayers": ["Vladislav Ursu", "Hugo Jobs"],
-              "awayPlayers": ["Amir Hodaei", "Charlie Carlsson"],
+              "homePlayers": ["Vladislav Ursu", "Elias Sjögren"],
+              "awayPlayers": ["Simon Berglund", "Charlie Carlsson"],
               "result": { "homeSets": 3, "awaySets": 1 }
             }
           ]
@@ -383,7 +386,7 @@
           },
           "away": {
             "club": "Kosta SK",
-            "players": ["Pär Gerell", "Diego Carvalhos", "Mathieu De Saintilans"]
+            "players": ["Pär Gerell", "Diego Carvalhos", "Martin Fröseth"]
           },
           "winner": "home",
           "matches": [
@@ -402,7 +405,7 @@
             {
               "type": "doubles",
               "homePlayers": ["Hampus Söderlund", "Max Hedbom"],
-              "awayPlayers": ["Diego Carvalhos", "Mathieu De Saintilans"],
+              "awayPlayers": ["Diego Carvalhos", "Martin Fröseth"],
               "result": { "homeSets": 3, "awaySets": 2 }
             }
           ]
@@ -412,31 +415,31 @@
           "startsAfterMinutes": 60,
           "durationMinutes": 120,
           "home": {
-            "club": "Linden BTK Eskilstuna",
+            "club": "Eskilstuna by STIGA",
             "players": ["Hampus Nordberg", "Kim Taehyun", "Marek Badowski"]
           },
           "away": {
             "club": "Halmstad BTK",
-            "players": ["Kristian Karlsson", "Mattias Karlsson", "Noa Dahlström"]
+            "players": ["Tobias Rasmussen", "Gabrielius Camara", "Noa Dahlström"]
           },
           "winner": "away",
           "matches": [
             {
               "type": "singles",
               "homePlayers": ["Hampus Nordberg"],
-              "awayPlayers": ["Kristian Karlsson"],
+              "awayPlayers": ["Tobias Rasmussen"],
               "result": { "homeSets": 0, "awaySets": 3 }
             },
             {
               "type": "singles",
               "homePlayers": ["Kim Taehyun"],
-              "awayPlayers": ["Kristian Karlsson"],
+              "awayPlayers": ["Tobias Rasmussen"],
               "result": { "homeSets": 1, "awaySets": 3 }
             },
             {
               "type": "doubles",
               "homePlayers": ["Kim Taehyun", "Marek Badowski"],
-              "awayPlayers": ["Mattias Karlsson", "Noa Dahlström"],
+              "awayPlayers": ["Gabrielius Camara", "Noa Dahlström"],
               "result": { "homeSets": 2, "awaySets": 3 }
             }
           ]

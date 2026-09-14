@@ -184,7 +184,8 @@ A club fixture explicitly lists its clubs and available lineup players:
 
 Club and player names are matched case-insensitively against active staging
 records. Every player must belong to the configured club. `winner` controls the
-club-fixture bonus and can be `"home"`, `"away"`, or `null`.
+club-fixture bonus and can be `"home"`, `"away"`, or `null`; only players listed
+in at least one singles or doubles match for the winning side receive the bonus.
 
 Singles and doubles list the participating players and set score:
 

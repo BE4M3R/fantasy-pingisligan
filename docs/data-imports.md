@@ -10,8 +10,8 @@ developer. Dry runs remain local and do not write database data.
 
 ## Required order
 
-1. **Players** reconciles clubs and permanent player identities from Profixio
-   rankings, updates the selected roster, and marks missing roster players
+1. **Players** uses the reviewed SBTF squad list and fresh Profixio rankings,
+   reconciles clubs and permanent player identities, and marks non-roster players
    inactive without deleting or repricing them.
 2. **Schedule** creates Stupa rounds as gameweeks and their parent matches.
 3. **Results** attaches Stupa submatches and player results, then recalculates
@@ -48,7 +48,7 @@ STUPA_STAGE_ID=4521 npm run import:results:dry
 
 | Command | Source | Main writes |
 | --- | --- | --- |
-| `npm run import:players` | Profixio rankings | `clubs`, `players`, and completed owners' budgets when prices change |
+| `npm run import:players` | SBTF squads + Profixio rankings | `clubs`, `players`, and completed owners' budgets when prices change |
 | `npm run import:schedule` | Stupa stage matches | `clubs`, `fantasy_gameweeks`, `matches` |
 | `npm run import:results` | Stupa completed submatches | Raw result tables, `player_match_stats`, snapshot player points, team gameweek totals |
 
@@ -60,10 +60,52 @@ people instead of intentionally duplicating them.
 
 ## Player roster and identity reconciliation
 
-The Profixio importer first selects up to ten ranked players for each club in
-`clubs.txt`. It refuses a live import if any configured club unexpectedly
-returns zero players, preventing a partial source response from deactivating a
-whole roster.
+`data/sbtf-rosters.json` is the reviewed 2026–27 roster from
+[SBTF’s Herrlagen page](https://sbtf.se/folja/pingisligan/herrlagen/), checked on
+13 September 2026: 53 players across seven clubs. Update this snapshot when
+SBTF changes a squad; it is deliberately not scraped during page loads or
+silently replaced during nightly imports. `clubs.txt` and `CLUBS_FILE` are no
+longer used. There is no ten-player cap or minimum ranking for roster membership.
+
+Imports fetch fresh Profixio points, using the first ranking page and then name
+searches in the same ranking run for remaining players (including inactive
+ranking entries). Roster license IDs anchor matching; a unique name and birth
+year also resolves renewed licenses. If a previously ranked player disappears
+or matching becomes ambiguous, the import stops before writing the roster.
+SBTF determines a player's fantasy club even when Profixio lists a different one.
+
+Prices retain the existing formula:
+`(max(2250, ranking points) - 2200) × 100000`, plus the existing world-ranking
+supplement `round(25000000 / sqrt(world ranking position))` when present.
+Players below 2250 receive the same base price as a player on 2250 (5m).
+Fumiya Igarashi and Machi Asuka are included at a manual price of 10m each while
+unranked; their ranking and license fields remain null. Their configured UUIDs
+are permanent identity anchors, so repeated imports and later Profixio matches
+preserve ownership. Newly available rankings replace the manual price using the
+normal formula. An import refuses to revert a previously ranked manual player
+to the fallback price when ranking data disappears.
+
+Without an SBTF license or Stupa role identity, these two players cannot yet
+receive individually matched Stupa results. The results importer retains and
+reports unmatched rows; confirm and register their real license/role identities
+when available, then rerun results. Do not invent license numbers.
+
+### Club names and logos
+
+`lib/clubs.ts` defines the SBTF display names, exact source aliases and logo
+provenance. Player imports, Stupa schedule imports and the UI share this map.
+`Linden BTK Eskilstuna` and the `Esklistuna` spelling resolve to **Eskilstuna by
+STIGA**. The separate **Eskilstuna BTK** is not treated as the same club.
+Existing aliased club rows are renamed in place, preserving player, match and
+historical snapshot references. Multiple existing rows for one canonical club
+stop the import for reconciliation instead of creating another duplicate.
+Stupa results continue to match parent matches and players by source IDs.
+
+The app serves local copies of the seven logos linked from SBTF, under
+`public/club-logos/sbtf-*`. It does not fetch SBTF assets or rosters in the browser.
+Legacy stored fixture names are normalized for display as well.
+
+### Player identity
 
 Each selected source row is resolved in this order:
 
@@ -78,7 +120,7 @@ The current source license is stored on `players.profixio_id`, while every old
 and current license remains in `player_external_identities`. Confirmed duplicate
 records are merged without changing fantasy squad, snapshot, result, or stats
 ownership. Selected players become active and receive their current club,
-ranking, and price. Previously imported players missing from the selected list
+ranking, and price. Players missing from the selected list
 become inactive; their stored price and historical references are unchanged.
 
 Inactive players are hidden from the picker. A team that already owns one may
@@ -139,7 +181,8 @@ Every results import reloads the full Stupa stage. New or changed source rows
 replace their stored rows, and every gameweek present in that result set is
 recalculated against its locked squad snapshots. This means a later import also
 repairs points for an earlier gameweek when a previously missing or inaccurate
-score has changed upstream. Player club-win bonuses use the immutable
-`player_gameweek_club_snapshots` roster captured at that gameweek's lock, not
-the current club on `players`. Inactive players retained in a locked fantasy
-squad remain eligible for their historical club-win bonus.
+score has changed upstream. Player club-win bonuses require an imported
+appearance in the winning fixture and use the immutable
+`player_gameweek_club_snapshots` club captured at that gameweek's lock, not the
+current club on `players`. Other players registered to the winning club receive
+no fixture-win bonus.

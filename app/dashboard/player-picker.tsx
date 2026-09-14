@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
+import { canTransferFromClub, MAX_PLAYERS_PER_CLUB } from "@/lib/squad-club-limit";
 import type { DashboardPlayer, SquadPosition } from "@/app/dashboard/player-types";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 
@@ -20,16 +22,14 @@ type PlayerPickerProps = {
 };
 
 type PriceSort = "low-to-high" | "high-to-low";
-const MAX_PLAYERS_PER_CLUB = 2;
 
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
 }
 
 function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name
-    : player.clubs?.name ?? "Free agent";
+  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
+  return canonicalClubName(name ?? "Free agent");
 }
 
 function getClubId(player: DashboardPlayer) {
@@ -90,6 +90,7 @@ export function PlayerPicker({
   trigger,
   triggerLabel,
 }: PlayerPickerProps) {
+  const clubRepairBlocked = !canTransferFromClub(selectedClubIds, outgoingClubId ?? null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [players, setPlayers] = useState<DashboardPlayer[] | null>(null);
   const [error, setError] = useState("");
@@ -103,6 +104,7 @@ export function PlayerPicker({
   useBodyScrollLock(pickerOpen);
 
   async function openPicker() {
+    if (transfersLocked || clubRepairBlocked) return;
     setFiltersOpen(false);
     dialogRef.current?.showModal();
     setPickerOpen(true);
@@ -179,7 +181,7 @@ export function PlayerPicker({
             ? "h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
             : "group flex min-h-28 w-full max-w-52 flex-col items-center justify-center rounded-lg border border-dashed border-[var(--pf-text-muted)]/45 bg-[var(--pf-navy)]/25 px-2 py-4 text-[var(--pf-text)]/80 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy)]/45 hover:text-[var(--pf-text)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
         }
-        disabled={transfersLocked}
+        disabled={transfersLocked || clubRepairBlocked}
         onClick={openPicker}
         type="button"
       >
@@ -326,7 +328,7 @@ export function PlayerPicker({
                               ? "cursor-not-allowed bg-[var(--pf-card-border)] text-[var(--pf-text-muted)]"
                               : "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] disabled:bg-[var(--pf-navy-deep)] disabled:text-[var(--pf-text-muted)]/55"
                         }`}
-                        disabled={selected || tooExpensive || clubLimitReached || transfersLocked}
+                        disabled={selected || tooExpensive || clubLimitReached || transfersLocked || clubRepairBlocked}
                         onClick={() => {
                           onSelect(player);
                           dialogRef.current?.close();
