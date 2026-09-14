@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
@@ -15,6 +16,7 @@ import {
   hasPlayedMatch,
 } from "@/app/dashboard/player-types";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
+import { canTransferFromClub, getOverLimitClubIds } from "@/lib/squad-club-limit";
 
 type SquadCardActionsProps = {
   children: React.ReactNode;
@@ -36,9 +38,8 @@ function formatMoney(value: number | string) {
 }
 
 function getClubName(player: DashboardPlayer) {
-  return Array.isArray(player.clubs)
-    ? player.clubs[0]?.name ?? "Free agent"
-    : player.clubs?.name ?? "Free agent";
+  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
+  return canonicalClubName(name ?? "Free agent");
 }
 
 function formatPoints(value: number) {
@@ -234,6 +235,9 @@ export function SquadCardActions({
   const [isOpen, setIsOpen] = useState(false);
   const [swapPickerOpen, setSwapPickerOpen] = useState(false);
   const playerName = `${player.first_name} ${player.last_name}`;
+  const clubRepairRequired = getOverLimitClubIds(selectedClubIds).size > 0;
+  const playerClubId = (Array.isArray(player.clubs) ? player.clubs[0]?.id : player.clubs?.id) ?? null;
+  const transferRestricted = !canTransferFromClub(selectedClubIds, playerClubId);
 
   useBodyScrollLock(isOpen);
 
@@ -343,6 +347,14 @@ export function SquadCardActions({
                   </div>
                 ) : null}
 
+                {clubRepairRequired && !transfersLocked ? (
+                  <p className="mt-3 text-sm text-[var(--pf-coral-text)]">
+                    {transferRestricted
+                      ? "Transfer a player from a club with more than two players first."
+                      : "Transfer a player from this club to bring your squad within the club limit."}
+                  </p>
+                ) : null}
+
                 <div className="mt-5 grid gap-3">
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <button
@@ -352,7 +364,7 @@ export function SquadCardActions({
                           : `Make ${playerName} captain`
                       }
                       className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
-                      disabled={transfersLocked || player.is_captain}
+                      disabled={transfersLocked || clubRepairRequired || player.is_captain}
                       onClick={() => {
                         onMakeCaptain();
                         closeActions();
@@ -386,7 +398,7 @@ export function SquadCardActions({
                       aria-controls={`swap-picker-${player.id}`}
                       aria-expanded={swapPickerOpen}
                       className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
-                      disabled={transfersLocked || swapTargets.length === 0}
+                      disabled={transfersLocked || clubRepairRequired || swapTargets.length === 0}
                       onClick={() => setSwapPickerOpen((open) => !open)}
                       title={
                         swapTargets.length
@@ -435,7 +447,7 @@ export function SquadCardActions({
 
                   <button
                     className="mx-auto mt-1 rounded-md border border-white/60 px-3 py-2 text-xs font-semibold text-[var(--pf-text-muted)] transition hover:border-white hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={transfersLocked}
+                    disabled={transfersLocked || transferRestricted}
                     onClick={() => {
                       if (
                         !window.confirm(

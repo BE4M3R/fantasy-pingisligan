@@ -16,7 +16,7 @@ fantasy points.
 
 - Budget: **SEK 100 million**.
 - Squad size: **6 players**.
-- Club limit: **maximum 2 players from the same club**.
+- Club limit: **maximum 2 players from the same club**, counting main and bench players together.
 - Starting lineup: **4 players**.
 - Bench: **2 players**.
 - There are no player positions or formation requirements.
@@ -24,6 +24,15 @@ fantasy points.
 A squad can be saved only when all six slots are filled: exactly four starters
 and two bench players. Until then, the selection is only an unsaved draft in
 the browser.
+
+If a club correction puts an existing saved squad over the club limit, its
+selection remains intact. Transfer mode shows a warning above “Select your
+squad”. Until the draft is within the limit, only players belonging to an
+over-limit club can be transferred out or removed; captain and lineup swaps
+are disabled. Incoming players must still satisfy the club limit. Normal
+editing resumes once the draft is corrected, and the complete squad must meet
+the two-player limit before it can be saved. These transfers follow the normal
+free-transfer and points-cost rules.
 
 Only starters score points by default. The two bench slots have a clear first
 and second priority.
@@ -66,20 +75,19 @@ for the gameweek.
 | Win an individual match | +4 |
 | Win a set | +1 |
 | Win a doubles match, per player | +2 |
-| Player's club wins the team fixture | +3 |
+| Appear in a team fixture that the player's club wins | +3 |
 | Win every singles match in the gameweek, with at least two played | +2 |
 
 A player can still earn points for sets won in a lost individual match. Lost
 sets do not deduct points.
 
-The club-win bonus is awarded to every fantasy player registered to the winning
-club, whether or not the player appeared in that fixture. It is awarded
-separately for every team fixture the club wins, so a player receives two
-club-win bonuses if their club wins two fixtures in the same gameweek. Club
-registration and player availability are frozen at the gameweek deadline, so a
-later transfer or roster import cannot change this bonus during recalculation.
-An inactive player already retained in a fantasy squad at the deadline remains
-eligible for their frozen club's win bonus.
+The club-win bonus is awarded only to players with an imported singles or
+doubles appearance in that fixture for the winning club. Other players
+registered to the club receive no bonus. It is awarded separately for every
+winning team fixture in which the player appears, so a player receives two
+club-win bonuses only if they participate in two fixtures that their club wins
+in the same gameweek. The player's club is frozen at the gameweek deadline, so
+a later transfer or roster import cannot change this bonus during recalculation.
 
 ### Walkovers
 

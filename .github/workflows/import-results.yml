@@ -32,7 +32,14 @@ jobs:
         run: npm ci
 
       - name: Import and score results
-        run: npm run import:results
+        run: |
+          if npm run import:results; then
+            exit 0
+          fi
+
+          echo "Results import failed. Retrying once in 30 seconds..."
+          sleep 30
+          npm run import:results
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

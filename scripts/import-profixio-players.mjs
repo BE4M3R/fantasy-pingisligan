@@ -1,3 +1,6 @@
+import { canonicalClubName } from "../lib/clubs.ts";
+import { getOrCreateClubId, findExistingClub } from "./club-identity.mjs";
+import roster from "../data/sbtf-rosters.json" with { type: "json" };
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,7 +8,6 @@ import { createClient } from "@supabase/supabase-js";
 
 const PROFIXIO_RANKING_URL =
   "https://www.profixio.com/fx/ranking_sbtf/ranking_sbtf_list.php?gender=m";
-const PLAYERS_PER_CLUB = 10;
 const MIN_RANKING_POINTS = 2250;
 const PRICE_OFFSET = 2200;
 const PRICE_MULTIPLIER = 100000;
@@ -14,9 +16,6 @@ const LICENSE_PROVIDER = "sbtf_license";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
-const clubsFile = process.env.CLUBS_FILE
-  ? path.resolve(process.env.CLUBS_FILE)
-  : path.join(projectRoot, "clubs.txt");
 
 function requireEnv(name, fallbackName) {
   const value = process.env[name] ?? process.env[fallbackName];
@@ -95,18 +94,6 @@ function searchable(value) {
     .toLocaleLowerCase("sv-SE");
 }
 
-function canonicalClubName(value) {
-  const normalized = searchable(value);
-  const isEskilstunaByStiga = normalized.includes("eskilstuna by stiga");
-  const isLindenEskilstuna =
-    normalized.includes("linden") &&
-    (normalized.includes("eskilstuna") || normalized.includes("esklistuna"));
-
-  return isEskilstunaByStiga || isLindenEskilstuna
-    ? "Linden BTK Eskilstuna"
-    : value.trim();
-}
-
 function normalizedIdentityName(firstName, lastName) {
   return searchable(`${firstName} ${lastName}`).replace(/\s+/g, " ").trim();
 }
@@ -140,7 +127,7 @@ function parsePlacement(value) {
   const rankingPosition = Number(value.match(/(\d+)\s*$/)?.[1]);
 
   return {
-    rankingPosition: Number.isFinite(rankingPosition) ? rankingPosition : null,
+    rankingPosition: Number.isFinite(rankingPosition) && rankingPosition > 0 ? rankingPosition : null,
     worldRankingPosition:
       Number.isInteger(worldRankingPosition) && worldRankingPosition > 0
         ? worldRankingPosition
@@ -214,54 +201,90 @@ function parseRankingRows(html) {
   return rows;
 }
 
-async function readClubSearches() {
-  const content = await readFile(clubsFile, "utf8");
-
-  return content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
+export function matchRosterPlayer(entry, rows) {
+  const names = new Set([entry.rankingName, ...(entry.rankingAliases ?? [])].map(searchable));
+  const candidates = rows.filter((row) => row.profixioPlayerId === entry.licenseId ||
+    (names.has(searchable(`${row.firstName} ${row.lastName}`)) &&
+      (entry.birthYear === null || row.birthYear === entry.birthYear)));
+  // A renewed license can leave an inactive row behind. Prefer the active identity.
+  const active = candidates.filter((row) => row.rankingPosition !== null);
+  const unique = [...new Map((active.length ? active : candidates)
+    .map((row) => [row.profixioPlayerId, row])).values()];
+  if (unique.length > 1) throw new Error(`Ambiguous ranking identity for ${entry.name}`);
+  return unique[0] ?? null;
 }
 
-function pickPlayersForClubs(rows, clubSearches) {
-  const selectedById = new Map();
-  const summary = [];
-
-  for (const clubSearch of clubSearches) {
-    const needle = searchable(clubSearch);
-    const matches = rows
-      .filter((row) => searchable(row.clubName).includes(needle))
-      .slice(0, PLAYERS_PER_CLUB);
-
-    summary.push({
-      clubSearch,
-      count: matches.length,
-      players: matches,
-    });
-
-    for (const player of matches) {
-      selectedById.set(player.profixioPlayerId, player);
+export function selectRosterPlayers(squads, rows) {
+  const players = [];
+  const missing = [];
+  if (!squads.length) throw new Error("The SBTF roster has no clubs.");
+  for (const squad of squads) {
+    if (!squad.players.length) throw new Error(`Empty SBTF squad: ${squad.club}`);
+    for (const entry of squad.players) {
+      const match = matchRosterPlayer(entry, rows);
+      if (!match) {
+        if (entry.licenseId || !entry.playerId || !Number.isFinite(entry.manualPrice)) {
+          throw new Error(`Previously ranked roster player missing: ${entry.name}; refusing a partial import.`);
+        }
+        missing.push({ ...entry, club: squad.club });
+        players.push({
+          rosterPlayerId: entry.playerId,
+          firstName: entry.firstName,
+          lastName: entry.lastName,
+          birthYear: entry.birthYear,
+          clubName: canonicalClubName(squad.club),
+          profixioPlayerId: null,
+          rankingPoints: null,
+          rankingPosition: null,
+          worldRankingPosition: null,
+          price: entry.manualPrice,
+        });
+        continue;
+      }
+      // SBTF controls membership; Profixio controls identity, points and price.
+      players.push({ ...match, rosterPlayerId: entry.playerId, clubName: canonicalClubName(squad.club) });
     }
   }
-
-  return {
-    players: [...selectedById.values()],
-    summary,
-  };
+  if (!players.length) throw new Error("No ranked SBTF roster players found.");
+  validateSourceIdentities(players);
+  return { players, missing };
 }
 
-async function upsertClub(supabase, clubName) {
-  const { data, error } = await supabase
-    .from("clubs")
-    .upsert({ name: clubName }, { onConflict: "name" })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw new Error(`Could not upsert club "${clubName}": ${error.message}`);
+async function fetchRankingPage(url) {
+  const response = await fetch(url, {
+    headers: { "user-agent": "fantasy-pingisligan-importer/1.0" },
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw new Error(`Profixio ranking request failed: ${response.status}`);
+  const html = await response.text();
+  if (!html.includes("searchform") || !html.includes("ranking_sbtf_list.php")) {
+    throw new Error("Unexpected Profixio ranking response.");
   }
+  return html;
+}
 
-  return data.id;
+export async function fetchRosterPlayers() {
+  const html = await fetchRankingPage(PROFIXIO_RANKING_URL);
+  const rankingRun = html.match(/name=['"]rid['"][^>]*>\s*<option value=['"](\d+)/)?.[1];
+  if (!rankingRun) throw new Error("Could not determine the current Profixio ranking run.");
+  const rows = parseRankingRows(html);
+  if (!rows.length) throw new Error("Empty Profixio ranking page.");
+  // The first page normally covers almost the whole squad. Name searches cover
+  // lower-ranked and inactive players without downloading every ranking page.
+  for (const squad of roster.clubs) {
+    for (const entry of squad.players) {
+      if (matchRosterPlayer(entry, rows)) continue;
+      for (const field of ["fn", "ln"]) {
+        const url = new URL(PROFIXIO_RANKING_URL);
+        url.searchParams.set("rid", rankingRun);
+        url.searchParams.set("searching", "1");
+        url.searchParams.set(field, entry.rankingName.split(" ")[0]);
+        rows.push(...parseRankingRows(await fetchRankingPage(url)));
+        if (matchRosterPlayer(entry, rows)) break;
+      }
+    }
+  }
+  return { ...selectRosterPlayers(roster.clubs, rows), rankingRun };
 }
 
 async function loadPlayerIdentityState(supabase) {
@@ -294,8 +317,12 @@ async function loadPlayerIdentityState(supabase) {
 
 function validateSourceIdentities(players) {
   const rowsByIdentity = new Map();
+  const seenIds = new Set();
 
   for (const player of players) {
+    const sourceId = player.profixioPlayerId ?? player.rosterPlayerId;
+    if (sourceId && seenIds.has(sourceId)) throw new Error(`Duplicate roster player ID: ${sourceId}`);
+    if (sourceId) seenIds.add(sourceId);
     const identityKey = playerIdentityKey(player);
     if (!identityKey) continue;
 
@@ -345,15 +372,20 @@ function buildReconciliationPlan(sourcePlayers, state) {
   const plan = [];
 
   for (const sourcePlayer of sourcePlayers) {
-    const exactPlayer = playersByLicense.get(sourcePlayer.profixioPlayerId);
+    const licensePlayer = playersByLicense.get(sourcePlayer.profixioPlayerId);
+    const rosterPlayer = playersById.get(sourcePlayer.rosterPlayerId);
+    const exactPlayer = rosterPlayer ?? licensePlayer;
+    if (rosterPlayer?.profixio_id && !sourcePlayer.profixioPlayerId) {
+      throw new Error(`Ranking disappeared for ${sourcePlayer.firstName} ${sourcePlayer.lastName}; refusing to restore a manual price.`);
+    }
     const identityKey = playerIdentityKey(sourcePlayer);
     const identityMatches = identityKey
       ? (playersByIdentity.get(identityKey) ?? [])
       : [];
     const sameClubMatches = identityMatches.filter(
       (player) =>
-        searchable(databaseClubName(player) ?? "") ===
-        searchable(sourcePlayer.clubName),
+        searchable(canonicalClubName(databaseClubName(player) ?? "")) ===
+        searchable(canonicalClubName(sourcePlayer.clubName)),
     );
 
     let player = exactPlayer ?? null;
@@ -362,6 +394,10 @@ function buildReconciliationPlan(sourcePlayers, state) {
 
     if (player) {
       duplicates = sameClubMatches.filter((candidate) => candidate.id !== player.id);
+      if (licensePlayer && licensePlayer.id !== player.id &&
+          !duplicates.some((candidate) => candidate.id === licensePlayer.id)) {
+        duplicates.push(licensePlayer);
+      }
     } else if (identityMatches.length === 1) {
       [player] = identityMatches;
       matchKind = "name-and-birth-year";
@@ -397,10 +433,14 @@ function buildReconciliationPlan(sourcePlayers, state) {
 
 async function ensureClubIds(supabase, players) {
   const clubIdsByName = new Map();
+  const { data: clubs, error } = await supabase.from("clubs").select("id, name");
+  if (error) throw new Error(`Could not load clubs: ${error.message}`);
+  // Check every alias before the first write. Never create a second club for a known alias.
+  for (const player of players) findExistingClub(clubs, player.clubName);
 
   for (const player of players) {
     if (!clubIdsByName.has(player.clubName)) {
-      clubIdsByName.set(player.clubName, await upsertClub(supabase, player.clubName));
+      clubIdsByName.set(player.clubName, await getOrCreateClubId(supabase, clubs, player.clubName));
     }
   }
 
@@ -489,7 +529,7 @@ async function syncPlayers(supabase, sourcePlayers) {
     } else {
       const { data, error } = await supabase
         .from("players")
-        .insert(payload)
+        .insert({ ...payload, ...(item.sourcePlayer.rosterPlayerId ? { id: item.sourcePlayer.rosterPlayerId } : {}) })
         .select("id")
         .single();
       if (error) {
@@ -501,26 +541,14 @@ async function syncPlayers(supabase, sourcePlayers) {
       summary.created += 1;
     }
 
-    await setCurrentLicenseIdentity(
-      supabase,
-      playerId,
-      item.sourcePlayer.profixioPlayerId,
-      seenAt,
-    );
+    if (item.sourcePlayer.profixioPlayerId) {
+      await setCurrentLicenseIdentity(supabase, playerId, item.sourcePlayer.profixioPlayerId, seenAt);
+    }
     selectedPlayerIds.add(playerId);
   }
 
-  const { data: managedIdentities, error: managedError } = await supabase
-    .from("player_external_identities")
-    .select("player_id")
-    .eq("provider", LICENSE_PROVIDER);
-  if (managedError) {
-    throw new Error(`Could not load managed players: ${managedError.message}`);
-  }
-
-  const inactivePlayerIds = [
-    ...new Set((managedIdentities ?? []).map((identity) => identity.player_id)),
-  ].filter((playerId) => !selectedPlayerIds.has(playerId));
+  const inactivePlayerIds = state.players.map((player) => player.id)
+    .filter((playerId) => !selectedPlayerIds.has(playerId));
 
   if (inactivePlayerIds.length > 0) {
     const { data, error } = await supabase
@@ -547,11 +575,7 @@ async function previewPlayerSync(supabase, sourcePlayers) {
   const mergedPlayerIds = new Set(
     plan.flatMap((item) => item.duplicates.map((player) => player.id)),
   );
-  const managedPlayerIds = new Set(
-    state.identities
-      .filter((identity) => identity.provider === LICENSE_PROVIDER)
-      .map((identity) => identity.player_id),
-  );
+  const managedPlayerIds = new Set(state.players.map((player) => player.id));
 
   return {
     created: plan.filter((item) => !item.player).length,
@@ -686,36 +710,11 @@ async function main() {
     }
   }
 
-  const clubSearches = await readClubSearches();
-
-  if (clubSearches.length === 0) {
-    throw new Error(`No clubs found in ${clubsFile}`);
-  }
-
-  const response = await fetch(PROFIXIO_RANKING_URL, {
-    headers: {
-      "user-agent": "fantasy-pingisligan-importer/1.0",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Could not fetch Profixio ranking page: ${response.status} ${response.statusText}`,
-    );
-  }
-
-  const html = await response.text();
-  const rankingRows = parseRankingRows(html);
-  const { players, summary } = pickPlayersForClubs(rankingRows, clubSearches);
+  const { players, missing, rankingRun } = await fetchRosterPlayers();
   validateSourceIdentities(players);
-
-  if (!dryRun && players.length === 0) {
-    throw new Error("No players were parsed; transfers will remain locked.");
-  }
-  if (!dryRun && summary.some((club) => club.count === 0)) {
-    throw new Error(
-      "At least one configured club returned no players; refusing to deactivate the previous roster.",
-    );
+  console.log(`SBTF ${roster.season} roster; Profixio ranking run ${rankingRun}.`);
+  for (const player of missing) {
+    console.warn(`Manual price ${player.manualPrice}: ${player.name} — ${player.club} (no ranking)`);
   }
 
   let syncSummary = null;
@@ -729,8 +728,7 @@ async function main() {
     syncSummary = await previewPlayerSync(supabase, players);
   }
 
-  console.log(`Read ${clubSearches.length} club search strings from ${clubsFile}`);
-  console.log(`Parsed ${rankingRows.length} players from the first Profixio page`);
+  console.log(`Read ${roster.clubs.length} SBTF squads from data/sbtf-rosters.json`);
   console.log(`${dryRun ? "Would upsert" : "Upserted"} ${players.length} unique players`);
 
   if (syncSummary) {
@@ -745,8 +743,8 @@ async function main() {
     );
   }
 
-  for (const item of summary) {
-    console.log(`${item.clubSearch}: ${item.count}`);
+  for (const item of roster.clubs) {
+    console.log(`${item.club}: ${players.filter((player) => player.clubName === item.club).length}`);
   }
 }
 
@@ -757,4 +755,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   });
 }
 
-export { buildReconciliationPlan, playerIdentityKey, validateSourceIdentities };
+export { buildReconciliationPlan, playerIdentityKey, validateSourceIdentities, parseRankingRows, calculatePlayerPrice };

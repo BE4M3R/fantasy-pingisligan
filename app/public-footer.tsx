@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   CONTACT_EMAIL,
   CONTACT_EMAIL_HREF,
+  FACEBOOK_URL,
   INSTAGRAM_URL,
 } from "@/app/contact-links";
 
@@ -40,6 +41,19 @@ function InstagramIcon() {
       <rect height="17" rx="5" width="17" x="3.5" y="3.5" />
       <circle cx="12" cy="12" r="3.7" />
       <circle cx="17.4" cy="6.7" fill="currentColor" r="1" stroke="none" />
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 text-[var(--pf-text-muted)]"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M14 8.5V7c0-1 .8-1.5 1.7-1.5H18V2h-3c-3.3 0-5 2.1-5 4.8v1.7H7V12h3v10h4V12h3.2l.5-3.5H14Z" />
     </svg>
   );
 }
@@ -82,7 +96,7 @@ export function PublicFooter() {
 
         <nav
           aria-label="Footer"
-          className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3"
+          className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-4"
         >
           <Link
             className={`${footerLinkClassName} min-[360px]:col-span-2 sm:col-span-1`}
@@ -118,8 +132,26 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
+            aria-label="Follow Fantasy Pingisligan on Facebook"
             className={footerLinkClassName}
+            href={FACEBOOK_URL}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <FacebookIcon />
+              <span>Facebook</span>
+            </span>
+            <span
+              aria-hidden="true"
+              className="text-[var(--pf-text-muted)] group-hover:text-[var(--pf-brand-blue-hover)]"
+            >
+              ↗
+            </span>
+          </a>
+          <a
+            aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
+            className={`${footerLinkClassName} min-[360px]:col-span-2 sm:col-span-1`}
             href={CONTACT_EMAIL_HREF}
           >
             <span className="flex min-w-0 items-center gap-2">

@@ -10,6 +10,10 @@ export type DashboardPlayer = {
 
 export type SquadPosition = "starter" | "bench";
 
+export type TransferPlayer = DashboardPlayer & {
+  ranking_points: number | null;
+};
+
 export type ResultGameweek = {
   id: string;
   lock_at: string;
@@ -62,6 +66,21 @@ export function hasPlayedMatch(result: SquadPlayerResult) {
       result.doubles_wins +
       result.doubles_losses >
     0
+  );
+}
+
+export function calculateFixtureWinPoints(result: {
+  fantasy_points: number | string;
+  match_win_points: number | string;
+  set_points: number | string;
+  sweep_bonus_points: number | string;
+}) {
+  return Math.max(
+    0,
+    Number(result.fantasy_points)
+      - Number(result.match_win_points)
+      - Number(result.set_points)
+      - Number(result.sweep_bonus_points),
   );
 }
 

@@ -1,0 +1,371 @@
+{
+  "source": "https://sbtf.se/folja/pingisligan/herrlagen/",
+  "season": "2026-2027",
+  "checkedAt": "2026-09-13",
+  "clubs": [
+    {
+      "club": "BTK Rekord",
+      "players": [
+        {
+          "name": "Hannes Lidén Isaksson",
+          "rankingName": "Hannes Lidén Isaksson",
+          "licenseId": "110861",
+          "birthYear": 2006
+        },
+        {
+          "name": "Charlie Widing",
+          "rankingName": "Charlie Widing",
+          "licenseId": "100713",
+          "birthYear": 2003
+        },
+        {
+          "name": "Simon Arvidsson",
+          "rankingName": "Simon Arvidsson",
+          "licenseId": "10131",
+          "birthYear": 1990
+        },
+        {
+          "name": "Max Hedbom",
+          "rankingName": "Max Hedbom",
+          "licenseId": "69847",
+          "birthYear": 2003
+        },
+        {
+          "name": "Hampus Söderlund",
+          "rankingName": "Hampus Söderlund",
+          "licenseId": "17355",
+          "birthYear": 1994
+        },
+        {
+          "name": "Konstantinos Konstantinopoulos",
+          "rankingName": "Konstantinos Konstantinopulos",
+          "licenseId": "504210",
+          "birthYear": 1994
+        }
+      ]
+    },
+    {
+      "club": "Eskilstuna by STIGA",
+      "players": [
+        {
+          "name": "Hampus Nordberg",
+          "rankingName": "Hampus Nordberg",
+          "licenseId": "12785",
+          "birthYear": 1987
+        },
+        {
+          "name": "Hugo Jobs",
+          "rankingName": "Hugo Jobs",
+          "licenseId": "251713",
+          "birthYear": 2008
+        },
+        {
+          "name": "Johan Barius",
+          "rankingName": "Johan Barius",
+          "licenseId": "12515",
+          "birthYear": 1998
+        },
+        {
+          "name": "Daniel Lindsö",
+          "rankingName": "Daniel Lindsö",
+          "licenseId": "81350",
+          "birthYear": 2003
+        },
+        {
+          "name": "Fumiya Igarashi",
+          "rankingName": "Fumiya Igarashi",
+          "licenseId": null,
+          "birthYear": null,
+          "manualPrice": 10000000,
+          "playerId": "9476ceee-ac94-52ce-a400-b3313ab7b737",
+          "firstName": "Fumiya",
+          "lastName": "Igarashi"
+        },
+        {
+          "name": "David Björkryd",
+          "rankingName": "David Björkryd",
+          "licenseId": "96614",
+          "birthYear": 2006
+        },
+        {
+          "name": "Machi Asuka",
+          "rankingName": "Machi Asuka",
+          "licenseId": null,
+          "birthYear": null,
+          "manualPrice": 10000000,
+          "playerId": "3060f824-568d-56c7-8a5c-7681f171f4a2",
+          "firstName": "Machi",
+          "lastName": "Asuka",
+          "rankingAliases": [
+            "Asuka Machi"
+          ]
+        },
+        {
+          "name": "Amirreza Abassi",
+          "rankingName": "Amireza Abassi",
+          "licenseId": "1058612",
+          "birthYear": 2000
+        },
+        {
+          "name": "Kim Taehyun",
+          "rankingName": "Kim Taehyun",
+          "licenseId": "1058611",
+          "birthYear": 2003
+        },
+        {
+          "name": "Marek Badowski",
+          "rankingName": "Marek Badowski",
+          "licenseId": "1058613",
+          "birthYear": 1997
+        },
+        {
+          "name": "Ignas Sisanovas",
+          "rankingName": "Ignas Sisanovas",
+          "licenseId": "965857",
+          "birthYear": 2007
+        },
+        {
+          "name": "Hugo Törngren",
+          "rankingName": "Hugo Törngren",
+          "licenseId": "79778",
+          "birthYear": 2002
+        },
+        {
+          "name": "Damian Wederlich",
+          "rankingName": "Damian Wederlich",
+          "licenseId": "1058609",
+          "birthYear": 1998
+        },
+        {
+          "name": "Jeet Chandra",
+          "rankingName": "Jeet Chandra",
+          "licenseId": "1058610",
+          "birthYear": 2001
+        }
+      ]
+    },
+    {
+      "club": "Eslövs AI BTK",
+      "players": [
+        {
+          "name": "Ioannis Sgoropoulos",
+          "rankingName": "Ioannis Sgoropoulos",
+          "licenseId": "354290",
+          "birthYear": 2000
+        },
+        {
+          "name": "Elias Sjögren",
+          "rankingName": "Elias Sjögren",
+          "licenseId": "100529",
+          "birthYear": 2006
+        },
+        {
+          "name": "Martin Friis",
+          "rankingName": "Martin Friis",
+          "licenseId": "39986",
+          "birthYear": 2002
+        },
+        {
+          "name": "Truls Möregårdh",
+          "rankingName": "Truls Möregårdh",
+          "licenseId": "14450",
+          "birthYear": 2002
+        },
+        {
+          "name": "Vladislav Ursu",
+          "rankingName": "Vladislav Ursu",
+          "licenseId": "1064626",
+          "birthYear": 2001
+        },
+        {
+          "name": "Alex Naumi",
+          "rankingName": "Alex Naumi",
+          "licenseId": "336287",
+          "birthYear": 2001
+        },
+        {
+          "name": "Shoma Nishihara",
+          "rankingName": "Shoma Nishihara",
+          "licenseId": "560095",
+          "birthYear": 2002
+        },
+        {
+          "name": "William Bergenblock",
+          "rankingName": "William Bergenblock",
+          "licenseId": "114454",
+          "birthYear": 2007
+        },
+        {
+          "name": "Antoine Doyen",
+          "rankingName": "Antoine Doyen",
+          "licenseId": "410581",
+          "birthYear": 2001
+        }
+      ]
+    },
+    {
+      "club": "Halmstad BTK",
+      "players": [
+        {
+          "name": "Tobias Rasmussen",
+          "rankingName": "Tobias Rasmussen",
+          "licenseId": "966772",
+          "birthYear": 1996
+        },
+        {
+          "name": "Gabrielius Camara",
+          "rankingName": "Gabrielius Camara",
+          "licenseId": "961725",
+          "birthYear": 2005
+        },
+        {
+          "name": "Andrei Putuntica",
+          "rankingName": "Andrei Putuntica",
+          "licenseId": "1064922",
+          "birthYear": 1999
+        },
+        {
+          "name": "Noa Dahlström",
+          "rankingName": "Noa Dahlström",
+          "licenseId": "245079",
+          "birthYear": 2007
+        },
+        {
+          "name": "Yannick Vostes",
+          "rankingName": "Yannick Vostes",
+          "licenseId": "983358",
+          "birthYear": 1985
+        },
+        {
+          "name": "Isak Alfredsson",
+          "rankingName": "Isak Alfredsson",
+          "licenseId": "250638",
+          "birthYear": 2006
+        },
+        {
+          "name": "Dominykas Samuolis",
+          "rankingName": "Dominykas Samuolis",
+          "licenseId": "983359",
+          "birthYear": 2007
+        }
+      ]
+    },
+    {
+      "club": "Kosta SK",
+      "players": [
+        {
+          "name": "Diego Carvalhos",
+          "rankingName": "Diego Carvalhos",
+          "licenseId": "1059585",
+          "birthYear": 1992
+        },
+        {
+          "name": "Martin Fröseth",
+          "rankingName": "Martin Fröseth",
+          "licenseId": "578412",
+          "birthYear": 2006
+        },
+        {
+          "name": "Aleksi Räsänen",
+          "rankingName": "Aleksi Räsänen",
+          "licenseId": "976954",
+          "birthYear": 2005
+        },
+        {
+          "name": "Andreas Törnkvist",
+          "rankingName": "Andreas Törnkvist",
+          "licenseId": "14294",
+          "birthYear": 1989
+        },
+        {
+          "name": "Oliver Berntsen",
+          "rankingName": "Oliver Berntsen",
+          "licenseId": "1060683",
+          "birthYear": 2006
+        },
+        {
+          "name": "Pär Gerell",
+          "rankingName": "Pär Gerell",
+          "licenseId": "12691",
+          "birthYear": 1982
+        }
+      ]
+    },
+    {
+      "club": "Spårvägens BTK",
+      "players": [
+        {
+          "name": "Simon Berglund",
+          "rankingName": "Simon Berglund",
+          "licenseId": "12456",
+          "birthYear": 1997
+        },
+        {
+          "name": "Harald Andersson",
+          "rankingName": "Harald Andersson",
+          "licenseId": "12325",
+          "birthYear": 1991
+        },
+        {
+          "name": "Charlie Carlsson",
+          "rankingName": "Charlie Carlsson",
+          "licenseId": "110873",
+          "birthYear": 2004
+        },
+        {
+          "name": "Elliot Lundqvist",
+          "rankingName": "Elliot Lundqvist",
+          "licenseId": "68237",
+          "birthYear": 2003
+        },
+        {
+          "name": "Sebastian Loso",
+          "rankingName": "Sebastian Loso",
+          "licenseId": "13409",
+          "birthYear": 1991
+        }
+      ]
+    },
+    {
+      "club": "Söderhamns UIF",
+      "players": [
+        {
+          "name": "Viktor Brodd",
+          "rankingName": "Viktor Brodd",
+          "licenseId": "11924",
+          "birthYear": 1990
+        },
+        {
+          "name": "Khai Lam",
+          "rankingName": "Khai Lam",
+          "licenseId": "1061624",
+          "birthYear": 2007
+        },
+        {
+          "name": "Adam Grawsiö Wallin",
+          "rankingName": "Adam Grawsiö Wallin",
+          "licenseId": "317415",
+          "birthYear": 2009
+        },
+        {
+          "name": "Jon Persson",
+          "rankingName": "Jon Persson",
+          "licenseId": "12752",
+          "birthYear": 1986
+        },
+        {
+          "name": "Jens Lundqvist",
+          "rankingName": "Jens Lundqvist",
+          "licenseId": "14527",
+          "birthYear": 1979
+        },
+        {
+          "name": "Anders Eriksson",
+          "rankingName": "Anders Eriksson",
+          "licenseId": "17925",
+          "birthYear": 1996
+        }
+      ]
+    }
+  ]
+}
