@@ -181,7 +181,8 @@ Every results import reloads the full Stupa stage. New or changed source rows
 replace their stored rows, and every gameweek present in that result set is
 recalculated against its locked squad snapshots. This means a later import also
 repairs points for an earlier gameweek when a previously missing or inaccurate
-score has changed upstream. Player club-win bonuses use the immutable
-`player_gameweek_club_snapshots` roster captured at that gameweek's lock, not
-the current club on `players`. Inactive players retained in a locked fantasy
-squad remain eligible for their historical club-win bonus.
+score has changed upstream. Player club-win bonuses require an imported
+appearance in the winning fixture and use the immutable
+`player_gameweek_club_snapshots` club captured at that gameweek's lock, not the
+current club on `players`. Other players registered to the winning club receive
+no fixture-win bonus.

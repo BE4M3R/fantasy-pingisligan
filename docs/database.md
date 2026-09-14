@@ -53,10 +53,10 @@ erDiagram
 - `player_match_stats` stores calculated singles, doubles, set, fixture-bonus,
   walkover and gameweek-bonus points derived from the raw Stupa rows.
 - `player_gameweek_club_snapshots` freezes every player's club and active state
-  when a gameweek locks. Historical fixture-win bonuses use this roster instead
-  of the player's current club, so later transfers and imports cannot change an
-  old gameweek during recalculation. An inactive player retained in a locked
-  fantasy squad remains eligible for their frozen club's win bonus.
+  when a gameweek locks. A player receives a historical fixture-win bonus only
+  when imported results show that they appeared in the fixture and their frozen
+  club won, so later transfers and imports cannot change an old gameweek during
+  recalculation.
 
 ## Authorization and business rules
 

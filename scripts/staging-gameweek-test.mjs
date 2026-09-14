@@ -171,6 +171,23 @@ function validateScenario(raw) {
     Number.isInteger(raw.stageId) && raw.stageId <= -900000,
     "stageId must be a reserved integer at or below -900000.",
   );
+  if (raw.clubAliases !== undefined) {
+    assert(
+      raw.clubAliases &&
+        typeof raw.clubAliases === "object" &&
+        !Array.isArray(raw.clubAliases),
+      "clubAliases must be an object.",
+    );
+    for (const [club, aliases] of Object.entries(raw.clubAliases)) {
+      assert(club.trim(), "clubAliases keys must be non-empty club names.");
+      assert(
+        Array.isArray(aliases) &&
+          aliases.length > 0 &&
+          aliases.every((alias) => typeof alias === "string" && alias.trim()),
+        `clubAliases.${club} must contain non-empty club names.`,
+      );
+    }
+  }
   assert(Array.isArray(raw.gameweeks) && raw.gameweeks.length > 0, "gameweeks is required.");
 
   const keys = new Set();
@@ -413,13 +430,27 @@ async function resolveScenario(supabase, scenario) {
   );
   const roleIds = new Map();
 
+  const resolveClub = (name) => {
+    const acceptedNames = [name, ...(scenario.clubAliases?.[name] ?? [])];
+    const matches = acceptedNames
+      .map((acceptedName) => clubsByName.get(normalized(acceptedName)))
+      .filter(Boolean);
+    const uniqueMatches = [...new Map(matches.map((club) => [club.id, club])).values()];
+
+    if (uniqueMatches.length === 0) throw new Error(`Unknown test club: ${name}.`);
+    if (uniqueMatches.length > 1) {
+      throw new Error(
+        `Multiple database clubs match ${name}: ${uniqueMatches.map((club) => club.name).join(", ")}.`,
+      );
+    }
+    return uniqueMatches[0];
+  };
+
   const gameweeks = scenario.gameweeks.map((gameweek) => ({
     ...gameweek,
     fixtures: gameweek.fixtures.map((fixture) => {
-      const homeClub = clubsByName.get(normalized(fixture.home.club));
-      const awayClub = clubsByName.get(normalized(fixture.away.club));
-      if (!homeClub) throw new Error(`Unknown test club: ${fixture.home.club}.`);
-      if (!awayClub) throw new Error(`Unknown test club: ${fixture.away.club}.`);
+      const homeClub = resolveClub(fixture.home.club);
+      const awayClub = resolveClub(fixture.away.club);
 
       const resolvePlayers = (names, club, side) =>
         names.map((name) => {
@@ -845,20 +876,10 @@ function expectedPlayerPoints(definition, activePlayers) {
   const singles = new Map();
 
   for (const fixture of definition.fixtures) {
-    const winningSide = fixture.winner;
-    const winningClub =
-      winningSide === "home"
-        ? fixture.homeClub
-        : winningSide === "away"
-          ? fixture.awayClub
-          : null;
-    if (winningClub) {
-      for (const player of activePlayers) {
-        if (player.club_id === winningClub.id) {
-          points.set(player.id, (points.get(player.id) ?? 0) + 3);
-        }
-      }
-    }
+    const fixtureParticipants = {
+      away: new Set(),
+      home: new Set(),
+    };
 
     for (const match of fixture.matches) {
       const result = match.result;
@@ -875,6 +896,7 @@ function expectedPlayerPoints(definition, activePlayers) {
             ? result.homeSets
             : result.awaySets;
         for (const player of players) {
+          fixtureParticipants[side].add(player.id);
           played.add(player.id);
           let matchPoints;
           if (match.type === "doubles") {
@@ -896,6 +918,12 @@ function expectedPlayerPoints(definition, activePlayers) {
             singles.set(player.id, record);
           }
         }
+      }
+    }
+
+    if (fixture.winner) {
+      for (const playerId of fixtureParticipants[fixture.winner]) {
+        points.set(playerId, (points.get(playerId) ?? 0) + 3);
       }
     }
   }
@@ -1064,6 +1092,27 @@ async function seedAndScore(
     (snapshots ?? []).map((snapshot) => [snapshot.fantasy_team_id, snapshot]),
   );
   const expectedPlayers = expectedPlayerPoints(definition, activePlayers);
+  const { data: actualPlayerStats, error: actualPlayerStatsError } = await supabase
+    .from("player_match_stats")
+    .select("player_id, fantasy_points")
+    .in("match_id", databaseMatchIds);
+  ensureNoError(actualPlayerStatsError, "Could not read test player points");
+  const actualPlayerPoints = new Map();
+  for (const stat of actualPlayerStats ?? []) {
+    actualPlayerPoints.set(
+      stat.player_id,
+      (actualPlayerPoints.get(stat.player_id) ?? 0) + Number(stat.fantasy_points),
+    );
+  }
+  for (const player of activePlayers) {
+    const expectedPoints = expectedPlayers.points.get(player.id) ?? 0;
+    const actualPoints = actualPlayerPoints.get(player.id) ?? 0;
+    if (actualPoints !== expectedPoints) {
+      throw new Error(
+        `Player score assertion failed for "${displayName(player)}": expected ${expectedPoints}, got ${actualPoints}.`,
+      );
+    }
+  }
   const expectedTotals = teams.map((team) => {
     const snapshot = snapshotsByTeam.get(team.id);
     if (!snapshot) throw new Error(`Missing locked snapshot for "${team.name}".`);

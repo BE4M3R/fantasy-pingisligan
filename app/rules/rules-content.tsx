@@ -4,7 +4,7 @@ const scoring = [
   ["Individual match win", "+4"],
   ["Each set won", "+1"],
   ["Doubles match win, per player", "+2"],
-  ["Your club wins the fixture (all club players)", "+3"],
+  ["Play in a fixture your club wins", "+3"],
   ["Win all singles (minimum two)", "+2"],
 ] as const;
 

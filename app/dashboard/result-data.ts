@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   applyAutomaticBenchSubstitutions,
+  calculateFixtureWinPoints,
   type SquadPlayerResult,
   type SquadPosition,
 } from "@/app/dashboard/player-types";
@@ -65,7 +66,7 @@ function getSquadResultPlayer(
     doubles_wins: Number(row.doubles_wins),
     fantasy_points: Number(row.fantasy_points),
     first_name: row.first_name,
-    fixture_win_points: Number(row.fixture_win_points),
+    fixture_win_points: calculateFixtureWinPoints(row),
     gameweek_id: row.gameweek_id,
     gameweek_name: row.gameweek_name,
     id: row.player_id,

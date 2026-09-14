@@ -65,6 +65,21 @@ export function hasPlayedMatch(result: SquadPlayerResult) {
   );
 }
 
+export function calculateFixtureWinPoints(result: {
+  fantasy_points: number | string;
+  match_win_points: number | string;
+  set_points: number | string;
+  sweep_bonus_points: number | string;
+}) {
+  return Math.max(
+    0,
+    Number(result.fantasy_points)
+      - Number(result.match_win_points)
+      - Number(result.set_points)
+      - Number(result.sweep_bonus_points),
+  );
+}
+
 export function getDisplayedResultPoints(result: SquadPlayerResult) {
   return result.original_position === "bench" && !result.counts_for_team
     ? result.fantasy_points

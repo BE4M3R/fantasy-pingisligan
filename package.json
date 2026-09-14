@@ -18,6 +18,7 @@
     "seed:staging-accounts": "node scripts/seed-staging-accounts.mjs --env staging",
     "test:performance": "node --test scripts/performance.test.mjs",
     "test:imports": "node --test scripts/player-identity.test.mjs scripts/roster-import.test.mjs",
+    "test:scoring": "node --test scripts/player-scoring.test.mjs",
     "test:squad": "node --test scripts/squad-club-limit.test.mjs",
     "test:gameweek": "node scripts/staging-gameweek-test.mjs",
     "test:local": "node scripts/staging-gameweek-test.mjs --env local",
