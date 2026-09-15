@@ -120,9 +120,21 @@ export async function signUp(formData: FormData) {
   }
 
   if (emailIsRegistered) {
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${siteUrl}/auth/callback`,
+      },
+    });
+
+    if (resendError) {
+      redirectWithMessage("/signup", resendError.message);
+    }
+
     redirectWithMessage(
-      "/signup",
-      "That email is already in use. Log in or reset your password instead.",
+      "/login",
+      "If this account still needs confirmation, a new verification email has been sent. Otherwise, sign in or reset your password.",
     );
   }
 

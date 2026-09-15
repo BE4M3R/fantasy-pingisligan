@@ -178,6 +178,20 @@ set +a
 npm run dev
 ```
 
+## Local gameweek lifecycle test
+npm run test:staging -- cleanup
+npm run test:staging -- validate
+npm run test:staging -- setup
+npm run test:staging -- status gw1
+npm run test:staging -- lock gw1
+npm run test:staging -- status gw1
+npm run test:staging -- score gw1
+npm run test:staging -- status gw1
+npm run test:staging -- unlock gw1
+npm run test:staging -- status gw1
+npm run test:staging -- refresh-prices gw1
+npm run test:staging -- status gw1
+
 ## Further documentation
 
 - [Database migrations](docs/database-migrations.md)
