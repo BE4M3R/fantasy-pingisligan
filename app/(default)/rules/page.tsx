@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { getClaims } from "@/lib/supabase/server";
 import { RulesContent } from "@/app/rules/rules-content";
+import { publicPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Game rules | Fantasy Pingisligan",
-  description: "A quick guide to squads, scoring, transfers, and chips.",
-};
+export const metadata = publicPageMetadata(
+  "/rules",
+  "Spelregler och poäng – Pingisligan Fantasy",
+  "Så spelar du Pingisligan Fantasy: läs om lagbygge, budget, kaptensval, poäng från riktiga matcher, spelarbyten och chips.",
+);
 
 export default async function RulesPage() {
   const { data } = await getClaims();

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { HomeLanguage } from "@/lib/seo";
 import {
   CONTACT_EMAIL,
   CONTACT_EMAIL_HREF,
@@ -76,7 +77,28 @@ function MailIcon() {
   );
 }
 
-export function PublicFooter() {
+const footerCopy = {
+  sv: {
+    navigation: "Sidfot",
+    about: "Om spelet",
+    instagram: "Följ Fantasy Pingisligan på Instagram",
+    facebook: "Följ Fantasy Pingisligan på Facebook",
+    email: `Mejla Fantasy Pingisligan på ${CONTACT_EMAIL}`,
+    contact: "Kontakt",
+  },
+  en: {
+    navigation: "Footer",
+    about: "About the game",
+    instagram: "Follow Fantasy Pingisligan on Instagram",
+    facebook: "Follow Fantasy Pingisligan on Facebook",
+    email: `Email Fantasy Pingisligan at ${CONTACT_EMAIL}`,
+    contact: "Contact",
+  },
+};
+
+export function PublicFooter({ language = "sv" }: { language?: HomeLanguage }) {
+  const copy = footerCopy[language];
+
   return (
     <footer className="border-t border-[var(--pf-card-border)] bg-[var(--pf-navy)]">
       <div className="mx-auto grid max-w-6xl gap-5 px-5 py-6 sm:px-6 sm:py-7 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-10">
@@ -95,7 +117,7 @@ export function PublicFooter() {
         </div>
 
         <nav
-          aria-label="Footer"
+          aria-label={copy.navigation}
           className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-4"
         >
           <Link
@@ -104,7 +126,7 @@ export function PublicFooter() {
           >
             <span className="flex min-w-0 items-center gap-2">
               <AboutIcon />
-              <span>About the game</span>
+              <span>{copy.about}</span>
             </span>
             <span
               aria-hidden="true"
@@ -114,7 +136,7 @@ export function PublicFooter() {
             </span>
           </Link>
           <a
-            aria-label="Follow Fantasy Pingisligan on Instagram"
+            aria-label={copy.instagram}
             className={footerLinkClassName}
             href={INSTAGRAM_URL}
             rel="noreferrer"
@@ -132,7 +154,7 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label="Follow Fantasy Pingisligan on Facebook"
+            aria-label={copy.facebook}
             className={footerLinkClassName}
             href={FACEBOOK_URL}
             rel="noreferrer"
@@ -150,13 +172,13 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
+            aria-label={copy.email}
             className={`${footerLinkClassName} min-[360px]:col-span-2 sm:col-span-1`}
             href={CONTACT_EMAIL_HREF}
           >
             <span className="flex min-w-0 items-center gap-2">
               <MailIcon />
-              <span>Contact</span>
+              <span>{copy.contact}</span>
             </span>
             <span
               aria-hidden="true"

@@ -1,12 +1,17 @@
 import type { MetadataRoute } from "next";
-
-const SITE_URL = "https://pingisliganfantasy.se";
+import { HOME_LANGUAGE_ALTERNATES, SITE_URL } from "@/lib/seo";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: SITE_URL,
-      lastModified: "2026-09-12",
+      url: `${SITE_URL}/`,
+      lastModified: "2026-09-15",
+      alternates: { languages: HOME_LANGUAGE_ALTERNATES },
+    },
+    {
+      url: `${SITE_URL}/en`,
+      lastModified: "2026-09-15",
+      alternates: { languages: HOME_LANGUAGE_ALTERNATES },
     },
     {
       url: `${SITE_URL}/about`,
