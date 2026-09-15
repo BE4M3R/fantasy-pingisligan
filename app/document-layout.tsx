@@ -5,17 +5,19 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: SITE_NAME,
   description: HOME_DESCRIPTION,
-  // Only the three public pages opt into indexing via publicPageMetadata.
+  // Only public pages opt into indexing via publicPageMetadata.
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
+export function DocumentLayout({
   children,
+  language,
 }: Readonly<{
   children: React.ReactNode;
+  language: "sv" | "en";
 }>) {
   return (
-    <html lang="sv" className="h-full antialiased" suppressHydrationWarning>
+    <html lang={language} className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

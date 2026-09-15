@@ -6,6 +6,25 @@ export const HOME_TITLE = `${SITE_NAME} – Fantasy för svensk bordtennis`;
 export const HOME_DESCRIPTION =
   "Spela Pingisligan Fantasy. Bygg ditt lag med spelare från Pingisligan, samla poäng från riktiga matcher och tävla mot dina vänner.";
 
+export type HomeLanguage = "sv" | "en";
+
+export const HOME_SEO = {
+  sv: { path: "/", title: HOME_TITLE, description: HOME_DESCRIPTION, locale: "sv_SE" },
+  en: {
+    path: "/en",
+    title: `${SITE_NAME} – Fantasy for Swedish table tennis`,
+    description:
+      "Play Pingisligan Fantasy. Build your team with Pingisligan players, earn points from real matches and compete with your friends.",
+    locale: "en_US",
+  },
+} as const;
+
+export const HOME_LANGUAGE_ALTERNATES = {
+  sv: `${SITE_URL}/`,
+  en: `${SITE_URL}/en`,
+  "x-default": `${SITE_URL}/`,
+};
+
 const socialImage = {
   url: `${SITE_URL}/branding/pingisligan-fantasy-logo.png`,
   width: 1254,
@@ -18,7 +37,7 @@ const socialImage = {
 // Use absolute URLs without metadataBase: Next.js 16 otherwise strips the
 // trailing slash from the homepage canonical and Open Graph URL.
 export function publicPageMetadata(
-  path: "/" | "/about" | "/rules",
+  path: "/" | "/en" | "/about" | "/rules",
   title: string,
   description: string,
 ): Metadata {
@@ -44,5 +63,31 @@ export function publicPageMetadata(
       description,
       images: [socialImage],
     },
+  };
+}
+
+export function homePageMetadata(language: HomeLanguage): Metadata {
+  const { path, title, description, locale } = HOME_SEO[language];
+  const metadata = publicPageMetadata(path, title, description);
+  const image = {
+    ...socialImage,
+    alt: language === "en"
+      ? "Pingisligan Fantasy – logo with a table tennis paddle and crown"
+      : socialImage.alt,
+  };
+
+  return {
+    ...metadata,
+    alternates: {
+      canonical: HOME_LANGUAGE_ALTERNATES[language],
+      languages: HOME_LANGUAGE_ALTERNATES,
+    },
+    openGraph: {
+      ...metadata.openGraph,
+      locale,
+      alternateLocale: HOME_SEO[language === "sv" ? "en" : "sv"].locale,
+      images: [image],
+    },
+    twitter: { ...metadata.twitter, images: [image] },
   };
 }
