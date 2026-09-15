@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { BackButton } from "@/app/about/back-button";
 import { PublicFooter } from "@/app/public-footer";
+import { publicPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "About | Fantasy Pingisligan",
-  description:
-    "Learn how Fantasy Pingisligan turns real Pingisligan matches into a fantasy table tennis game.",
-};
+export const metadata = publicPageMetadata(
+  "/about",
+  "Om spelet – Pingisligan Fantasy",
+  "Lär känna Pingisligan Fantasy, fantasyspelet för svensk bordtennis. Välj spelare, följ deras riktiga prestationer och utmana vänner i privata ligor.",
+);
 
 export default function AboutPage() {
   return (

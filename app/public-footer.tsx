@@ -95,7 +95,7 @@ export function PublicFooter() {
         </div>
 
         <nav
-          aria-label="Footer"
+          aria-label="Sidfot"
           className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-4"
         >
           <Link
@@ -104,7 +104,7 @@ export function PublicFooter() {
           >
             <span className="flex min-w-0 items-center gap-2">
               <AboutIcon />
-              <span>About the game</span>
+              <span>Om spelet</span>
             </span>
             <span
               aria-hidden="true"
@@ -114,7 +114,7 @@ export function PublicFooter() {
             </span>
           </Link>
           <a
-            aria-label="Follow Fantasy Pingisligan on Instagram"
+            aria-label="Följ Fantasy Pingisligan på Instagram"
             className={footerLinkClassName}
             href={INSTAGRAM_URL}
             rel="noreferrer"
@@ -132,7 +132,7 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label="Follow Fantasy Pingisligan on Facebook"
+            aria-label="Följ Fantasy Pingisligan på Facebook"
             className={footerLinkClassName}
             href={FACEBOOK_URL}
             rel="noreferrer"
@@ -150,13 +150,13 @@ export function PublicFooter() {
             </span>
           </a>
           <a
-            aria-label={`Email Fantasy Pingisligan at ${CONTACT_EMAIL}`}
+            aria-label={`Mejla Fantasy Pingisligan på ${CONTACT_EMAIL}`}
             className={`${footerLinkClassName} min-[360px]:col-span-2 sm:col-span-1`}
             href={CONTACT_EMAIL_HREF}
           >
             <span className="flex min-w-0 items-center gap-2">
               <MailIcon />
-              <span>Contact</span>
+              <span>Kontakt</span>
             </span>
             <span
               aria-hidden="true"
