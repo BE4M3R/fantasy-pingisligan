@@ -112,14 +112,23 @@ export async function signUp(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { data: emailIsRegistered, error: emailCheckError } =
-    await supabase.rpc("email_is_registered", { candidate_email: email });
+  const { data: registrationStatus, error: emailCheckError } =
+    await supabase.rpc("email_registration_status", {
+      candidate_email: email,
+    });
 
   if (emailCheckError) {
     redirectWithMessage("/signup", emailCheckError.message);
   }
 
-  if (emailIsRegistered) {
+  if (registrationStatus === "verified") {
+    redirectWithMessage(
+      "/login",
+      "This email is already registered and verified. Try logging in or resetting your password.",
+    );
+  }
+
+  if (registrationStatus === "pending") {
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email,
@@ -134,7 +143,7 @@ export async function signUp(formData: FormData) {
 
     redirectWithMessage(
       "/login",
-      "If this account still needs confirmation, a new verification email has been sent. Otherwise, sign in or reset your password.",
+      "If this account still needs confirmation, a new verification email has been sent. Check your spam or junk folder if you don't see it. Otherwise, sign in or reset your password.",
     );
   }
 
@@ -152,7 +161,7 @@ export async function signUp(formData: FormData) {
 
   redirectWithMessage(
     "/login",
-    "Check your email to confirm your account, then sign in.",
+    "Check your email to confirm your account, then sign in. If you don't see it, check your spam or junk folder.",
   );
 }
 
