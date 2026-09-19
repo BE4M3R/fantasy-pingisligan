@@ -143,7 +143,7 @@ export async function signUp(formData: FormData) {
 
     redirectWithMessage(
       "/login",
-      "If this account still needs confirmation, a new verification email has been sent. Check your spam or junk folder if you don't see it. Otherwise, sign in or reset your password.",
+      "Check your email to confirm your account, then sign in. If you don't see it, check your spam or junk folder.",
     );
   }
 
