@@ -43,3 +43,9 @@ When pressing a guy in league show the players squad he has (same as in result m
 Show stats when pressing a player in squad mode and transfer mode.
 
 Making scoring of different teams appearing immediately whne scoring is done
+
+Make sure you can not captain a bench player and if captain is subbed out move captain to the new player from bench
+
+Make sure we update schedule in production before GW1
+
+Should substitutions not happen until gameweek has finished?

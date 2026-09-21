@@ -119,11 +119,13 @@ export function applyAutomaticBenchSubstitutions(
     effectiveStarters[starterIndex] = {
       ...playingBenchPlayer,
       automatic_substitution: "in",
+      is_captain: missingStarter.is_captain,
       position: "starter",
     };
     effectiveBench[benchIndex] = {
       ...missingStarter,
       automatic_substitution: "out",
+      is_captain: false,
       position: "bench",
     };
   }
@@ -135,9 +137,7 @@ export function applyAutomaticBenchSubstitutions(
       (result.original_position === "starter" && playedMatch) ||
       result.automatic_substitution === "in";
     const captainMultiplier =
-      result.is_captain &&
-      result.original_position === "starter" &&
-      playedMatch
+      result.is_captain && countsForTeam
         ? result.active_chip === "triple_captain"
           ? 3
           : 2

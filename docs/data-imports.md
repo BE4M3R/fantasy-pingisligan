@@ -350,9 +350,11 @@ still blocks gameweek completion.
   with no identity conflicts. This validates the source format and matching
   mechanism, not production's identity coverage or a women's fantasy roster.
 - Scoring links resolved `player_id` values to the same UUIDs in
-  `fantasy_team_gameweek_players`; lineup/captain/chip state and club membership
-  come from the locked gameweek snapshots. Neither identity matching nor this
-  scoring join needs ranking data, price updates or a Profixio request.
+  `fantasy_team_gameweek_players`; submitted lineup/captain/chip state and club
+  membership come from the locked gameweek snapshots. Automatic substitutions
+  and transferred captaincy are derived without rewriting those submitted
+  fields. Neither identity matching nor this scoring join needs ranking data,
+  price updates or a Profixio request.
 - Existing import and scoring regression suites passed. No women's data was
   imported and no database scoring was executed for this live sample. A new
   player whose license and role are both unknown still needs an explicit mapping

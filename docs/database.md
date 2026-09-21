@@ -85,3 +85,9 @@ leaderboard-related RPCs provide
 derived data to the application. Private league creation, invitation joining,
 listing and rankings go through security-definer RPCs that verify the signed-in
 user and league membership.
+
+Leaderboard totals and per-team gameweek history use the same visibility rule:
+a gameweek appears when its first fixture starts. Its score is live and may
+change as result imports arrive. It becomes final only after the post-gameweek
+refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
+points for a future gameweek are excluded from totals and rankings.
