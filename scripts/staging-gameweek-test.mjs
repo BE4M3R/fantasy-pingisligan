@@ -624,7 +624,10 @@ async function setup(supabase, scenario) {
 }
 
 function lockWindowTimes(definition, now = new Date()) {
-  const lockAt = addMinutes(now, -1);
+  return gameweekWindowTimes(definition, addMinutes(now, -1));
+}
+
+function gameweekWindowTimes(definition, lockAt) {
   const firstMatchStartsAt = addHours(lockAt, 2);
   const minimumOffset = Math.min(
     ...definition.fixtures.map((fixture) => fixture.startsAfterMinutes),
@@ -652,6 +655,61 @@ function lockWindowTimes(definition, now = new Date()) {
     lockAt,
     unlockAt: nextStockholmMidnightUtcIso(lastMatchEndsAt),
   };
+}
+
+async function prepare(supabase, definition) {
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+  const [{ count: snapshotCount, error: snapshotError }, { data: nextGameweek, error: nextError }] =
+    await Promise.all([
+      supabase
+        .from("fantasy_team_gameweek_snapshots")
+        .select("*", { count: "exact", head: true })
+        .eq("fantasy_gameweek_id", gameweek.id),
+      supabase
+        .from("fantasy_gameweeks")
+        .select("id, name, lock_at")
+        .neq("id", gameweek.id)
+        .gt("lock_at", new Date().toISOString())
+        .order("lock_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+  ensureNoError(snapshotError, "Could not check existing test snapshots");
+  ensureNoError(nextError, "Could not find the next gameweek");
+  assert(
+    (snapshotCount ?? 0) === 0,
+    `${definition.key} already has snapshots and cannot be prepared again. Use the next test gameweek.`,
+  );
+
+  const now = new Date();
+  const lockAt = addMinutes(now, 30);
+  if (nextGameweek && Date.parse(nextGameweek.lock_at) <= Date.parse(lockAt)) {
+    throw new Error(
+      `Cannot prepare ${definition.key}: ${nextGameweek.name} closes first. ` +
+        "Wait until that gameweek has passed or choose a different staging environment.",
+    );
+  }
+
+  const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
+  const times = gameweekWindowTimes(definition, lockAt);
+  const { error } = await supabase
+    .from("fantasy_gameweeks")
+    .update({
+      data_refreshed_at: null,
+      lock_at: times.lockAt,
+      first_match_starts_at: times.firstMatchStartsAt,
+      last_match_ends_at: times.lastMatchEndsAt,
+      unlock_at: times.unlockAt,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", gameweek.id);
+  ensureNoError(error, `Could not prepare ${definition.key}`);
+  await updateFixtureTimes(supabase, databaseMatches, times.fixtures);
+
+  console.log(
+    `${definition.key} is now the next test gameweek and locks at ${times.lockAt}. ` +
+      "Reload the dashboard before selecting a chip.",
+  );
 }
 
 async function updateFixtureTimes(supabase, databaseMatches, fixtureTimes) {
@@ -718,7 +776,7 @@ async function lock(supabase, definition, waitForCron = false) {
   const { data: snapshotRows, count, error: countError } = await supabase
     .from("fantasy_team_gameweek_snapshots")
     .select(
-      "free_transfers_at_lock, free_transfers_after_lock, transfer_penalty_points",
+      "fantasy_team_id, active_chip, free_transfers_at_lock, free_transfers_after_lock, transfer_penalty_points",
       { count: "exact" },
     )
     .eq("fantasy_gameweek_id", gameweek.id);
@@ -732,6 +790,22 @@ async function lock(supabase, definition, waitForCron = false) {
     assert(
       snapshot.transfer_penalty_points === 0,
       "A team's first snapshot must not apply a transfer penalty.",
+    );
+  }
+  const { data: lockedChipSelections, error: chipError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("fantasy_team_id, chip")
+    .eq("fantasy_gameweek_id", gameweek.id)
+    .not("locked_at", "is", null);
+  ensureNoError(chipError, "Could not read locked chip selections");
+  const snapshotsByTeam = new Map(
+    (snapshotRows ?? []).map((snapshot) => [snapshot.fantasy_team_id, snapshot]),
+  );
+  for (const selection of lockedChipSelections ?? []) {
+    const snapshot = snapshotsByTeam.get(selection.fantasy_team_id);
+    assert(
+      snapshot?.active_chip === selection.chip,
+      `Locked ${selection.chip} chip was not copied into its gameweek snapshot.`,
     );
   }
   const [{ count: rosterCount, error: rosterError }, { count: playerCount, error: playerError }] =
@@ -752,6 +826,11 @@ async function lock(supabase, definition, waitForCron = false) {
   console.log("Snapshot RPC result:", snapshotResult);
   console.log(`Stored ${count ?? 0} team snapshots for ${definition.key}.`);
   console.log(`Stored ${rosterCount ?? 0} player-club snapshots for ${definition.key}.`);
+  console.log(
+    (lockedChipSelections?.length ?? 0) > 0
+      ? `Verified ${lockedChipSelections.length} locked chip snapshot(s).`
+      : "No chip was selected for this test gameweek.",
+  );
 }
 
 function resultWinner(result) {
@@ -1213,6 +1292,18 @@ export async function completeTestGameweekResults(supabase, scenario, definition
   await scoreResults(supabase, scenario, definition, false);
   const completed = await completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId: gameweek.id });
   assert(completed, `${definition.key} is no longer pending refresh.`);
+  const { data: usedChipSelections, error: chipError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("chip, locked_at, used_at")
+    .eq("fantasy_gameweek_id", gameweek.id)
+    .not("locked_at", "is", null);
+  ensureNoError(chipError, "Could not verify completed chip selections");
+  for (const selection of usedChipSelections ?? []) {
+    assert(
+      selection.used_at !== null,
+      `Locked ${selection.chip} chip was not marked used when ${definition.key} completed.`,
+    );
+  }
   console.log(`${definition.key} refresh complete; prices and budgets are unchanged. Reload the app. Other locked gameweeks may still block transfers.`);
 }
 
@@ -1512,6 +1603,7 @@ async function main() {
   const actions = new Set([
     "validate",
     "setup",
+    "prepare",
     "lock",
     "lock-cron",
     "score",
@@ -1527,7 +1619,7 @@ async function main() {
   }
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, setup, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
+      "Choose an action: validate, setup, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
     );
   }
   if (action === "setup" && key) {
@@ -1554,8 +1646,9 @@ async function main() {
   if (action === "setup") await setup(supabase, resolvedScenario);
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
-  if (["lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
+  if (["prepare", "lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
     const definition = selectDefinition(resolvedScenario, key);
+    if (action === "prepare") await prepare(supabase, definition);
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
     if (action === "score") {

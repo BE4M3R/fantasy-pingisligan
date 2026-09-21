@@ -35,7 +35,12 @@ function query(result, calls) {
   };
 }
 
-function createSupabase({ gameweek = null, completed = null, scoringError = null }) {
+function createSupabase({
+  gameweek = null,
+  completed = null,
+  completionError = null,
+  scoringError = null,
+}) {
   const calls = [];
   let fromCount = 0;
 
@@ -44,7 +49,13 @@ function createSupabase({ gameweek = null, completed = null, scoringError = null
     client: {
       async rpc(name, args) {
         calls.push(["rpc", name, args]);
-        return { error: scoringError };
+        if (name === "calculate_fantasy_gameweek_points") {
+          return { error: scoringError };
+        }
+        if (name === "complete_gameweek_refresh") {
+          return { data: Boolean(completed), error: completionError };
+        }
+        throw new Error(`Unexpected RPC: ${name}`);
       },
       from(table) {
         calls.push(["from", table]);
@@ -81,10 +92,13 @@ test("results-only completion preserves prices and completes one unlocked gamewe
 
   assert.deepEqual(result, gameweek);
   assert.deepEqual(
-    calls.find(([operation]) => operation === "update"),
-    ["update", { data_refreshed_at: refreshedAt, updated_at: refreshedAt }],
+    calls.find(([, name]) => name === "complete_gameweek_refresh"),
+    ["rpc", "complete_gameweek_refresh", {
+      p_gameweek_id: gameweek.id,
+      p_refreshed_at: refreshedAt,
+    }],
   );
-  assert.equal(calls.filter(([operation]) => operation === "update").length, 1);
+  assert.equal(calls.filter(([, name]) => name === "complete_gameweek_refresh").length, 1);
   assert.ok(!JSON.stringify(calls).includes("players"));
   assert.ok(!JSON.stringify(calls).includes("fantasy_teams"));
 });
@@ -99,7 +113,7 @@ test("results-only completion makes no update when nothing is pending", async ()
 
   assert.equal(result, null);
   assert.equal(calls.filter(([operation]) => operation === "from").length, 1);
-  assert.equal(calls.filter(([operation]) => operation === "update").length, 0);
+  assert.equal(calls.filter(([, name]) => name === "complete_gameweek_refresh").length, 0);
 });
 
 const rows = { matchUpdates: [], submatches: [], playerResults: [], gameweekIds: ["gw"], identityConflicts: [], missingParentMatches: [] };
@@ -109,7 +123,7 @@ test("results scoring precedes pending-gameweek scoring and the completion marke
   const { client, calls } = createSupabase({ gameweek: { id: "gw", name: "GW" }, completed: { id: "gw" } });
   await persistScoreAndComplete(client, rows, options);
   assert.equal(calls[0][0], "rpc");
-  const marker = calls.findIndex(([operation]) => operation === "update");
+  const marker = calls.findIndex(([, name]) => name === "complete_gameweek_refresh");
   assert.equal(calls.slice(0, marker).filter(([operation]) => operation === "rpc").length, 2);
   assert.ok(calls.some(([operation, column, value]) => operation === "lt" && column === "unlock_at" && value === options.refreshStartedAt));
 });
@@ -121,7 +135,7 @@ test("failed result writes or scoring cannot reopen transfers", async () => {
     await assert.rejects(persistScoreAndComplete(client, {
       ...rows, matchUpdates: failure === "persist" ? [{ id: "match" }] : [],
     }, options), /failed/);
-    assert.equal(calls.filter(([operation]) => operation === "update").length, 0);
+    assert.equal(calls.filter(([, name]) => name === "complete_gameweek_refresh").length, 0);
     assert.equal(calls.filter(([operation]) => operation === "from").length, 0);
   }
 });
@@ -129,7 +143,7 @@ test("failed result writes or scoring cannot reopen transfers", async () => {
 test("failed pending-gameweek scoring leaves its marker null", async () => {
   const { client, calls } = createSupabase({ gameweek: { id: "gw" }, scoringError: { message: "failed" } });
   await assert.rejects(completeOldestUnlockedGameweek(client, options.refreshStartedAt), /failed/);
-  assert.equal(calls.filter(([operation]) => operation === "update").length, 0);
+  assert.equal(calls.filter(([, name]) => name === "complete_gameweek_refresh").length, 0);
 });
 
 test("missing schedules and identity conflicts block completion before writes", async () => {
@@ -180,8 +194,8 @@ test("unmatched players are stored unlinked while known players score and the ga
   const identities = writes.find((write) => write.table === "player_external_identities" && Array.isArray(write.payload)).payload;
   assert.ok(identities.every((identity) => identity.player_id === "known-player"));
   assert.equal(identities.some((identity) => identity.external_id === "unknown" || identity.external_id === "5678"), false);
-  assert.equal(pending.calls.filter(([operation]) => operation === "rpc").length, 2);
-  assert.ok(pending.calls.some(([operation, payload]) => operation === "update" && payload.data_refreshed_at));
+  assert.equal(pending.calls.filter(([operation]) => operation === "rpc").length, 3);
+  assert.ok(pending.calls.some(([, name]) => name === "complete_gameweek_refresh"));
 });
 
 test("completion needs a captured import start time and detects concurrent completion", async () => {
@@ -199,17 +213,33 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
   ];
   const events = [];
   const matches = [{ id: "test-match", stupa_match_id: -902001, fantasy_gameweek_id: "test-gw" }];
+  const chipSelections = [];
   const client = {
     async rpc(name, args) {
-      events.push(["score", name, args]);
-      return { error: scoringFailure ? { message: "scoring failed" } : null };
+      if (name === "calculate_fantasy_gameweek_points") {
+        events.push(["score", name, args]);
+        return { error: scoringFailure ? { message: "scoring failed" } : null };
+      }
+      if (name === "complete_gameweek_refresh") {
+        const gameweek = state.find((row) => row.id === args.p_gameweek_id);
+        const canComplete = gameweek && !gameweek.data_refreshed_at &&
+          Date.parse(gameweek.unlock_at) < Date.parse(args.p_refreshed_at);
+        if (!canComplete) return { data: false, error: null };
+        gameweek.data_refreshed_at = args.p_refreshed_at;
+        events.push(["complete", gameweek.id]);
+        return { data: true, error: null };
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
     },
     from(table) {
-      assert.ok(["fantasy_gameweeks", "matches"].includes(table), "Unlock must not write player prices or budgets");
+      assert.ok(
+        ["fantasy_gameweeks", "matches", "fantasy_team_chip_selections"].includes(table),
+        "Unlock must not write player prices or budgets",
+      );
       const predicates = [];
       let update;
       const execute = () => {
-        const rows = (table === "matches" ? matches : state)
+        const rows = (table === "matches" ? matches : table === "fantasy_team_chip_selections" ? chipSelections : state)
           .filter((row) => predicates.every((predicate) => predicate(row)));
         if (update) for (const row of rows) {
           events.push([update.data_refreshed_at ? "complete" : "move-unlock-time", row.id]);
@@ -221,6 +251,11 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
         select() { return this; }, order() { return this; }, limit() { return this; },
         eq(key, value) { predicates.push((row) => row[key] === value); return this; },
         is(key, value) { return this.eq(key, value); },
+        not(key, operator, value) {
+          assert.equal(operator, "is");
+          predicates.push((row) => row[key] !== value);
+          return this;
+        },
         lt(key, value) { predicates.push((row) => Date.parse(row[key]) < Date.parse(value)); return this; },
         update(values) { update = values; return this; },
         then(resolve, reject) {

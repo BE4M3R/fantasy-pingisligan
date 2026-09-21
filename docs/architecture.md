@@ -61,9 +61,10 @@ team/gameweek/player keys and ignore conflicts. Later scoring must use these
 rows rather than the live squad.
 After the scheduled unlock time, transfers remain closed until the scheduled results job
 has imported available STUPA results and scored them successfully. The results
-importer then scores the oldest pending unlocked gameweek and records
-`fantasy_gameweeks.data_refreshed_at`, clearing its refresh lock. Prices and
-budgets remain unchanged; the scheduled results job never imports or reprices players.
+importer then scores the oldest pending unlocked gameweek and atomically records
+`fantasy_gameweeks.data_refreshed_at` with the locked chips as used, clearing
+its refresh lock. Prices and budgets remain unchanged; the scheduled results
+job never imports or reprices players.
 
 Results are checked daily at 00:07 Stockholm time and additionally every 15
 minutes at :07, :22, :37, and :52 after the first fixture starts on each playing

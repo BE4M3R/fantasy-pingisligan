@@ -195,7 +195,7 @@ export default async function SquadPage({
     fantasyTeam
       ? supabase
           .from("fantasy_team_chip_selections")
-          .select("chip, fantasy_gameweek_id, locked_at")
+          .select("chip, fantasy_gameweek_id, locked_at, used_at")
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
     fantasyTeam

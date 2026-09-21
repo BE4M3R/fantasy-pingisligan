@@ -10,6 +10,7 @@ export type ChipSelection = {
   chip: Chip;
   fantasy_gameweek_id: string;
   locked_at: string | null;
+  used_at: string | null;
 };
 
 type UpcomingGameweek = {
@@ -145,11 +146,14 @@ export function ChipSelector({
   upcomingGameweek: UpcomingGameweek | null;
 }) {
   const usedChips = new Set(
-    selections.map((selection) => selection.chip),
+    selections
+      .filter((selection) => selection.used_at)
+      .map((selection) => selection.chip),
   );
   const lockedChip = selections.find(
     (selection) =>
       selection.locked_at &&
+      !selection.used_at &&
       selection.fantasy_gameweek_id === lockedGameweekId,
   );
   const [pendingChip, setPendingChip] = useState<Chip | null>(null);
