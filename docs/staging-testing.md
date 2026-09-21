@@ -342,6 +342,13 @@ snapshot. This also allows Progress, cumulative leaderboards, free-transfer
 rollover, transfer penalties, and one-use chips to be inspected across
 gameweeks.
 
+`score gw2` also moves GW2's first fixture into the past, so GW2 immediately
+appears in league gameweek history, its imported points are included in league
+totals, and the home-page gameweek card shows **GW Live**. Before `score gw2`,
+the locked round shows **GW Locked**; while transfers are available it shows
+**GW Open**. A configured future gameweek remains absent from league history
+and contributes no leaderboard points until its first fixture starts.
+
 ## Test Gameweeks 3 and 4
 
 Repeat the same lifecycle, changing squads or chips between deadlines when

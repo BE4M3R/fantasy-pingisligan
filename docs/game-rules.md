@@ -63,7 +63,9 @@ entry is the following gameweek and is treated as their initial squad rather
 than as six charged transfers.
 
 Automatic substitutions can use only players selected on that team's bench at
-the deadline.
+the deadline. The locked snapshot keeps the submitted positions and captain for
+audit history; scoring derives substitutions and effective captaincy without
+rewriting that snapshot.
 
 ## Player scoring
 
@@ -135,8 +137,19 @@ A player wins 3-1 and the player's club wins the fixture:
 - The captain can be changed between gameweeks before the deadline.
 - The multiplier applies to every point the captain earns, including all player,
   fixture, and gameweek bonuses.
-- If the captain records no appearance, the multiplier is not transferred to an
-  automatically substituted bench player.
+- If the captain records no appearance and is automatically substituted, the
+  incoming bench player becomes captain and receives the multiplier. When more
+  than one starter is replaced, captaincy follows the bench player paired with
+  the absent captain by the normal substitution priority.
+
+## Live results and leaderboards
+
+A gameweek appears in league history when its first team fixture starts. Its
+score updates as completed results are imported and scored. The home-page
+gameweek card shows **GW Open** while transfers are available, **GW Locked**
+between the deadline and first fixture, then **GW Live** with a pulsing
+indicator while the gameweek is in progress. Future gameweeks do not contribute
+to league totals or rankings.
 
 ## Transfers
 

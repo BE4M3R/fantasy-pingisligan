@@ -938,17 +938,19 @@ function expectedPlayerPoints(definition, activePlayers) {
 }
 
 function expectedTeamPoints(team, rows, playerResults, snapshot) {
-  const missingStarterCount = rows.filter(
+  const missingStarters = rows.filter(
     (row) => row.position === "starter" && !playerResults.played.has(row.player_id),
-  ).length;
-  const automaticSubstituteIds = new Set(
-    rows
-      .filter(
-        (row) => row.position === "bench" && playerResults.played.has(row.player_id),
-      )
-      .slice(0, missingStarterCount)
-      .map((row) => row.player_id),
   );
+  const automaticSubstitutes = rows
+    .filter(
+      (row) => row.position === "bench" && playerResults.played.has(row.player_id),
+    )
+    .slice(0, missingStarters.length);
+  const automaticSubstituteIds = new Set(
+    automaticSubstitutes.map((row) => row.player_id),
+  );
+  const missingCaptainIndex = missingStarters.findIndex((row) => row.is_captain);
+  const replacementCaptainId = automaticSubstitutes[missingCaptainIndex]?.player_id;
   const playerTotal = rows.reduce((total, row) => {
     const points = playerResults.points.get(row.player_id) ?? 0;
     const played = playerResults.played.has(row.player_id);
@@ -958,7 +960,10 @@ function expectedTeamPoints(team, rows, playerResults, snapshot) {
       automaticSubstituteIds.has(row.player_id);
 
     if (!countsForTeam) return total;
-    if (row.is_captain && row.position === "starter" && played) {
+    const isEffectiveCaptain =
+      (row.is_captain && row.position === "starter" && played) ||
+      row.player_id === replacementCaptainId;
+    if (isEffectiveCaptain) {
       return total + points * (snapshot.active_chip === "triple_captain" ? 3 : 2);
     }
     return total + points;

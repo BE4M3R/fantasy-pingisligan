@@ -8,6 +8,7 @@ import ts from "typescript";
 // database or credentials are needed for these regression checks.
 async function loadLeaderboard({ rows = [], failAt = -1 } = {}) {
   const calls = [];
+  let currentRows = rows;
   const source = await readFile(new URL("../lib/leaderboard.ts", import.meta.url), "utf8");
   const code = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -18,19 +19,18 @@ async function loadLeaderboard({ rows = [], failAt = -1 } = {}) {
     process: { env: { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-public-key" } },
     require(name) {
       if (name === "server-only") return {};
-      if (name === "next/cache") return { unstable_cache: (fn) => fn };
       if (name === "@supabase/supabase-js") return { createClient: () => ({
         rpc: () => ({ range: async (start, end) => {
           calls.push([start, end]);
           return start === failAt
             ? { data: null, error: { message: "database unavailable" } }
-            : { data: rows.slice(start, end + 1), error: null };
+            : { data: currentRows.slice(start, end + 1), error: null };
         } }),
       }) };
       throw new Error(`Unexpected import: ${name}`);
     },
   });
-  return { ...exports, calls };
+  return { ...exports, calls, setRows: (nextRows) => { currentRows = nextRows; } };
 }
 
 const teams = Array.from({ length: 1203 }, (_, index) => ({
@@ -56,6 +56,17 @@ test("a failed later batch never becomes a successful partial leaderboard", asyn
   const result = await loader.getGlobalLeaderboard();
   assert.equal(result.data.length, 0);
   assert.ok(result.error);
+});
+
+test("global standings read live score changes instead of retaining an application-cached total", async () => {
+  const loader = await loadLeaderboard({ rows: [teams[0]] });
+  const first = await loader.getGlobalLeaderboard();
+  loader.setRows([{ ...teams[0], total_points: 1300 }]);
+  const second = await loader.getGlobalLeaderboard();
+
+  assert.equal(first.data[0].total_points, 1203);
+  assert.equal(second.data[0].total_points, 1300);
+  assert.deepEqual(loader.calls, [[0, 499], [0, 499]]);
 });
 
 test("empty and exact-batch-size leaderboards terminate correctly", async () => {

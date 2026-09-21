@@ -14,7 +14,7 @@ below describe code paths, not measured latency or throughput.
 | Player catalogue | Each picker instance fetched the same list and kept it indefinitely | One shared in-flight browser request and 60-second catalogue lifetime, checked whenever a picker opens. Failed requests are retryable. |
 | Player database reads | Authenticated API queried public players on each request | Anonymous, cookie-free Supabase GET cached by Next for 60 seconds; API still authenticates each network request and returns `private, no-store`. |
 | Fixtures | Two database reads for every visitor | Cache public gameweeks/matches for 60 seconds, with the same anonymous client. Group fixtures once by gameweek instead of filtering all fixtures for each round. |
-| Global standings | Aggregate all teams for every overview/leagues visit | Shared 60-second server cache of the existing public global RPC. Rename/onboarding/deletion immediately invalidate the cache via `updateTag`. Imports become visible through time revalidation. |
+| Global standings | Aggregate all teams for every overview/leagues visit | Fresh server read of the existing public global RPC. Live result imports happen outside Next.js, so standings intentionally bypass the application data cache and match private-league freshness on the next page load. |
 | Standings transport | Every team serialized to the browser even in top-ten mode | Initially top ten plus own team (maximum 11); authenticated endpoint returns subsequent batches of 50. Rows retain absolute rank. |
 | Standings row cap | Default PostgREST row cap could omit teams and their ranks | Server reads 500-row batches until exhausted; errors reject the entire refresh rather than publishing partial standings. |
 | Standings details | Reopening the same team's dialog repeated its RPC | Component-local 60-second cache, bounded to 20 teams. Request sequence guards stop older responses replacing the selected team's scores. |
@@ -33,21 +33,21 @@ below describe code paths, not measured latency or throughput.
   the baseline explicitly permits these reads for `anon` and `authenticated`.
 - The baseline global leaderboard is a `security definer` function with default
   PUBLIC execute privileges, an explicit authenticated grant and no user filter.
-  The shared loader uses that existing access; no service-role credential or new
-  grant is introduced. If global standings become private, replace this loader
-  and its shared cache as part of that access-policy change.
+  The server loader uses that existing access; no service-role credential or new
+  grant is introduced. It is deliberately uncached because live result imports
+  cannot invalidate the Next.js application cache.
 - Private leagues, invitations, squads, chips, transfer deadlines and mutations
   never enter the shared cache. Saving still uses the database's current prices,
   budget, deadline and roster validation.
-- Next time revalidation can serve a stale response while refreshing. Sixty
-  seconds is a revalidation interval, not a strict maximum age. A failed refresh
-  may retain older data. The browser catalogue adds up to another minute of reuse.
-  Neither catalogue nor standings freshness is suitable for mutation validation.
+- Next time revalidation can serve a stale public-data response while refreshing.
+  Sixty seconds is a revalidation interval, not a strict maximum age, and a failed
+  refresh may retain older data. The browser catalogue adds up to another minute
+  of reuse. Cached catalogue or fixture data is not suitable for mutation validation.
 - Browser catalogue reuse is safe across account changes because it contains
   only the public roster. Personal result/detail caches live inside components.
-- Public data changes made by import scripts require no Vercel callback secret;
-  they appear through time revalidation. Existing result imports run daily, so
-  source-to-app latency also includes that schedule.
+- Public fixture and catalogue changes made by import scripts require no Vercel
+  callback secret; they appear through time revalidation. Scored standings use a
+  fresh read and therefore expose a completed results poll on the next page load.
 
 ## Reviewed and retained
 
@@ -129,9 +129,8 @@ count from a successful build.
 - Three unauthenticated API requests returned 401 and produced zero player,
   standings or squad-result statements. `/test-supabase` returned 404 in the
   production build.
-- A real team-name Server Action invalidated warmed standings immediately. The
-  test restored the marked team's original name and confirmed that restoration
-  immediately as well.
+- The standings regression test changes a team's score between consecutive
+  global reads and verifies that the second read returns the new total.
 - Small-dataset `EXPLAIN (ANALYZE, BUFFERS)` execution times were 0.390 ms for
   the roster, 0.059 ms for fixtures, 1.787 ms for global standings, 6.800 ms for
   a six-player squad result and 1.604 ms for its set breakdown. These are local
