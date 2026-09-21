@@ -83,6 +83,29 @@ test("an automatically substituted captain transfers captaincy to the paired ben
   assert.equal(absentCaptain.team_points_contribution, 0);
 });
 
+test("the first bench slot has substitution priority", () => {
+  const effectiveLineup = applyAutomaticBenchSubstitutions([
+    squadResult({ id: "absent-starter", position: "starter" }),
+    squadResult({ id: "starter-two", played: true, position: "starter" }),
+    squadResult({ id: "starter-three", played: true, position: "starter" }),
+    squadResult({ id: "starter-four", played: true, position: "starter" }),
+    squadResult({ id: "bench-left", played: true, points: 2, position: "bench" }),
+    squadResult({ id: "bench-right", played: true, points: 20, position: "bench" }),
+  ]);
+
+  const firstBenchPlayer = effectiveLineup.find(
+    (player) => player.id === "bench-left",
+  );
+  const secondBenchPlayer = effectiveLineup.find(
+    (player) => player.id === "bench-right",
+  );
+
+  assert.equal(firstBenchPlayer.automatic_substitution, "in");
+  assert.equal(firstBenchPlayer.team_points_contribution, 2);
+  assert.equal(secondBenchPlayer.automatic_substitution, null);
+  assert.equal(secondBenchPlayer.team_points_contribution, 0);
+});
+
 test("a transferred triple captain keeps the triple multiplier", () => {
   const effectiveLineup = applyAutomaticBenchSubstitutions([
     squadResult({ captain: true, chip: "triple_captain", id: "captain", position: "starter" }),
