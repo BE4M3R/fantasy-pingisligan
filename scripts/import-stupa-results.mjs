@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
 import roster from "../data/sbtf-rosters.json" with { type: "json" };
 import { canonicalClubName, normalizeClubName } from "../lib/clubs.ts";
 
@@ -234,10 +235,20 @@ function buildImportRows(
           }
 
           if (!player) {
-            unmatchedPlayers.set(`${stupaUserRoleId}:${licenseId}`, {
+            const key = `${stupaUserRoleId}:${licenseId}`;
+            const previous = unmatchedPlayers.get(key);
+            unmatchedPlayers.set(key, {
               name: detail.name,
               licenseId: licenseId || null,
               stupaUserRoleId,
+              clubs: [...new Set([
+                ...(previous?.clubs ?? []),
+                team?.participant_name ?? "Unknown club",
+              ])],
+              fixtureIds: [...new Set([
+                ...(previous?.fixtureIds ?? []),
+                integer(parent.id),
+              ])],
             });
           }
 
@@ -299,6 +310,27 @@ function buildImportRows(
     identityConflicts: [...identityConflicts.values()],
     missingParentMatches: [...missingParentMatches],
   };
+}
+
+export function reportUnmatchedPlayers(players, {
+  warn = console.warn,
+  githubActions = process.env.GITHUB_ACTIONS === "true",
+} = {}) {
+  for (const player of players) {
+    const message = (
+      `No fantasy player match: ${player.name}; ` +
+      `club: ${player.clubs.join(", ")}; ` +
+      `license: ${player.licenseId ?? "missing"}; STUPA role: ${player.stupaUserRoleId}; ` +
+      `fixtures: ${player.fixtureIds.join(", ")}. ` +
+      "Skipped for fantasy scoring; raw results are kept for later matching. " +
+      "Other matched players can still score."
+    ).replace(/\s+/g, " ").trim();
+    // Escape upstream text before putting it in an Actions workflow command.
+    // The same warning is also emitted during local imports and dry runs.
+    warn(githubActions
+      ? `::warning title=Unmatched STUPA player::${message.replaceAll("%", "%25")}`
+      : message);
+  }
 }
 
 async function loadDatabaseLookups(supabase) {
@@ -476,12 +508,27 @@ async function scoreAffectedGameweeks(supabase, gameweekIds) {
   return gameweekIds.length;
 }
 
+export async function persistScoreAndComplete(supabase, rows, { complete = false, refreshStartedAt } = {}) {
+  if (complete && !Number.isFinite(Date.parse(refreshStartedAt))) {
+    throw new Error("Gameweek completion requires the results import start time.");
+  }
+  if (rows.identityConflicts.length) throw new Error("Conflicting Stupa player identities; repair aliases before importing.");
+  if (complete && rows.missingParentMatches.length) {
+    throw new Error("Missing scheduled parent matches; import the schedule before completing a gameweek.");
+  }
+  await persistRows(supabase, rows);
+  const scored = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
+  if (complete) await completeOldestUnlockedGameweek(supabase, refreshStartedAt);
+  return scored;
+}
+
 async function main() {
   await loadEnvFile(path.join(projectRoot, ".env.local"));
   await loadEnvFile(path.join(projectRoot, ".env"));
 
   const dryRun = process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
   const stageId = integer(process.env.STUPA_STAGE_ID, DEFAULT_STAGE_ID);
+  const refreshStartedAt = new Date().toISOString();
   const parentMatches = await fetchStage(stageId);
 
   let supabase = null;
@@ -524,8 +571,9 @@ async function main() {
           "Run a dry run and repair the aliases before importing.",
       );
     }
-    await persistRows(supabase, rows);
-    scoredGameweekCount = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
+    scoredGameweekCount = await persistScoreAndComplete(supabase, rows, {
+      complete: process.argv.includes("--complete-gameweek-refresh"), refreshStartedAt,
+    });
   }
 
   console.log(`Fetched ${parentMatches.length} parent matches from Stupa stage ${stageId}.`);
@@ -540,11 +588,7 @@ async function main() {
   if (rows.missingParentMatches.length > 0) {
     console.warn(`Missing scheduled parent matches: ${rows.missingParentMatches.join(", ")}`);
   }
-  for (const player of rows.unmatchedPlayers) {
-    console.warn(
-      `Unmatched Stupa player: ${player.name} (license ${player.licenseId ?? "missing"}, role ${player.stupaUserRoleId})`,
-    );
-  }
+  reportUnmatchedPlayers(rows.unmatchedPlayers);
   for (const conflict of rows.identityConflicts) {
     console.warn(
       `Conflicting Stupa identity: ${JSON.stringify(conflict)}`,

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# read-only hosted catalogue comparisons
+/data/player-catalogue.staging.json
+/data/player-catalogue.production.json

@@ -2,8 +2,16 @@ name: Import Pingisligan results
 
 on:
   schedule:
-    # GitHub cron uses UTC: 01:15 Swedish winter time, 02:15 summer time.
-    - cron: "15 0 * * *"
+    # github.event.schedule preserves the exact expression that triggered a run;
+    # the cadence step uses it to distinguish the daily refresh from polling.
+    # Separate daily trigger remains mandatory even if its runner is delayed.
+    - cron: "7 0 * * *"
+      timezone: "Europe/Stockholm"
+    # Other 15-minute slots only import after a fixture has started that day.
+    - cron: "22,37,52 * * * *"
+      timezone: "Europe/Stockholm"
+    - cron: "7 1-23 * * *"
+      timezone: "Europe/Stockholm"
   workflow_dispatch:
 
 permissions:
@@ -17,6 +25,9 @@ jobs:
   import-results:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Keep the cadence check, schedule importer and results importer aligned.
+      STUPA_STAGE_ID: "5727"
 
     steps:
       - name: Check out repository
@@ -28,24 +39,35 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Check whether results are due
+        id: cadence
+        run: node scripts/results-refresh-schedule.mjs
+        env:
+          RESULTS_CRON: ${{ github.event.schedule }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
       - name: Install dependencies
+        if: steps.cadence.outputs.should_run == 'true'
         run: npm ci
 
-      - name: Import and score results
+      - name: Refresh fixtures before the daily or manual results import
+        if: steps.cadence.outputs.refresh_schedule == 'true'
+        run: npm run import:schedule
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Import results, score and complete the pending gameweek
+        if: steps.cadence.outputs.should_run == 'true'
         run: |
-          if npm run import:results; then
+          if npm run import:results -- --complete-gameweek-refresh; then
             exit 0
           fi
 
           echo "Results import failed. Retrying once in 30 seconds..."
           sleep 30
-          npm run import:results
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-      - name: Refresh player prices after a newly unlocked gameweek
-        run: npm run import:players -- --after-unlock
+          npm run import:results -- --complete-gameweek-refresh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

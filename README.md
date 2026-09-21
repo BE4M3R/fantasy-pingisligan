@@ -35,10 +35,9 @@ Open http://localhost:3000.
 
 ### Rebuild a populated local database
 
-This starts local Supabase deletes all local database data and Auth users,
-rebuilds migrations, imports current players, creates 10 local test accounts,
-and installs the synthetic gameweek fixture. It needs network access for the
-player import.
+This starts local Supabase, deletes all local database data and Auth users,
+rebuilds migrations, imports the committed player snapshot, creates 10 local
+test accounts, and installs the synthetic gameweek fixture.
 
 ```bash
 npm run dbsetup:local
@@ -47,6 +46,43 @@ npm run dbsetup:local
 The generated local accounts use the password `test12`. It does not import the
 real schedule or results. The synthetic gameweeks use times relative to when
 the command runs and Stockholm midnight for reopening.
+
+The catalogue preserves stored prices and permanent UUIDs. Player setup needs
+no upstream network access, and repeated imports never overwrite existing
+prices. Rankings are optional; active players with prices remain selectable.
+
+Verify the catalogue against production with a read-only candidate export:
+
+```bash
+npm run export:players:production-candidate
+diff -u data/player-catalogue.json data/player-catalogue.production.json
+```
+
+This uses the uncommitted `.env.production`, selects production clubs, players
+and stored identity aliases, and writes only the ignored candidate file. It does
+not modify production or overwrite the committed catalogue.
+
+An equivalent staging comparison is available when diagnosing environment drift:
+
+```bash
+npm run export:players:staging-candidate
+diff -u data/player-catalogue.json data/player-catalogue.staging.json
+```
+
+The export reads `.env.staging.local` and writes the ignored
+`data/player-catalogue.staging.json`. It does not modify staging or overwrite
+the committed catalogue. Copy only reviewed changes into
+`data/player-catalogue.json`.
+
+For a new player, add one permanent UUID to the catalogue, calculate its price,
+validate it, and generate the insert-only data migration that follows the normal
+`develop` → staging → `main` → production path:
+
+```bash
+npm run calculate:player-price -- --ranking-points 2305 --world-ranking-position 98
+npm run import:players:dry
+npm run generate:player-migration -- --player-id <new-player-uuid>
+```
 
 ## Checks
 
@@ -103,6 +139,7 @@ before writing data:
 
 ```bash
 npm run import:players:dry
+npm run calculate:player-price -- --ranking-points 2305 --world-ranking-position 98
 npm run import:schedule:dry
 npm run import:results:dry
 ```
@@ -113,6 +150,48 @@ Run the real imports in this order:
 npm run import:players
 npm run import:schedule
 npm run import:results
+```
+
+The results workflow checks every day at 00:07 Swedish time. On each day with
+fixtures it also checks every 15 minutes at :07, :22, :37, and :52 from the
+first match start until the day ends; gap days in a multi-day gameweek get only
+the daily check. The 00:07 and manual runs refresh fixtures first. GitHub Actions
+may delay runs.
+
+Nightly schedule refreshes accept changed deadlines until the existing deadline
+passes. After that point the gameweek's lock and unlock boundaries are frozen,
+while individual fixture times and statuses still update. An existing fixture
+also keeps its original gameweek if STUPA later moves or postpones it.
+
+GitHub includes the exact triggering cron expression in
+`github.event.schedule`. The workflow passes it to the cadence check as
+`RESULTS_CRON`, so a delayed run still knows why it was started:
+
+- `7 0 * * *` is the special daily 00:07 run. It always refreshes fixtures and
+  imports results.
+- `22,37,52 * * * *` covers :22, :37 and :52 in every hour.
+- `7 1-23 * * *` covers :07 in hours 01–23; midnight :07 is already handled by
+  the daily expression.
+- `workflow_dispatch` is treated like the daily run.
+
+For the 15-minute expressions, the cadence check reads at most one matching
+fixture from Supabase. It proceeds only when a fixture in the configured stage
+has started on the current Stockholm date. Otherwise the run stops before
+installing dependencies or contacting STUPA.
+
+The workflow uses `npm run import:results -- --complete-gameweek-refresh`:
+STUPA import and scoring must succeed before the pending unlocked gameweek is
+marked refreshed. Prices and budgets stay unchanged. Profixio is not called and
+no price-refresh GitHub variable is required. See
+[data imports](docs/data-imports.md) for catalogue maintenance and the separate
+boundary for future explicit price updates.
+
+To inspect the same scheduling decision against local synthetic fixtures without
+writing data:
+
+```bash
+npm run check:results-refresh:local -- --stage-id -900001
+npm run test:results-schedule
 ```
 
 ## Generate local test accounts
@@ -150,9 +229,12 @@ npm run test:local -- score gw1
 npm run test:local -- status gw1
 npm run test:local -- unlock gw1
 npm run test:local -- status gw1
-npm run test:local -- refresh-prices gw1
-npm run test:local -- status gw1
 ```
+
+`unlock` moves past the scheduled unlock time, loads the available synthetic
+results, verifies scoring, and clears that gameweek's refresh lock in the same
+command. Reload the app afterward. Prices and budgets remain unchanged; failed
+scoring leaves transfers closed. No separate refresh command is needed.
 
 Clean up when finished:
 
@@ -188,8 +270,6 @@ npm run test:staging -- status gw1
 npm run test:staging -- score gw1
 npm run test:staging -- status gw1
 npm run test:staging -- unlock gw1
-npm run test:staging -- status gw1
-npm run test:staging -- refresh-prices gw1
 npm run test:staging -- status gw1
 
 ## Further documentation

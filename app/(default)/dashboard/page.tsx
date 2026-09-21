@@ -317,7 +317,7 @@ export default async function SquadPage({
   const previousSnapshot = getPreviousSnapshot(previousGameweek);
   const transferWindowMessage = transfersLocked
     ? waitingForDataRefresh
-      ? "Updating results and player prices. Transfers reopen automatically when the refresh finishes."
+      ? "Importing results and calculating scores. Transfers reopen automatically when the refresh finishes."
       : `Transfer window opens earliest ${
           formatDateTime(transferLock?.unlock_at ?? null) ||
           "the round finishes"

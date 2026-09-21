@@ -9,7 +9,7 @@ flowchart LR
     User[Browser] --> Next[Next.js on Vercel]
     Next --> Auth[Supabase Auth]
     Next --> DB[(Supabase Postgres)]
-    Profixio[Profixio rankings] --> Importers[Server-only import scripts]
+    Catalogue[Committed player catalogue] --> Importers[Server-only import scripts]
     Stupa[Stupa schedule and results] --> Importers
     Importers -->|service role| DB
 ```
@@ -32,7 +32,7 @@ The data sources have a required dependency order:
 
 ```mermaid
 flowchart LR
-    Profixio[Profixio ranking data] --> Players[players and clubs]
+    Catalogue[Permanent UUIDs and explicit prices] --> Players[players and clubs]
     Schedule[Stupa scheduled team fixtures] --> Gameweeks[fantasy_gameweeks: rounds and transfer windows]
     Schedule --> Matches[matches: one row per scheduled team fixture]
     Completed[Stupa completed match details] --> Submatches[stupa_submatches: individual matches within a team fixture]
@@ -40,10 +40,10 @@ flowchart LR
     Players --> PlayerResults[player_submatch_results: each player's sets and points]
     Submatches --> PlayerResults
     Completed --> PlayerResults
-    PlayerResults -. future fantasy-point calculation .-> Stats[player_match_stats]
+    PlayerResults --> Stats[player_match_stats]
     Gameweeks --> SnapshotCron[Supabase Cron: locked squad snapshots]
     SnapshotCron --> Snapshots[gameweek squad snapshots]
-    Snapshots -. future round scoring .-> Stats
+    Snapshots --> Stats
 ```
 
 `fantasy_gameweeks` does not contain every fixture itself. It represents a
@@ -59,17 +59,26 @@ data. An incomplete team is skipped and can enter for the first time in a later
 gameweek. Repeated calls are safe because the snapshot tables use
 team/gameweek/player keys and ignore conflicts. Later scoring must use these
 rows rather than the live squad.
-After the scheduled unlock time, transfers remain closed until the nightly job
-has imported available results and refreshed Profixio player prices. The final
-successful player-import step records `fantasy_gameweeks.data_refreshed_at`,
-which reopens transfers.
+After the scheduled unlock time, transfers remain closed until the scheduled results job
+has imported available STUPA results and scored them successfully. The results
+importer then scores the oldest pending unlocked gameweek and records
+`fantasy_gameweeks.data_refreshed_at`, clearing its refresh lock. Prices and
+budgets remain unchanged; the scheduled results job never imports or reprices players.
+
+Results are checked daily at 00:07 Stockholm time and additionally every 15
+minutes at :07, :22, :37, and :52 after the first fixture starts on each playing
+day, until that day ends. Individual fixture dates drive this decision, including
+when a gameweek spans several days. The 00:07 run refreshes the schedule first.
+A shared read-only check gates daytime imports; local tests use the same check.
+GitHub Actions target times may be delayed by runner scheduling.
 
 The Stupa schedule and completed results are two views of the same real-world
 team fixtures. The schedule importer creates the parent `matches` rows before
 play. After play, the results importer attaches the individual submatches and
 per-player set/point details to those existing fixtures. The current results
-importer stores source results but does not calculate fantasy points;
-`player_match_stats` and gameweek totals are the later scoring layer.
+importer stores source results and recalculates `player_match_stats` and
+fantasy-team gameweek totals. Player eligibility depends on active status and
+an explicit configured price; optional legacy rankings do not affect it.
 
 ## Trust boundaries
 

@@ -147,7 +147,7 @@ export default async function OverviewPage() {
       ? "Earliest reopening"
       : "Transfer window closes";
   const deadline = waitingForDataRefresh
-    ? "Updating results and prices..."
+    ? "Updating results and scores..."
     : formatDateTime(
         transfersLocked
           ? transferLock?.unlock_at ?? null
