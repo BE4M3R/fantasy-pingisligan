@@ -9,15 +9,36 @@ This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based
 - Tailwind CSS
 - Supabase for database and authentication
 - Vercel for hosting
-- GitHub Actions may later be used for scheduled Profixio scraping/imports
+- GitHub Actions imports STUPA schedules/results; players use the committed catalogue
 
 ## Important architecture
 - Frontend/app code lives in this repo.
 - Supabase is used for auth, users, players, clubs, matches, fantasy teams, leagues and points.
 - Design and implement for many concurrent users: always consider efficient page loading, including appropriate caching where possible, minimizing database queries and payload sizes, and avoiding unnecessary client-side work.
-- Do not put scraping logic in browser/client components.
-- Scraping/importing Profixio data must run server-side, for example via GitHub Actions, Supabase Edge Functions, or a server-only script.
+- Keep data imports server-side; never call or scrape Profixio.
+- Player prices are explicit stored values, independent of optional legacy rankings.
 - Do not expose or commit secret keys.
+
+## Local and production flow parity
+- Local, staging and production must follow the same application rules and
+  lifecycle. Treat local testing as verification of production behavior.
+- Test fixtures, credentials, scheduling and simulated time may differ by
+  environment; business rules, operation order, failure handling and resulting
+  state must match. Local tests must not bypass required production steps or
+  require extra manual steps to complete the equivalent flow.
+- For gameweeks, results must be persisted and scoring must succeed before
+  transfers reopen after the unlock time. Local `unlock` performs this flow
+  using synthetic results; production performs it through the results job.
+  Neither flow automatically changes player prices or team budgets, and a
+  failed results/scoring step must leave transfers closed.
+- Results polling uses Europe/Stockholm: a daily midnight check, plus checks
+  every 30 minutes after the first fixture starts on each playing day until
+  midnight. Use individual fixture dates, including every playing day of a
+  multi-day gameweek; do not poll throughout gap days. Keep the shared cadence
+  check and its local tests aligned with the production workflow.
+- When changing a flow, update its local test harness, production workflow,
+  relevant tests and documentation together. Reuse shared implementation where
+  practical to prevent the environments from drifting apart.
 
 ## Environment variables
 Local development uses `.env.local`, and it must point to the local Supabase

@@ -96,7 +96,6 @@ npm run test:local -- setup
 npm run test:local -- lock gw1
 npm run test:local -- score gw1
 npm run test:local -- unlock gw1
-npm run test:local -- refresh-prices gw1
 ```
 
 The selected database must already contain the clubs and active players named
@@ -105,6 +104,28 @@ local database, run the player import first and create the test teams locally.
 
 `test:staging` remains a staging-only shortcut. For scripts or automation, use
 the explicit command: `npm run test:gameweek -- --env local|staging <action> [gameweek]`.
+
+## Check automatic results timing locally
+
+The production cadence is a daily 00:07 check plus checks every 15 minutes at
+:07, :22, :37, and :52 after the first match starts on each playing day, ending
+at Stockholm midnight.
+Use the same read-only gate against the local synthetic stage:
+
+```bash
+npm run check:results-refresh:local -- --stage-id -900001
+npm run check:results-refresh:local -- --stage-id -900001 --at 2026-09-21T20:00:00+02:00
+npm run check:results-refresh:local -- --daily
+npm run test:results-schedule
+```
+
+`--at` requires an explicit timezone and simulates the check time only. It does
+not change fixture times or write data. The daily check always reports due;
+interval checks report due only if a fixture has started on that Swedish date.
+Tests cover playing days separated by gaps, winter/summer time and daylight
+saving transitions. Continue using `score` and `unlock` for actual synthetic
+scoring. GitHub Actions provides the production timer; there is no local
+background polling process.
 
 ## Run the app against staging
 
@@ -155,10 +176,13 @@ initial start time, and one or more club fixtures:
 `setup` creates every configured gameweek. `startsAfterHours` is relative to
 the setup time and must leave at least two hours before play. Later lifecycle
 `lock` and `unlock` move only the selected gameweek through their lifecycle.
-The `unlock` command moves past the scheduled unlock time but deliberately
-leaves the data refresh pending. `refresh-prices` then tests the locked-squad
-budget adjustment and marks the refresh complete, simulating the final
-successful step of the production import workflow.
+The `unlock` command moves past the scheduled unlock time, imports available
+synthetic results, checks player/team totals and repeated scoring, then marks
+only the selected gameweek refreshed—all in one command. It preserves prices,
+budgets and fixture times during scoring and makes no STUPA request. Failures
+leave transfers closed; retry `unlock` after correcting the failure. A repeat
+after successful completion does nothing. Other locked gameweeks still keep
+transfers closed.
 `score` loads every result available up to the selected gameweek and refreshes
 the affected current and previous gameweeks.
 
@@ -277,8 +301,6 @@ npm run test:staging -- score gw1
 npm run test:staging -- status gw1
 npm run test:staging -- unlock gw1
 npm run test:staging -- status gw1
-npm run test:staging -- refresh-prices gw1
-npm run test:staging -- status gw1
 ```
 
 The scoring action prints every configured individual match, independently
@@ -287,13 +309,18 @@ Supabase, and runs the database calculation twice to check idempotency. The
 default data initially stores 16 GW1 player-result rows because its third
 fixture is configured to arrive with GW2.
 
-After `unlock`, open the squad page and confirm it still blocks transfers while
-showing that results and prices are updating. `refresh-prices` temporarily adds
-SEK 1m to one player from the locked snapshot, verifies that only completed
-teams that owned that player receive SEK 1m of additional budget, then restores
-the player price and every budget. Finally it records `data_refreshed_at`; the
-website should then allow transfers. The price test is reversible and does not
-leave imported players or team budgets changed.
+After `unlock` succeeds, reload the squad page. Transfers reopen if no other
+gameweek is locked. No separate refresh command or local background job is
+needed. Use `status` to identify any other locked rounds if transfers remain
+closed. Production still imports and scores STUPA results automatically before
+clearing a pending round; it never reprices players.
+
+The optional `refresh-prices` regression command remains available only to
+test the generic budget trigger for future explicit repricing against a
+separately prepared pending unlocked round (normal `unlock` already completes
+its round). It temporarily adds SEK 1m to a locked-squad player, verifies owners' budget changes, restores
+prices and budgets, and marks the round refreshed. It is not part of the normal
+local test lifecycle or production results workflow.
 
 ## Test Gameweek 2
 
@@ -307,7 +334,6 @@ npm run test:staging -- status gw2
 npm run test:staging -- score gw2
 npm run test:staging -- status gw1
 npm run test:staging -- unlock gw2
-npm run test:staging -- refresh-prices gw2
 ```
 
 After `score gw2`, GW1 has 24 player-result rows. Its delayed fixture has been
@@ -325,12 +351,10 @@ needed:
 npm run test:staging -- lock gw3
 npm run test:staging -- score gw3
 npm run test:staging -- unlock gw3
-npm run test:staging -- refresh-prices gw3
 
 npm run test:staging -- lock gw4
 npm run test:staging -- score gw4
 npm run test:staging -- unlock gw4
-npm run test:staging -- refresh-prices gw4
 ```
 
 Each score run revisits every earlier gameweek whose configured results are

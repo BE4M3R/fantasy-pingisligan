@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
 import { nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
@@ -1162,7 +1163,7 @@ async function seedAndScore(
   console.log("Repeated scoring produced identical totals.");
 }
 
-async function scoreAvailableGameweeks(supabase, scenario, targetDefinition) {
+async function scoreAvailableGameweeks(supabase, scenario, targetDefinition, updateTimes = true) {
   const targetIndex = scenario.gameweeks.findIndex(
     (gameweek) => gameweek.key === targetDefinition.key,
   );
@@ -1185,13 +1186,37 @@ async function scoreAvailableGameweeks(supabase, scenario, targetDefinition) {
       { ...definition, fixtures: availableFixtures },
       scenario.activePlayers,
       scenario.roleIds,
-      definition.key === targetDefinition.key,
+      updateTimes && definition.key === targetDefinition.key,
     );
   }
 }
 
-async function unlock(supabase, definition) {
+export async function completeTestGameweekResults(supabase, scenario, definition, scoreResults = scoreAvailableGameweeks) {
   const gameweek = await getDatabaseGameweek(supabase, definition);
+  const refreshedAt = new Date().toISOString();
+  assert(
+    Date.parse(refreshedAt) > Date.parse(gameweek.unlock_at),
+    `${definition.key} has not reached its scheduled unlock time. Run unlock first.`,
+  );
+  if (gameweek.data_refreshed_at !== null) {
+    console.log(`${definition.key} is already refreshed; no changes needed.`);
+    return;
+  }
+
+  // Replay available synthetic results and verify totals before clearing the
+  // lock. Preserve fixture times and never contact STUPA for synthetic rounds.
+  await scoreResults(supabase, scenario, definition, false);
+  const completed = await completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId: gameweek.id });
+  assert(completed, `${definition.key} is no longer pending refresh.`);
+  console.log(`${definition.key} refresh complete; prices and budgets are unchanged. Reload the app. Other locked gameweeks may still block transfers.`);
+}
+
+export async function unlock(supabase, scenario, definition, scoreResults = scoreAvailableGameweeks) {
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+  if (gameweek.data_refreshed_at !== null) {
+    console.log(`${definition.key} is already refreshed; no changes needed.`);
+    return;
+  }
   const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
   const matchesByStupaId = new Map(
     databaseMatches.map((match) => [match.stupa_match_id, match]),
@@ -1232,8 +1257,9 @@ async function unlock(supabase, definition) {
     .eq("id", gameweek.id);
   ensureNoError(error, `Could not complete ${definition.key}`);
   console.log(
-    `${definition.key} reached its scheduled unlock time and remains locked pending refresh.`,
+    `${definition.key} reached its scheduled unlock time; verifying results before reopening transfers.`,
   );
+  await completeTestGameweekResults(supabase, scenario, definition, scoreResults);
 }
 
 async function loadFantasyTeamsById(supabase, teamIds) {
@@ -1416,6 +1442,10 @@ async function status(supabase, scenario, key) {
   const rows = [];
   for (const definition of definitions) rows.push(await statusRow(supabase, definition));
   console.table(rows);
+  const { data: transferLock, error } = await supabase.rpc("current_transfer_lock");
+  ensureNoError(error, "Could not check the current transfer lock");
+  console.log("Current transfer window (including other gameweeks):");
+  console.table(Array.isArray(transferLock) ? transferLock : [transferLock]);
 }
 
 function printValidatedScenario(scenario, fixtureFile) {
@@ -1526,12 +1556,14 @@ async function main() {
     if (action === "score") {
       await scoreAvailableGameweeks(supabase, resolvedScenario, definition);
     }
-    if (action === "unlock") await unlock(supabase, definition);
+    if (action === "unlock") await unlock(supabase, resolvedScenario, definition);
     if (action === "refresh-prices") await refreshPrices(supabase, definition);
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

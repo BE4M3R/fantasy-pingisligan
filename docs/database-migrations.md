@@ -52,7 +52,7 @@ npm run dbsetup:local
 
 This starts Supabase, runs `db reset --local`, imports players, creates the
 accounts, and installs the synthetic gameweek fixture. It deletes existing
-local data and Auth users, requires network access for the player import, and
+local data and Auth users, imports the committed player catalogue without upstream network access, and
 does not import the real schedule or results. Fixture times are relative to the
 command run and reopen at Stockholm midnight. Generated local accounts use the
 password `test12`.
@@ -101,3 +101,29 @@ Never edit an already deployed migration. Add a new migration that moves the
 schema forward. Keep player, fixture and result imports in their existing
 server-side jobs; migrations are for schema objects, policies, functions,
 triggers, and small controlled reference-data changes.
+
+## New player catalogue rows
+
+New shared players are small controlled reference-data changes. After adding and
+validating a player in `data/player-catalogue.json`, generate an insert-only data
+migration for that explicit permanent UUID:
+
+```bash
+npm run import:players:dry
+npm run test:imports
+npm run generate:player-migration -- --player-id <new-player-uuid>
+```
+
+Review the generated SQL, then apply and test it locally:
+
+```bash
+npx supabase migration up --local
+```
+
+Commit the catalogue and migration together. The SQL preflights club, UUID,
+SBTF-license, STUPA-role and external identity conflicts. It inserts missing
+rows but does not update or delete an existing player, price, ownership row or
+historical record. Promote it with the
+same `develop` then `main` process as every other migration. Do not generate a
+migration for the whole historical catalogue or run it directly against a
+hosted project.

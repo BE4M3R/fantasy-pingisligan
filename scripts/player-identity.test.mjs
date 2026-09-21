@@ -1,105 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  buildReconciliationPlan,
-  validateSourceIdentities,
-} from "./import-profixio-players.mjs";
-import { buildImportRows, buildManualPlayerLookup } from "./import-stupa-results.mjs";
+import { buildImportRows, buildManualPlayerLookup, reportUnmatchedPlayers } from "./import-stupa-results.mjs";
 import roster from "../data/sbtf-rosters.json" with { type: "json" };
-
-function sourcePlayer(overrides = {}) {
-  return {
-    birthYear: 2005,
-    clubName: "Kosta SK",
-    firstName: "Aleksi",
-    lastName: "Räsänen",
-    price: 7600000,
-    profixioPlayerId: "976954",
-    rankingPoints: 2276,
-    rankingPosition: 98,
-    ...overrides,
-  };
-}
-
-function databasePlayer(overrides = {}) {
-  return {
-    birth_year: 2005,
-    clubs: { name: "Kosta SK" },
-    created_at: "2026-08-09T00:00:00Z",
-    first_name: "Aleksi",
-    id: "player-old",
-    last_name: "Räsänen",
-    profixio_id: "966863",
-    ...overrides,
-  };
-}
-
-test("current license wins and matching stale records are merged", () => {
-  const oldPlayer = databasePlayer();
-  const currentPlayer = databasePlayer({
-    created_at: "2026-08-28T00:00:00Z",
-    id: "player-current",
-    profixio_id: "976954",
-  });
-  const plan = buildReconciliationPlan([sourcePlayer()], {
-    identities: [
-      {
-        external_id: "966863",
-        player_id: oldPlayer.id,
-        provider: "sbtf_license",
-      },
-      {
-        external_id: "976954",
-        player_id: currentPlayer.id,
-        provider: "sbtf_license",
-      },
-    ],
-    players: [oldPlayer, currentPlayer],
-  });
-
-  assert.equal(plan[0].player.id, currentPlayer.id);
-  assert.deepEqual(plan[0].duplicates.map((player) => player.id), [oldPlayer.id]);
-  assert.equal(plan[0].matchKind, "license");
-});
-
-test("a changed license and club retain a unique name and birth-year identity", () => {
-  const existingPlayer = databasePlayer({ clubs: { name: "Old Club" } });
-  const plan = buildReconciliationPlan([sourcePlayer()], {
-    identities: [
-      {
-        external_id: "966863",
-        player_id: existingPlayer.id,
-        provider: "sbtf_license",
-      },
-    ],
-    players: [existingPlayer],
-  });
-
-  assert.equal(plan[0].player.id, existingPlayer.id);
-  assert.equal(plan[0].matchKind, "name-and-birth-year");
-  assert.deepEqual(plan[0].duplicates, []);
-});
-
-test("a source identity not found in the database creates a player", () => {
-  const plan = buildReconciliationPlan([sourcePlayer()], {
-    identities: [],
-    players: [],
-  });
-
-  assert.equal(plan[0].player, null);
-  assert.equal(plan[0].matchKind, "new");
-});
-
-test("duplicate source identities stop the import", () => {
-  assert.throws(
-    () =>
-      validateSourceIdentities([
-        sourcePlayer(),
-        sourcePlayer({ profixioPlayerId: "another-license" }),
-      ]),
-    /multiple licenses/,
-  );
-});
 
 function stupaParent(detail) {
   return {
@@ -177,6 +79,68 @@ test("Stupa refuses conflicting license and role identities", () => {
 
   assert.equal(rows.playerResults[0].player_id, null);
   assert.equal(rows.identityConflicts.length, 1);
+});
+
+test("an unknown doubles partner is retained without blocking the known player's result", () => {
+  const parent = stupaParent(stupaDetail());
+  parent.participants[0].participant_name = "Club outside the catalogue";
+  parent.sub_matches[0].participants[0].participant_details.push(stupaDetail({
+    name: "Unknown Player", user_role_id: 5678, meta_data: { license_id: "unknown-license" },
+  }));
+  const rows = buildImportRows([parent],
+    new Map([[100, { id: "match", fantasy_gameweek_id: "gameweek" }]]),
+    new Map([["976954", { id: "known-player" }]]), new Map());
+
+  assert.deepEqual(rows.playerResults.map((row) => row.player_id), ["known-player", null]);
+  assert.equal(rows.playerResults[1].stupa_user_role_id, 5678);
+  assert.equal(rows.playerResults[1].sets_won, 3);
+  assert.equal(rows.playerResults[0].team_stupa_participant_id, rows.playerResults[1].team_stupa_participant_id);
+  assert.deepEqual(rows.gameweekIds, ["gameweek"]);
+  assert.deepEqual(rows.identityConflicts, []);
+  assert.deepEqual(rows.unmatchedPlayers, [{
+    name: "Unknown Player", licenseId: "unknown-license", stupaUserRoleId: 5678,
+    clubs: ["Club outside the catalogue"], fixtureIds: [100],
+  }]);
+
+  // A later reviewed mapping links the same raw result key, without inventing
+  // an identity or requiring a new player import from an external source.
+  const linked = buildImportRows([parent], new Map([[100, { id: "match" }]]),
+    new Map([["976954", { id: "known-player" }]]), new Map([["5678", { id: "reviewed-player" }]]));
+  assert.equal(linked.playerResults[1].player_id, "reviewed-player");
+  assert.equal(linked.playerResults[1].stupa_submatch_id, rows.playerResults[1].stupa_submatch_id);
+  assert.deepEqual(linked.unmatchedPlayers, []);
+});
+
+test("unknown players produce one warning each with every affected club and fixture", () => {
+  const first = stupaParent(stupaDetail());
+  first.participants[0].participant_name = "First club";
+  const second = structuredClone(first);
+  second.id = 200;
+  second.sub_matches[0].id = 201;
+  second.participants[0].participant_name = "Second club";
+  const rows = buildImportRows([first, second], new Map(), new Map(), new Map(), true);
+  const warnings = [];
+  reportUnmatchedPlayers(rows.unmatchedPlayers, { warn: (message) => warnings.push(message), githubActions: false });
+  assert.equal(warnings.length, 1);
+  for (const detail of ["Aleksi Räsänen", "First club, Second club", "976954", "1234", "100, 200", "Skipped for fantasy scoring"]) {
+    assert.ok(warnings[0].includes(detail), detail);
+  }
+});
+
+test("GitHub warnings safely render upstream text and matched-only imports stay quiet", () => {
+  const warnings = [];
+  const options = { warn: (message) => warnings.push(message), githubActions: true };
+  reportUnmatchedPlayers([], options);
+  assert.deepEqual(warnings, []);
+  reportUnmatchedPlayers([{
+    name: "Unknown%Player\n::error::source text", licenseId: null, stupaUserRoleId: 5678,
+    clubs: ["Some\r\nclub"], fixtureIds: [100],
+  }], options);
+  assert.equal(warnings.length, 1);
+  assert.ok(warnings[0].startsWith("::warning title=Unmatched STUPA player::"));
+  assert.ok(warnings[0].includes("Unknown%25Player"));
+  assert.ok(warnings[0].includes("license: missing"));
+  assert.doesNotMatch(warnings[0], /[\r\n]/);
 });
 
 const manualPlayers = roster.clubs.flatMap((club) => club.players
