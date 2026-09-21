@@ -353,9 +353,9 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
   if (gameweekId) {
     query = query
       .eq("fantasy_gameweek_id", gameweekId)
-      .order("player_last_name_at_lock")
-      .order("player_first_name_at_lock")
-      .order("player_id");
+      // This is the order selected in the squad editor. It determines both
+      // bench priority and the captain's replacement when starters are absent.
+      .order("lineup_order", { ascending: true });
   }
 
   const { data: squadRows, error: squadError } = await query;

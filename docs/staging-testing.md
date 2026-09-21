@@ -286,6 +286,8 @@ npm run test:staging -- status gw1
 The snapshot count must equal the number of fantasy teams with a complete
 four-starter, two-bench squad at the deadline. You can also inspect
 **Integrations > Cron > Jobs > snapshot-locked-squads > History** in Supabase.
+Snapshots retain the squad order selected by each manager; that locked order
+sets automatic-substitution and replacement-captain priority.
 
 For a faster snapshot-function test that bypasses the scheduler, use:
 
