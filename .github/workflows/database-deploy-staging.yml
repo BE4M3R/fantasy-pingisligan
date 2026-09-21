@@ -48,10 +48,11 @@ jobs:
           fi
 
       - name: Preview pending migrations
-        run: supabase db push --dry-run
+        # Temporary recovery for the out-of-order 20260921205000 migration.
+        run: supabase db push --include-all --dry-run
 
       - name: Apply pending migrations
-        run: supabase db push --yes
+        run: supabase db push --include-all --yes
 
       - name: Show migration status
         run: supabase migration list
