@@ -275,9 +275,10 @@ No changes are live until the workflow is promoted to the default branch.
 
 Every due results import uses `--complete-gameweek-refresh`.
 Only after result persistence and scoring succeed does it score the oldest
-pending gameweek that was already unlocked when the import began, then record
-`data_refreshed_at`. That clears the gameweek's refresh lock without touching
-prices or budgets. Other pending/locked gameweeks still keep transfers closed.
+pending gameweek that was already unlocked when the import began, then atomically
+record `data_refreshed_at` and mark that round's locked chips as used. That
+clears the gameweek's refresh lock without touching prices or budgets. Other
+pending/locked gameweeks still keep transfers closed.
 If fetching, persistence, identity validation or scoring fails, completion is
 not reached. Missing scheduled parent matches also block completion. The job
 retries a failed results import once; writes and scoring can safely be repeated.

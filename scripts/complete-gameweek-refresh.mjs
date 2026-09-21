@@ -25,17 +25,16 @@ export async function completeOldestUnlockedGameweek(supabase, refreshedAt, { ga
   });
   if (scoringError) throw new Error(`Could not score pending gameweek: ${scoringError.message}`);
 
-  const { data: completed, error: updateError } = await supabase
-    .from("fantasy_gameweeks")
-    .update({ data_refreshed_at: refreshedAt, updated_at: refreshedAt })
-    .eq("id", gameweek.id)
-    .lt("unlock_at", refreshedAt)
-    .is("data_refreshed_at", null)
-    .select("id")
-    .maybeSingle();
+  const { data: completed, error: completionError } = await supabase.rpc(
+    "complete_gameweek_refresh",
+    {
+      p_gameweek_id: gameweek.id,
+      p_refreshed_at: refreshedAt,
+    },
+  );
 
-  if (updateError) {
-    throw new Error(`Could not complete gameweek refresh: ${updateError.message}`);
+  if (completionError) {
+    throw new Error(`Could not complete gameweek refresh: ${completionError.message}`);
   }
   if (!completed) {
     throw new Error(`${gameweek.name} was already completed by another process.`);
