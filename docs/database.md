@@ -39,13 +39,14 @@ erDiagram
   creator is added as the first member and can share the league's invite code.
 - `fantasy_team_chip_selections` stores each team's pre-deadline chip pick for a
   gameweek, then records when that chip locks and when it is used.
-- `players` and `clubs` contain imported ranking data. A player's UUID remains
+- `players` and `clubs` contain catalogue data and explicit prices; rankings
+  are optional legacy fields. A player's UUID remains
   permanent when an upstream license changes. `player_external_identities`
   maps historical and current SBTF license and Stupa role IDs to that UUID;
   `players.profixio_id` remains the current license for compatibility.
 - `fantasy_gameweeks` is created from Stupa rounds. Its first and last match
   timestamps produce the transfer lock window; `data_refreshed_at` records when
-  the post-gameweek results and player-price refresh has reopened transfers.
+  the post-gameweek results import and scoring has reopened transfers.
 - `matches` contains the parent team fixtures required before results can load.
 - `stupa_submatches` retains each source submatch and its raw payload.
 - `player_submatch_results` retains per-player set and point details. Its
@@ -84,3 +85,9 @@ leaderboard-related RPCs provide
 derived data to the application. Private league creation, invitation joining,
 listing and rankings go through security-definer RPCs that verify the signed-in
 user and league membership.
+
+Leaderboard totals and per-team gameweek history use the same visibility rule:
+a gameweek appears when its first fixture starts. Its score is live and may
+change as result imports arrive. It becomes final only after the post-gameweek
+refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
+points for a future gameweek are excluded from totals and rankings.

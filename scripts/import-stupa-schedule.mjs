@@ -166,6 +166,56 @@ function buildGameweeks(matches, stageId) {
     .sort((left, right) => (left.round_order ?? 0) - (right.round_order ?? 0));
 }
 
+export function preserveLockedGameweekBoundaries(
+  gameweeks,
+  existingGameweeks,
+  refreshedAt = new Date().toISOString(),
+) {
+  const refreshTime = Date.parse(refreshedAt);
+  if (!Number.isFinite(refreshTime)) {
+    throw new Error(`Invalid schedule refresh time: ${refreshedAt}`);
+  }
+
+  const existingByRoundId = new Map(
+    existingGameweeks.map((gameweek) => [gameweek.stupa_round_id, gameweek]),
+  );
+
+  return gameweeks.map((gameweek) => {
+    const existing = existingByRoundId.get(gameweek.stupa_round_id);
+    if (!existing) return gameweek;
+
+    const existingLockTime = Date.parse(existing.lock_at);
+    if (!Number.isFinite(existingLockTime)) {
+      throw new Error(
+        `Existing gameweek ${gameweek.stupa_round_id} has an invalid lock time.`,
+      );
+    }
+    if (existingLockTime > refreshTime) return gameweek;
+
+    // Squad snapshots are keyed to the deadline that actually passed. Moving
+    // either boundary afterwards could reopen transfers or delay completion
+    // against a different window than the stored snapshots.
+    return {
+      ...gameweek,
+      lock_at: existing.lock_at,
+      unlock_at: existing.unlock_at,
+    };
+  });
+}
+
+export function resolveFixtureGameweekId(
+  stupaMatchId,
+  stupaRoundId,
+  existingMatchesByStupaId,
+  gameweeksByRoundId,
+) {
+  return (
+    existingMatchesByStupaId.get(stupaMatchId)?.fantasy_gameweek_id ??
+    gameweeksByRoundId.get(stupaRoundId)?.id ??
+    null
+  );
+}
+
 async function getClubs(supabase) {
   const { data, error } = await supabase.from("clubs").select("id, name");
 
@@ -177,9 +227,37 @@ async function getClubs(supabase) {
 }
 
 async function upsertGameweeks(supabase, gameweeks) {
+  const roundIds = gameweeks.map((gameweek) => gameweek.stupa_round_id);
+  const { data: existingGameweeks, error: existingError } = await supabase
+    .from("fantasy_gameweeks")
+    .select("stupa_round_id, lock_at, unlock_at")
+    .in("stupa_round_id", roundIds);
+
+  if (existingError) {
+    throw new Error(`Could not load existing gameweeks: ${existingError.message}`);
+  }
+
+  const safeGameweeks = preserveLockedGameweekBoundaries(
+    gameweeks,
+    existingGameweeks ?? [],
+  );
+
+  for (const [index, gameweek] of safeGameweeks.entries()) {
+    const proposed = gameweeks[index];
+    if (
+      gameweek.lock_at !== proposed.lock_at ||
+      gameweek.unlock_at !== proposed.unlock_at
+    ) {
+      console.log(
+        `${gameweek.name}: preserved locked boundaries ` +
+          `${gameweek.lock_at} to ${gameweek.unlock_at}; fixture schedule still updates.`,
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("fantasy_gameweeks")
-    .upsert(gameweeks, { onConflict: "stupa_round_id" })
+    .upsert(safeGameweeks, { onConflict: "stupa_round_id" })
     .select("id, stupa_round_id, name, lock_at, unlock_at");
 
   if (error) {
@@ -191,6 +269,21 @@ async function upsertGameweeks(supabase, gameweeks) {
 
 async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
   const clubs = await getClubs(supabase);
+  const stupaMatchIds = matches
+    .map((match) => nullableInteger(match.id))
+    .filter((matchId) => matchId !== null);
+  const { data: existingMatches, error: existingError } = await supabase
+    .from("matches")
+    .select("stupa_match_id, fantasy_gameweek_id")
+    .in("stupa_match_id", stupaMatchIds);
+
+  if (existingError) {
+    throw new Error(`Could not load existing fixtures: ${existingError.message}`);
+  }
+
+  const existingMatchesByStupaId = new Map(
+    (existingMatches ?? []).map((match) => [match.stupa_match_id, match]),
+  );
   const payload = [];
 
   for (const match of matches) {
@@ -208,7 +301,12 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
     payload.push({
       profixio_id: `stupa:${match.id}`,
       stupa_match_id: match.id,
-      fantasy_gameweek_id: gameweeksByRoundId.get(match.round_id)?.id ?? null,
+      fantasy_gameweek_id: resolveFixtureGameweekId(
+        match.id,
+        match.round_id,
+        existingMatchesByStupaId,
+        gameweeksByRoundId,
+      ),
       stupa_event_match_id: match.event_match_id ?? null,
       stupa_stage_id: stageId,
       stupa_round_id: match.round_id,
@@ -280,7 +378,11 @@ async function main() {
   console.log(`Imported ${gameweeks.length} gameweeks and ${importedMatches} matches.`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+export { buildGameweeks };

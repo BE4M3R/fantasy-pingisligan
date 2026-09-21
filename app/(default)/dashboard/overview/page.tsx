@@ -132,6 +132,12 @@ export default async function OverviewPage() {
     progress.find((row) => row.status === "In progress") ??
     upcomingGameweek ??
     [...progress].reverse().find((row) => row.status === "Complete");
+  const gameweekState =
+    activeGameweek?.status === "In progress" || waitingForDataRefresh
+      ? "live"
+      : transfersLocked
+        ? "locked"
+        : "open";
   const rankIndex = leagueTable.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const isSquadReady = squad.length === SQUAD_SIZE;
@@ -147,7 +153,7 @@ export default async function OverviewPage() {
       ? "Earliest reopening"
       : "Transfer window closes";
   const deadline = waitingForDataRefresh
-    ? "Updating results and prices..."
+    ? "Updating results and scores..."
     : formatDateTime(
         transfersLocked
           ? transferLock?.unlock_at ?? null
@@ -162,9 +168,40 @@ export default async function OverviewPage() {
         <div>
           <div className="space-y-3 sm:space-y-5">
             <section className="table-panel overflow-hidden rounded-lg border p-3.5 sm:p-6">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--pf-brand-blue)] sm:text-xs">
-                Welcome back
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--pf-brand-blue)] sm:text-xs">
+                  Welcome back
+                </p>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border bg-[var(--pf-navy-elevated)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] sm:text-xs ${
+                    gameweekState === "live"
+                      ? "border-[var(--pf-fantasy-yellow)]/45 text-[var(--pf-fantasy-yellow)]"
+                      : gameweekState === "open"
+                        ? "border-[var(--pf-brand-blue-border)] text-[var(--pf-brand-blue-hover)]"
+                        : "border-[var(--pf-card-border)] text-[var(--pf-text-muted)]"
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                    {gameweekState === "live" ? (
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pf-fantasy-yellow)] opacity-70 motion-reduce:animate-none" />
+                    ) : null}
+                    <span
+                      className={`relative inline-flex h-2 w-2 rounded-full ${
+                        gameweekState === "live"
+                          ? "bg-[var(--pf-fantasy-yellow)] shadow-[0_0_8px_var(--pf-fantasy-yellow)]"
+                          : gameweekState === "open"
+                            ? "bg-[var(--pf-brand-blue)]"
+                            : "bg-[var(--pf-text-muted)]"
+                      }`}
+                    />
+                  </span>
+                  {gameweekState === "live"
+                    ? "GW Live"
+                    : gameweekState === "open"
+                      ? "GW Open"
+                      : "GW Locked"}
+                </span>
+              </div>
               <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
                 {fantasyTeam?.name ?? "Your fantasy club"}
               </h1>

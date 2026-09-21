@@ -17,19 +17,12 @@ type GameweekScore = {
   round_order: number | null;
 };
 
-type ScoreCache = Map<string, { scores: GameweekScore[]; expiresAt: number }>;
-
-async function loadGameweekScores(cache: ScoreCache, userId: string) {
-  const cached = cache.get(userId);
-  if (cached && cached.expiresAt > Date.now()) return cached.scores;
+async function loadGameweekScores(userId: string) {
   const { data, error } = await createClient().rpc(
     "get_leaderboard_team_gameweek_points", { p_user_id: userId },
   );
   if (error) throw new Error(error.message);
-  const scores = (data ?? []) as GameweekScore[];
-  if (cache.size >= 20) cache.clear();
-  cache.set(userId, { scores, expiresAt: Date.now() + 60_000 });
-  return scores;
+  return (data ?? []) as GameweekScore[];
 }
 
 function formatPoints(value: number | string | null | undefined) {
@@ -67,7 +60,6 @@ export function LeagueTable({
   const [rowsError, setRowsError] = useState("");
   const [remainingTotal, setRemainingTotal] = useState(totalRowCount ?? rows.length);
   const scoresRequestRef = useRef(0);
-  const scoresCacheRef = useRef<ScoreCache>(new Map());
   const paginated = totalRowCount !== undefined;
   const displayedRows = paginated && showAll ? loadedRows : rows;
   const [selectedTeam, setSelectedTeam] = useState<LeagueTableRow | null>(null);
@@ -122,7 +114,7 @@ export function LeagueTable({
     dialogRef.current?.showModal();
 
     try {
-      const scores = await loadGameweekScores(scoresCacheRef.current, row.user_id);
+      const scores = await loadGameweekScores(row.user_id);
       if (requestId !== scoresRequestRef.current) return;
       setGameweekScores(scores);
       setGameweekIndex(Math.max(scores.length - 1, 0));

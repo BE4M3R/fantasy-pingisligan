@@ -25,6 +25,7 @@ type FantasyTeam = {
 
 type SquadRow = {
   is_captain: boolean;
+  lineup_order: number;
   player_id: string;
   position: SquadPosition;
   players: DashboardPlayer | DashboardPlayer[] | null;
@@ -178,9 +179,10 @@ export default async function SquadPage({
       ? supabase
           .from("fantasy_team_players")
           .select(
-            "player_id, position, is_captain, players(id, first_name, last_name, birth_year, price, active, clubs(id, name))",
+            "player_id, position, is_captain, lineup_order, players(id, first_name, last_name, birth_year, price, active, clubs(id, name))",
           )
           .eq("fantasy_team_id", fantasyTeam.id)
+          .order("lineup_order", { ascending: true })
       : Promise.resolve({ data: [] }),
     supabase.rpc("current_transfer_lock"),
     supabase
@@ -193,7 +195,7 @@ export default async function SquadPage({
     fantasyTeam
       ? supabase
           .from("fantasy_team_chip_selections")
-          .select("chip, fantasy_gameweek_id, locked_at")
+          .select("chip, fantasy_gameweek_id, locked_at, used_at")
           .eq("fantasy_team_id", fantasyTeam.id)
       : Promise.resolve({ data: [], error: null }),
     fantasyTeam
@@ -317,7 +319,7 @@ export default async function SquadPage({
   const previousSnapshot = getPreviousSnapshot(previousGameweek);
   const transferWindowMessage = transfersLocked
     ? waitingForDataRefresh
-      ? "Updating results and player prices. Transfers reopen automatically when the refresh finishes."
+      ? "Importing results and calculating scores. Transfers reopen automatically when the refresh finishes."
       : `Transfer window opens earliest ${
           formatDateTime(transferLock?.unlock_at ?? null) ||
           "the round finishes"

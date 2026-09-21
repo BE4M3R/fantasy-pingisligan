@@ -11,7 +11,7 @@ Start with the root [README](../README.md) to install and run the application.
 | `app/dashboard/` | Protected fantasy-team UI and squad mutations |
 | `app/api/players/` | Authenticated, lazy-loaded player-pool endpoint |
 | `lib/supabase/` | Browser, server and middleware Supabase clients |
-| `scripts/` | Server-only Profixio and Stupa importers |
+| `scripts/` | Server-only player catalogue and STUPA importers |
 | `supabase/migrations/` | Versioned schema baseline and incremental changes |
 | `supabase/legacy/` | Archived pre-automation SQL; never reapply |
 

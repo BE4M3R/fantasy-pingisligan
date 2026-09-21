@@ -63,7 +63,9 @@ entry is the following gameweek and is treated as their initial squad rather
 than as six charged transfers.
 
 Automatic substitutions can use only players selected on that team's bench at
-the deadline.
+the deadline. The locked snapshot keeps the submitted positions and captain for
+audit history; scoring derives substitutions and effective captaincy without
+rewriting that snapshot.
 
 ## Player scoring
 
@@ -135,8 +137,19 @@ A player wins 3-1 and the player's club wins the fixture:
 - The captain can be changed between gameweeks before the deadline.
 - The multiplier applies to every point the captain earns, including all player,
   fixture, and gameweek bonuses.
-- If the captain records no appearance, the multiplier is not transferred to an
-  automatically substituted bench player.
+- If the captain records no appearance and is automatically substituted, the
+  incoming bench player becomes captain and receives the multiplier. When more
+  than one starter is replaced, captaincy follows the bench player paired with
+  the absent captain by the normal substitution priority.
+
+## Live results and leaderboards
+
+A gameweek appears in league history when its first team fixture starts. Its
+score updates as completed results are imported and scored. The home-page
+gameweek card shows **GW Open** while transfers are available, **GW Locked**
+between the deadline and first fixture, then **GW Live** with a pulsing
+indicator while the gameweek is in progress. Future gameweeks do not contribute
+to league totals or rankings.
 
 ## Transfers
 
@@ -157,18 +170,20 @@ A player wins 3-1 and the player's club wins the fixture:
 
 ### Player prices and team value
 
-- Player prices are refreshed from the latest ranking after a gameweek has
-  finished and reached its scheduled unlock time.
-- Prices never change while a gameweek transfer window is locked.
-- Transfers reopen only after the results and player-price refresh completes
-  successfully. A failed job leaves transfers closed until it is retried.
-- A completed team keeps the same unspent cash during a refresh. Price changes
-  are credited or debited using the squad that was locked for the gameweek that
-  just finished. If one of those players rises or falls, the team's total value
-  rises or falls by the same amount.
-- Transfers buy and sell players at their current displayed price. This means a
-  good earlier selection can increase the amount available for later squads,
-  while a price decrease reduces it.
+- Current player prices are fixed at their stored values. The application and
+  imports do not calculate prices from rankings, and gameweek refreshes do not
+  change them. An offline command can reproduce the former formula for a
+  manually reviewed new-player price.
+- An active player with a configured price can be selected even without ranking
+  data, subject to the normal budget and club limits.
+- Transfers reopen after STUPA results import and scoring complete successfully
+  for the pending unlocked gameweek. A failed job leaves transfers closed until
+  it is retried. Prices, team budgets and existing squads remain unchanged.
+- Transfers buy and sell players at their current displayed price.
+- A future explicit price update can use the existing budget adjustment during
+  the pending unlocked gameweek, before completion. Completed teams then keep
+  the same unspent cash: their total value changes by the price delta for players
+  in that gameweek's locked squad. No automatic price update is scheduled.
 
 ## Chips
 
@@ -195,10 +210,12 @@ deadline to two hours before the new scheduled start of its earliest team
 fixture. If that updated deadline has already passed when the change is
 imported, the gameweek locks immediately.
 
-Once a deadline has passed, it is frozen and the gameweek is not reopened. A
-postponed fixture remains attached to its original gameweek and is scored
-against that gameweek's locked squads when it is eventually played. Transfers
-for later gameweeks do not change the earlier snapshot.
+Once a deadline has passed, its lock and unlock boundaries are frozen and the
+gameweek is not reopened. The schedule importer still updates individual
+fixture times and statuses. A postponed fixture remains attached to its
+original gameweek and is scored against that gameweek's locked squads when it
+is eventually played. Transfers for later gameweeks do not change the earlier
+snapshot.
 
 ## Possible later additions
 

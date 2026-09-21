@@ -13,10 +13,10 @@ export async function GET() {
 
   const { data, error } = await createPublicClient()
     .from("players")
-    .select("id, first_name, last_name, birth_year, price, ranking_points, active, clubs(id, name)")
+    .select("id, first_name, last_name, birth_year, price, active, clubs(id, name)")
     .eq("active", true)
-    .order("ranking_position", { ascending: true, nullsFirst: false })
-    .order("price", { ascending: false });
+    .order("price", { ascending: false })
+    .order("id");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

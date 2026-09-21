@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
 import { nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
@@ -352,9 +353,9 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
   if (gameweekId) {
     query = query
       .eq("fantasy_gameweek_id", gameweekId)
-      .order("player_last_name_at_lock")
-      .order("player_first_name_at_lock")
-      .order("player_id");
+      // This is the order selected in the squad editor. It determines both
+      // bench priority and the captain's replacement when starters are absent.
+      .order("lineup_order", { ascending: true });
   }
 
   const { data: squadRows, error: squadError } = await query;
@@ -623,7 +624,10 @@ async function setup(supabase, scenario) {
 }
 
 function lockWindowTimes(definition, now = new Date()) {
-  const lockAt = addMinutes(now, -1);
+  return gameweekWindowTimes(definition, addMinutes(now, -1));
+}
+
+function gameweekWindowTimes(definition, lockAt) {
   const firstMatchStartsAt = addHours(lockAt, 2);
   const minimumOffset = Math.min(
     ...definition.fixtures.map((fixture) => fixture.startsAfterMinutes),
@@ -651,6 +655,61 @@ function lockWindowTimes(definition, now = new Date()) {
     lockAt,
     unlockAt: nextStockholmMidnightUtcIso(lastMatchEndsAt),
   };
+}
+
+async function prepare(supabase, definition) {
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+  const [{ count: snapshotCount, error: snapshotError }, { data: nextGameweek, error: nextError }] =
+    await Promise.all([
+      supabase
+        .from("fantasy_team_gameweek_snapshots")
+        .select("*", { count: "exact", head: true })
+        .eq("fantasy_gameweek_id", gameweek.id),
+      supabase
+        .from("fantasy_gameweeks")
+        .select("id, name, lock_at")
+        .neq("id", gameweek.id)
+        .gt("lock_at", new Date().toISOString())
+        .order("lock_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+  ensureNoError(snapshotError, "Could not check existing test snapshots");
+  ensureNoError(nextError, "Could not find the next gameweek");
+  assert(
+    (snapshotCount ?? 0) === 0,
+    `${definition.key} already has snapshots and cannot be prepared again. Use the next test gameweek.`,
+  );
+
+  const now = new Date();
+  const lockAt = addMinutes(now, 30);
+  if (nextGameweek && Date.parse(nextGameweek.lock_at) <= Date.parse(lockAt)) {
+    throw new Error(
+      `Cannot prepare ${definition.key}: ${nextGameweek.name} closes first. ` +
+        "Wait until that gameweek has passed or choose a different staging environment.",
+    );
+  }
+
+  const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
+  const times = gameweekWindowTimes(definition, lockAt);
+  const { error } = await supabase
+    .from("fantasy_gameweeks")
+    .update({
+      data_refreshed_at: null,
+      lock_at: times.lockAt,
+      first_match_starts_at: times.firstMatchStartsAt,
+      last_match_ends_at: times.lastMatchEndsAt,
+      unlock_at: times.unlockAt,
+      updated_at: now.toISOString(),
+    })
+    .eq("id", gameweek.id);
+  ensureNoError(error, `Could not prepare ${definition.key}`);
+  await updateFixtureTimes(supabase, databaseMatches, times.fixtures);
+
+  console.log(
+    `${definition.key} is now the next test gameweek and locks at ${times.lockAt}. ` +
+      "Reload the dashboard before selecting a chip.",
+  );
 }
 
 async function updateFixtureTimes(supabase, databaseMatches, fixtureTimes) {
@@ -717,7 +776,7 @@ async function lock(supabase, definition, waitForCron = false) {
   const { data: snapshotRows, count, error: countError } = await supabase
     .from("fantasy_team_gameweek_snapshots")
     .select(
-      "free_transfers_at_lock, free_transfers_after_lock, transfer_penalty_points",
+      "fantasy_team_id, active_chip, free_transfers_at_lock, free_transfers_after_lock, transfer_penalty_points",
       { count: "exact" },
     )
     .eq("fantasy_gameweek_id", gameweek.id);
@@ -731,6 +790,22 @@ async function lock(supabase, definition, waitForCron = false) {
     assert(
       snapshot.transfer_penalty_points === 0,
       "A team's first snapshot must not apply a transfer penalty.",
+    );
+  }
+  const { data: lockedChipSelections, error: chipError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("fantasy_team_id, chip")
+    .eq("fantasy_gameweek_id", gameweek.id)
+    .not("locked_at", "is", null);
+  ensureNoError(chipError, "Could not read locked chip selections");
+  const snapshotsByTeam = new Map(
+    (snapshotRows ?? []).map((snapshot) => [snapshot.fantasy_team_id, snapshot]),
+  );
+  for (const selection of lockedChipSelections ?? []) {
+    const snapshot = snapshotsByTeam.get(selection.fantasy_team_id);
+    assert(
+      snapshot?.active_chip === selection.chip,
+      `Locked ${selection.chip} chip was not copied into its gameweek snapshot.`,
     );
   }
   const [{ count: rosterCount, error: rosterError }, { count: playerCount, error: playerError }] =
@@ -751,6 +826,11 @@ async function lock(supabase, definition, waitForCron = false) {
   console.log("Snapshot RPC result:", snapshotResult);
   console.log(`Stored ${count ?? 0} team snapshots for ${definition.key}.`);
   console.log(`Stored ${rosterCount ?? 0} player-club snapshots for ${definition.key}.`);
+  console.log(
+    (lockedChipSelections?.length ?? 0) > 0
+      ? `Verified ${lockedChipSelections.length} locked chip snapshot(s).`
+      : "No chip was selected for this test gameweek.",
+  );
 }
 
 function resultWinner(result) {
@@ -937,17 +1017,19 @@ function expectedPlayerPoints(definition, activePlayers) {
 }
 
 function expectedTeamPoints(team, rows, playerResults, snapshot) {
-  const missingStarterCount = rows.filter(
+  const missingStarters = rows.filter(
     (row) => row.position === "starter" && !playerResults.played.has(row.player_id),
-  ).length;
-  const automaticSubstituteIds = new Set(
-    rows
-      .filter(
-        (row) => row.position === "bench" && playerResults.played.has(row.player_id),
-      )
-      .slice(0, missingStarterCount)
-      .map((row) => row.player_id),
   );
+  const automaticSubstitutes = rows
+    .filter(
+      (row) => row.position === "bench" && playerResults.played.has(row.player_id),
+    )
+    .slice(0, missingStarters.length);
+  const automaticSubstituteIds = new Set(
+    automaticSubstitutes.map((row) => row.player_id),
+  );
+  const missingCaptainIndex = missingStarters.findIndex((row) => row.is_captain);
+  const replacementCaptainId = automaticSubstitutes[missingCaptainIndex]?.player_id;
   const playerTotal = rows.reduce((total, row) => {
     const points = playerResults.points.get(row.player_id) ?? 0;
     const played = playerResults.played.has(row.player_id);
@@ -957,7 +1039,10 @@ function expectedTeamPoints(team, rows, playerResults, snapshot) {
       automaticSubstituteIds.has(row.player_id);
 
     if (!countsForTeam) return total;
-    if (row.is_captain && row.position === "starter" && played) {
+    const isEffectiveCaptain =
+      (row.is_captain && row.position === "starter" && played) ||
+      row.player_id === replacementCaptainId;
+    if (isEffectiveCaptain) {
       return total + points * (snapshot.active_chip === "triple_captain" ? 3 : 2);
     }
     return total + points;
@@ -1162,7 +1247,7 @@ async function seedAndScore(
   console.log("Repeated scoring produced identical totals.");
 }
 
-async function scoreAvailableGameweeks(supabase, scenario, targetDefinition) {
+async function scoreAvailableGameweeks(supabase, scenario, targetDefinition, updateTimes = true) {
   const targetIndex = scenario.gameweeks.findIndex(
     (gameweek) => gameweek.key === targetDefinition.key,
   );
@@ -1185,13 +1270,49 @@ async function scoreAvailableGameweeks(supabase, scenario, targetDefinition) {
       { ...definition, fixtures: availableFixtures },
       scenario.activePlayers,
       scenario.roleIds,
-      definition.key === targetDefinition.key,
+      updateTimes && definition.key === targetDefinition.key,
     );
   }
 }
 
-async function unlock(supabase, definition) {
+export async function completeTestGameweekResults(supabase, scenario, definition, scoreResults = scoreAvailableGameweeks) {
   const gameweek = await getDatabaseGameweek(supabase, definition);
+  const refreshedAt = new Date().toISOString();
+  assert(
+    Date.parse(refreshedAt) > Date.parse(gameweek.unlock_at),
+    `${definition.key} has not reached its scheduled unlock time. Run unlock first.`,
+  );
+  if (gameweek.data_refreshed_at !== null) {
+    console.log(`${definition.key} is already refreshed; no changes needed.`);
+    return;
+  }
+
+  // Replay available synthetic results and verify totals before clearing the
+  // lock. Preserve fixture times and never contact STUPA for synthetic rounds.
+  await scoreResults(supabase, scenario, definition, false);
+  const completed = await completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId: gameweek.id });
+  assert(completed, `${definition.key} is no longer pending refresh.`);
+  const { data: usedChipSelections, error: chipError } = await supabase
+    .from("fantasy_team_chip_selections")
+    .select("chip, locked_at, used_at")
+    .eq("fantasy_gameweek_id", gameweek.id)
+    .not("locked_at", "is", null);
+  ensureNoError(chipError, "Could not verify completed chip selections");
+  for (const selection of usedChipSelections ?? []) {
+    assert(
+      selection.used_at !== null,
+      `Locked ${selection.chip} chip was not marked used when ${definition.key} completed.`,
+    );
+  }
+  console.log(`${definition.key} refresh complete; prices and budgets are unchanged. Reload the app. Other locked gameweeks may still block transfers.`);
+}
+
+export async function unlock(supabase, scenario, definition, scoreResults = scoreAvailableGameweeks) {
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+  if (gameweek.data_refreshed_at !== null) {
+    console.log(`${definition.key} is already refreshed; no changes needed.`);
+    return;
+  }
   const databaseMatches = await getDatabaseMatches(supabase, gameweek.id);
   const matchesByStupaId = new Map(
     databaseMatches.map((match) => [match.stupa_match_id, match]),
@@ -1232,8 +1353,9 @@ async function unlock(supabase, definition) {
     .eq("id", gameweek.id);
   ensureNoError(error, `Could not complete ${definition.key}`);
   console.log(
-    `${definition.key} reached its scheduled unlock time and remains locked pending refresh.`,
+    `${definition.key} reached its scheduled unlock time; verifying results before reopening transfers.`,
   );
+  await completeTestGameweekResults(supabase, scenario, definition, scoreResults);
 }
 
 async function loadFantasyTeamsById(supabase, teamIds) {
@@ -1416,6 +1538,10 @@ async function status(supabase, scenario, key) {
   const rows = [];
   for (const definition of definitions) rows.push(await statusRow(supabase, definition));
   console.table(rows);
+  const { data: transferLock, error } = await supabase.rpc("current_transfer_lock");
+  ensureNoError(error, "Could not check the current transfer lock");
+  console.log("Current transfer window (including other gameweeks):");
+  console.table(Array.isArray(transferLock) ? transferLock : [transferLock]);
 }
 
 function printValidatedScenario(scenario, fixtureFile) {
@@ -1477,6 +1603,7 @@ async function main() {
   const actions = new Set([
     "validate",
     "setup",
+    "prepare",
     "lock",
     "lock-cron",
     "score",
@@ -1492,7 +1619,7 @@ async function main() {
   }
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, setup, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
+      "Choose an action: validate, setup, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
     );
   }
   if (action === "setup" && key) {
@@ -1519,19 +1646,22 @@ async function main() {
   if (action === "setup") await setup(supabase, resolvedScenario);
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
-  if (["lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
+  if (["prepare", "lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
     const definition = selectDefinition(resolvedScenario, key);
+    if (action === "prepare") await prepare(supabase, definition);
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
     if (action === "score") {
       await scoreAvailableGameweeks(supabase, resolvedScenario, definition);
     }
-    if (action === "unlock") await unlock(supabase, definition);
+    if (action === "unlock") await unlock(supabase, resolvedScenario, definition);
     if (action === "refresh-prices") await refreshPrices(supabase, definition);
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

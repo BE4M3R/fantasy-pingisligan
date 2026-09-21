@@ -1,5 +1,6 @@
 "use client";
 
+import { canSelectPlayer, comparePlayerPrices, hasConfiguredPrice } from "@/lib/player-availability";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { canonicalClubName } from "@/lib/clubs";
@@ -157,19 +158,13 @@ export function PlayerPicker({
         .toLocaleLowerCase("sv-SE")
         .includes(normalizedQuery);
       const matchesClub = club === "all" || getClubName(player) === club;
-      const isAffordable = player.ranking_points !== null && Number(player.price) <= remainingBudget;
+      const isAffordable = canSelectPlayer(player) && Number(player.price) <= remainingBudget;
 
       return matchesQuery && matchesClub && (!affordableOnly || isAffordable);
     });
 
-    return filteredPlayers.toSorted((firstPlayer, secondPlayer) => {
-      // Unpriced players stay at the end in either price-sort direction.
-      const rankingDifference = Number(firstPlayer.ranking_points === null)
-        - Number(secondPlayer.ranking_points === null);
-      if (rankingDifference !== 0) return rankingDifference;
-      const priceDifference = Number(firstPlayer.price) - Number(secondPlayer.price);
-      return priceSort === "low-to-high" ? priceDifference : -priceDifference;
-    });
+    return filteredPlayers.toSorted((firstPlayer, secondPlayer) =>
+      comparePlayerPrices(firstPlayer, secondPlayer, priceSort === "low-to-high"));
   }, [affordableOnly, club, players, priceSort, query, remainingBudget]);
 
   const slotLabel = position === "starter" ? "main player" : "bench player";
@@ -296,7 +291,7 @@ export function PlayerPicker({
               <div className="grid gap-3 sm:grid-cols-2">
                 {visiblePlayers.map((player) => {
                   const selected = selectedIds.has(player.id);
-                  const noRanking = player.ranking_points === null;
+                  const notSelectable = !canSelectPlayer(player);
                   const tooExpensive = Number(player.price) > remainingBudget;
                   const playerClubId = getClubId(player);
                   const clubLimitReached = Boolean(
@@ -304,7 +299,7 @@ export function PlayerPicker({
                       && (clubCounts.get(playerClubId) ?? 0) >= MAX_PLAYERS_PER_CLUB,
                   );
                   const unavailable =
-                    noRanking || (!selected && (tooExpensive || clubLimitReached));
+                    notSelectable || (!selected && (tooExpensive || clubLimitReached));
                   return (
                     <div
                       className={`flex items-center gap-3 rounded-md border p-3 transition ${
@@ -323,7 +318,7 @@ export function PlayerPicker({
                             ? "text-[var(--pf-text-muted)]"
                             : "text-[var(--pf-text)]"
                         }`}>{player.first_name} {player.last_name}</p>
-                        <p className="mt-1 line-clamp-2 text-xs leading-tight text-[var(--pf-text-muted)]">{getClubName(player)} · {noRanking ? "-" : formatMoney(player.price)}</p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-tight text-[var(--pf-text-muted)]">{getClubName(player)} · {!hasConfiguredPrice(player.price) ? "-" : formatMoney(player.price)}</p>
                       </div>
                       <button
                         className={`rounded-md px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] ${
@@ -333,14 +328,14 @@ export function PlayerPicker({
                               ? "cursor-not-allowed bg-[var(--pf-card-border)] text-[var(--pf-text-muted)]"
                               : "bg-[var(--pf-brand-blue)] text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] disabled:bg-[var(--pf-navy-deep)] disabled:text-[var(--pf-text-muted)]/55"
                         }`}
-                        disabled={noRanking || selected || tooExpensive || clubLimitReached || transfersLocked || clubRepairBlocked}
+                        disabled={notSelectable || selected || tooExpensive || clubLimitReached || transfersLocked || clubRepairBlocked}
                         onClick={() => {
                           onSelect(player);
                           dialogRef.current?.close();
                         }}
                         type="button"
                       >
-                          {noRanking ? "No ranking" : selected ? "Selected" : tooExpensive ? "Over budget" : clubLimitReached ? "Club limit" : "Add"}
+                          {notSelectable ? "Unavailable" : selected ? "Selected" : tooExpensive ? "Over budget" : clubLimitReached ? "Club limit" : "Add"}
                       </button>
                     </div>
                   );

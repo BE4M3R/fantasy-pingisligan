@@ -1,8 +1,10 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+import { canSelectPlayer } from "@/lib/player-availability";
 
 const STARTER_SIZE = 4;
 const BENCH_SIZE = 2;
@@ -157,7 +159,7 @@ async function assertTransfersOpen(supabase: Awaited<ReturnType<typeof createCli
   if (lock?.is_locked) {
     dashboardMessage(
       lock.is_refreshing
-        ? "Transfers remain closed while results and player prices are updated."
+        ? "Transfers remain closed while results are imported and scored."
         : `The transfer window is closed for ${lock.gameweek_name ?? "this gameweek"}. It reopens after ${formatDateTime(lock.unlock_at)} and the data refresh.`,
     );
   }
@@ -186,17 +188,17 @@ export async function saveSquadDraft(
   }
 
   const { supabase } = await getUserId();
-  const { data: unrankedPlayers, error: rankingError } = await supabase
+  const { data: players, error: playerError } = await supabase
     .from("players")
-    .select("id, fantasy_team_players(player_id)")
-    .in("id", input.players.map((player) => player.player_id))
-    .is("ranking_points", null);
+    .select("id, active, price, fantasy_team_players(player_id)")
+    .in("id", input.players.map((player) => player.player_id));
 
-  if (rankingError) return { error: rankingError.message };
+  if (playerError) return { error: playerError.message };
   // RLS limits nested squad rows to the signed-in owner's team. Existing
-  // owners may retain a player, but new transfers require ranking data.
-  if (unrankedPlayers?.some((player) => player.fantasy_team_players.length === 0)) {
-    return { error: "Players with no ranking cannot be added until their ranking is available." };
+  // owners may retain inactive players; new selections need an active price.
+  if (players?.some((player) =>
+    !canSelectPlayer(player) && player.fantasy_team_players.length === 0)) {
+    return { error: "Only active players with a configured price can be added." };
   }
 
   const { error } = await supabase.rpc("save_my_complete_fantasy_team", {
@@ -295,7 +297,7 @@ export async function addPlayerToTeam(formData: FormData) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, price, club_id, ranking_points")
+    .select("id, price, club_id, active")
     .eq("id", playerId)
     .eq("active", true)
     .maybeSingle();
@@ -303,8 +305,8 @@ export async function addPlayerToTeam(formData: FormData) {
   if (playerError || !player) {
     dashboardMessage(playerError?.message ?? "Player not found.");
   }
-  if (player.ranking_points === null) {
-    dashboardMessage("Players with no ranking cannot be added until their ranking is available.");
+  if (!canSelectPlayer(player)) {
+    dashboardMessage("Only active players with a configured price can be added.");
   }
 
   const { data: squadRows, error: squadError } = await supabase
@@ -398,7 +400,6 @@ export async function updateTeamName(formData: FormData) {
     dashboardMessage(error.message);
   }
 
-  updateTag("global-standings");
   revalidatePath("/dashboard", "layout");
 }
 
@@ -503,8 +504,6 @@ export async function deleteAccount() {
     dashboardMessage(error.message);
   }
 
-  updateTag("global-standings");
-
   // Deleting the Auth user invalidates its refresh tokens, but the current
   // access-token cookie can otherwise remain valid until the JWT expires.
   // Clear the local session so public pages no longer redirect to dashboard.
@@ -595,7 +594,7 @@ export async function swapPlayerIntoTeam(formData: FormData) {
 
   const { data: incomingPlayer, error: incomingError } = await supabase
     .from("players")
-    .select("id, price, club_id, ranking_points")
+    .select("id, price, club_id, active")
     .eq("id", incomingPlayerId)
     .eq("active", true)
     .maybeSingle();
@@ -603,8 +602,8 @@ export async function swapPlayerIntoTeam(formData: FormData) {
   if (incomingError || !incomingPlayer) {
     dashboardMessage(incomingError?.message ?? "Player not found.");
   }
-  if (incomingPlayer.ranking_points === null) {
-    dashboardMessage("Players with no ranking cannot be added until their ranking is available.");
+  if (!canSelectPlayer(incomingPlayer)) {
+    dashboardMessage("Only active players with a configured price can be added.");
   }
 
   const { data: squadRows, error: squadError } = await supabase
