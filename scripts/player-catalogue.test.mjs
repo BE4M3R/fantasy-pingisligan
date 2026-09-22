@@ -42,7 +42,7 @@ test("catalogue retains every roster UUID/license and explicitly priced active p
   assert.match(catalogue.syncedFromProductionAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(catalogue.clubs.length, 10);
   assert.equal(catalogue.players.length, 75);
-  assert.equal(catalogue.playerExternalIdentities.length, 74);
+  assert.equal(catalogue.playerExternalIdentities.length, 80);
   const active = catalogue.players.filter((player) => player.active);
   assert.equal(active.length, 53);
   assert.equal(catalogue.players.length - active.length, 22);
@@ -50,6 +50,25 @@ test("catalogue retains every roster UUID/license and explicitly priced active p
     const matches = active.filter((player) => entry.playerId ? player.id === entry.playerId : player.profixio_id === entry.licenseId);
     assert.equal(matches.length, 1, entry.name);
     if (entry.playerId) assert.equal(matches[0].price, 10000000);
+  }
+});
+
+test("catalogue keeps the reviewed STUPA result aliases on the permanent player UUIDs", () => {
+  const identities = new Map(catalogue.playerExternalIdentities.map((identity) => [
+    `${identity.provider}:${identity.external_id}`,
+    identity.player_id,
+  ]));
+  const expected = {
+    "sbtf_license:1103027": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
+    "stupa_user_role:33289": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
+    "sbtf_license:1053541": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
+    "stupa_user_role:22393": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
+    "sbtf_license:1027359": "cde479a6-aca3-4311-a04e-79091577f838",
+    "stupa_user_role:22391": "cde479a6-aca3-4311-a04e-79091577f838",
+  };
+
+  for (const [identity, playerId] of Object.entries(expected)) {
+    assert.equal(identities.get(identity), playerId, identity);
   }
 });
 
