@@ -1218,6 +1218,22 @@
     },
     {
       "provider": "sbtf_license",
+      "external_id": "1027359",
+      "player_id": "cde479a6-aca3-4311-a04e-79091577f838",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
+    },
+    {
+      "provider": "sbtf_license",
+      "external_id": "1053541",
+      "player_id": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
+    },
+    {
+      "provider": "sbtf_license",
       "external_id": "1056347",
       "player_id": "da08f91a-7826-4cb4-aa81-ab00b6bb010c",
       "is_current": true,
@@ -1335,6 +1351,14 @@
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
       "last_seen_at": "2026-09-05T05:30:09.276647+00:00"
+    },
+    {
+      "provider": "sbtf_license",
+      "external_id": "1103027",
+      "player_id": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1783,6 +1807,30 @@
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
       "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22391",
+      "player_id": "cde479a6-aca3-4311-a04e-79091577f838",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22393",
+      "player_id": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "33289",
+      "player_id": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:24:56+00:00",
+      "last_seen_at": "2026-09-22T17:24:56+00:00"
     }
   ]
 }
