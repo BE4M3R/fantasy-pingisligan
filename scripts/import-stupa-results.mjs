@@ -72,13 +72,22 @@ function getParticipant(match, order) {
 }
 
 async function fetchStage(stageId) {
-  const url = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
-  url.searchParams.set("stage_id", String(stageId));
-  url.searchParams.set("view", "standard");
-  url.searchParams.set("show_matrix", "true");
-  url.searchParams.set("fetch_point_system", "true");
+  const stageUrl = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
+  stageUrl.searchParams.set("stage_id", String(stageId));
+  stageUrl.searchParams.set("view", "standard");
+  stageUrl.searchParams.set("show_matrix", "true");
+  stageUrl.searchParams.set("fetch_point_system", "true");
 
-  const response = await fetch(url, {
+  // A deciding doubles match is not included in get_group_matches. Stupa
+  // exposes it as a separate golden parent whose meta.source_match_id points
+  // back to the scheduled fixture, with the scored 2-v-2 row as its child.
+  const goldenUrl = new URL("/ott/v1/matches", STUPA_API_BASE_URL);
+  goldenUrl.searchParams.set("stage_id", String(stageId));
+  goldenUrl.searchParams.set("is_golden_match", "true");
+  goldenUrl.searchParams.set("load_sub_matches", "true");
+  goldenUrl.searchParams.set("limit", "1000");
+
+  const requestOptions = {
     headers: {
       accept: "application/json",
       tenant: STUPA_TENANT,
@@ -86,18 +95,75 @@ async function fetchStage(stageId) {
       source: "web",
       "user-agent": "fantasy-pingisligan-results-importer/1.0",
     },
-  });
+  };
 
-  if (!response.ok) {
-    throw new Error(`Stupa results request failed with ${response.status}`);
+  const [stageResponse, goldenResponse] = await Promise.all([
+    fetch(stageUrl, requestOptions),
+    fetch(goldenUrl, requestOptions),
+  ]);
+
+  if (!stageResponse.ok) {
+    throw new Error(`Stupa results request failed with ${stageResponse.status}`);
+  }
+  if (!goldenResponse.ok) {
+    throw new Error(`Stupa golden results request failed with ${goldenResponse.status}`);
   }
 
-  const payload = await response.json();
-  if (payload?.code !== 200 || !Array.isArray(payload?.data)) {
-    throw new Error(`Unexpected Stupa results response: ${payload?.msg ?? "unknown error"}`);
+  const [stagePayload, goldenPayload] = await Promise.all([
+    stageResponse.json(),
+    goldenResponse.json(),
+  ]);
+  if (stagePayload?.code !== 200 || !Array.isArray(stagePayload?.data)) {
+    throw new Error(
+      `Unexpected Stupa results response: ${stagePayload?.msg ?? "unknown error"}`,
+    );
+  }
+  if (!Array.isArray(goldenPayload)) {
+    throw new Error("Unexpected Stupa golden results response.");
   }
 
-  return payload.data.flatMap((group) => group.matches ?? []);
+  return attachGoldenSubmatches(
+    stagePayload.data.flatMap((group) => group.matches ?? []),
+    goldenPayload,
+  );
+}
+
+function attachGoldenSubmatches(parentMatches, goldenMatches) {
+  const mergedParents = parentMatches.map((parent) => ({
+    ...parent,
+    sub_matches: [...(parent.sub_matches ?? [])],
+  }));
+  const parentsById = new Map(
+    mergedParents.map((parent) => [integer(parent.id, null), parent]),
+  );
+
+  for (const goldenMatch of goldenMatches) {
+    const completedSubmatches = (goldenMatch?.sub_matches ?? []).filter(
+      (submatch) => submatch?.status === "SCORED" && submatch?.id,
+    );
+    if (completedSubmatches.length === 0) continue;
+
+    const sourceMatchId = integer(goldenMatch?.meta?.source_match_id, null);
+    const sourceMatch = parentsById.get(sourceMatchId);
+    if (!sourceMatch) {
+      throw new Error(
+        `Stupa golden match ${goldenMatch.id ?? "unknown"} has no source fixture ` +
+          `${sourceMatchId ?? "ID"} in the stage response.`,
+      );
+    }
+
+    const existingSubmatchIds = new Set(
+      sourceMatch.sub_matches.map((submatch) => integer(submatch?.id, null)),
+    );
+    for (const submatch of completedSubmatches) {
+      const submatchId = integer(submatch.id, null);
+      if (existingSubmatchIds.has(submatchId)) continue;
+      sourceMatch.sub_matches.push({ ...submatch, is_golden_match: true });
+      existingSubmatchIds.add(submatchId);
+    }
+  }
+
+  return mergedParents;
 }
 
 function rosterNameKey(club, name) {
@@ -603,4 +669,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   });
 }
 
-export { buildImportRows, buildManualPlayerLookup };
+export { attachGoldenSubmatches, buildImportRows, buildManualPlayerLookup };

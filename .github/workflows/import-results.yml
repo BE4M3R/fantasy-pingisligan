@@ -58,7 +58,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Import results, score and complete the pending gameweek
+      - name: Import singles and golden doubles, score and complete the pending gameweek
         if: steps.cadence.outputs.should_run == 'true'
         run: |
           if npm run import:results -- --complete-gameweek-refresh; then
