@@ -142,6 +142,13 @@ for the existing catalogue wholesale and never push or edit hosted data manually
 Schedule and results have `:dry` variants. `STUPA_STAGE_ID` overrides the
 default stage `5727`. Unlike the player dry run, these contact STUPA.
 
+The results importer reads both the stage's normal group matches and its
+standalone golden matches. STUPA does not include a deciding doubles result in
+the scheduled parent fixture: the golden-match response identifies that fixture
+through `meta.source_match_id` and contains the scored 2-v-2 child match. The
+importer attaches that child to the scheduled fixture before persisting and
+scoring it. Local dry runs and the production workflow use this same path.
+
 The daily and manual schedule imports recalculate a future gameweek's deadline
 from its earliest fixture. Once the existing deadline has passed, imports keep
 that gameweek's lock and unlock boundaries unchanged but continue updating its
@@ -333,6 +340,21 @@ from the database, the schedule must be imported first; that separate condition
 still blocks gameweek completion.
 
 ## Troubleshooting
+
+### Read-only golden-doubles verification, 23 September 2026
+
+- Stage `5727` returned 42 scheduled fixtures and three scored round-one
+  fixtures. The group-matches response contained 18 scored child matches, all
+  with one player per side; it did not contain the deciding doubles result from
+  the 5-4 BTK Rekord-Spårvägens BTK fixture.
+- The same stage's golden-match response returned golden parent `134540`,
+  linked to scheduled fixture `88977` by `meta.source_match_id`. Its scored
+  child `134541` contained the actual pairs: Hampus Söderlund and Simon
+  Arvidsson beat Simon Berglund and Harald Andersson 2-1.
+- The importer dry run combined both responses into 19 scored submatches and 40
+  player-result rows. The import regression suite verified that all four
+  doubles rows remain linked to the scheduled fixture and retain their result
+  and set totals. No result data was written during this verification.
 
 ### Read-only result verification, 20 September 2026
 

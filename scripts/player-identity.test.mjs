@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildImportRows, buildManualPlayerLookup, reportUnmatchedPlayers } from "./import-stupa-results.mjs";
+import {
+  attachGoldenSubmatches,
+  buildImportRows,
+  buildManualPlayerLookup,
+  reportUnmatchedPlayers,
+} from "./import-stupa-results.mjs";
 import roster from "../data/sbtf-rosters.json" with { type: "json" };
 
 function stupaParent(detail) {
@@ -252,6 +257,109 @@ test("doubles results retain each unranked player's separate squad identity", ()
     buildManualPlayerLookup(manualPlayers));
   assert.deepEqual(rows.playerResults.map((r) => r.player_id), manualPlayers.map((p) => p.id));
   assert.deepEqual(rows.identityConflicts, []);
+});
+
+test("Stupa golden-match children are attached to their scheduled fixture as doubles", () => {
+  const parent = stupaParent(stupaDetail());
+  const goldenMatch = {
+    id: 150,
+    is_golden_match: true,
+    meta: { source_match_id: 100 },
+    sub_matches: [
+      {
+        id: 151,
+        is_golden_match: true,
+        order: 1,
+        participants: [
+          {
+            order: 1,
+            participant_id: 10,
+            participant_details: [
+              stupaDetail(),
+              stupaDetail({
+                meta_data: { license_id: "home-partner-license" },
+                name: "Home Partner",
+                participant_label: "HD2",
+                user_role_id: 1235,
+              }),
+            ],
+            points: [6, 11, 11],
+            points_lost: 29,
+            points_won: 28,
+            sets: [0, 1, 1],
+            sets_lost: 1,
+            sets_won: 2,
+          },
+          {
+            order: 2,
+            participant_id: 20,
+            participant_details: [
+              stupaDetail({
+                meta_data: { license_id: "away-player-license" },
+                name: "Away Player",
+                participant_label: "BD1",
+                user_role_id: 2234,
+              }),
+              stupaDetail({
+                meta_data: { license_id: "away-partner-license" },
+                name: "Away Partner",
+                participant_label: "BD2",
+                user_role_id: 2235,
+              }),
+            ],
+            points: [11, 9, 9],
+            points_lost: 28,
+            points_won: 29,
+            sets: [1, 0, 0],
+            sets_lost: 2,
+            sets_won: 1,
+          },
+        ],
+        status: "SCORED",
+        winner: 10,
+      },
+    ],
+  };
+
+  const [mergedParent] = attachGoldenSubmatches([parent], [goldenMatch]);
+  assert.equal(parent.sub_matches.length, 1, "the stage response is not mutated");
+  assert.equal(mergedParent.sub_matches.length, 2);
+
+  const playersByLicenseId = new Map([
+    ["976954", { id: "home-player" }],
+    ["home-partner-license", { id: "home-partner" }],
+    ["away-player-license", { id: "away-player" }],
+    ["away-partner-license", { id: "away-partner" }],
+  ]);
+  const rows = buildImportRows(
+    [mergedParent],
+    new Map([[100, { fantasy_gameweek_id: "gameweek", id: "match" }]]),
+    playersByLicenseId,
+    new Map(),
+  );
+
+  const goldenSubmatch = rows.submatches.find(
+    (submatch) => submatch.stupa_submatch_id === 151,
+  );
+  const goldenResults = rows.playerResults.filter(
+    (result) => result.stupa_submatch_id === 151,
+  );
+  assert.equal(goldenSubmatch.match_id, "match");
+  assert.equal(goldenSubmatch.is_golden_match, true);
+  assert.deepEqual(
+    goldenResults.map((result) => ({
+      playerId: result.player_id,
+      setsLost: result.sets_lost,
+      setsWon: result.sets_won,
+      won: result.won,
+    })),
+    [
+      { playerId: "home-player", setsLost: 1, setsWon: 2, won: true },
+      { playerId: "home-partner", setsLost: 1, setsWon: 2, won: true },
+      { playerId: "away-player", setsLost: 2, setsWon: 1, won: false },
+      { playerId: "away-partner", setsLost: 2, setsWon: 1, won: false },
+    ],
+  );
 });
 
 test("all 51 licensed SBTF roster players match Stupa licenses regardless of names or transfers", () => {
