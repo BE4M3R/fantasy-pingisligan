@@ -1,9 +1,20 @@
 import type { ReactNode } from "react";
 
-const scoring = [
-  ["Individual match win", "+4"],
-  ["Each set won", "+1"],
-  ["Doubles match win, per player", "+2"],
+const wonMatchScoring = [
+  ["Base points", "+4"],
+  ["Per won set", "+1"],
+  ["Per lost set", "-1"],
+  ["Seal fixture win", "+2"],
+] as const;
+
+const lostMatchScoring = [["Per won set", "+1"]] as const;
+
+const doublesScoring = [
+  ["Base points, per player", "+2"],
+  ["Seal fixture win, per player", "+1"],
+] as const;
+
+const fixtureBonusScoring = [
   ["Play in a fixture your club wins", "+3"],
   ["Win all singles (minimum two)", "+2"],
 ] as const;
@@ -84,15 +95,84 @@ export function RulesContent() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[var(--pf-navy-deep)] text-xs uppercase tracking-wide text-[var(--pf-text-muted)]">
+            <table aria-label="Player scoring" className="w-full text-left text-sm">
+              <thead className="border-b border-[var(--pf-card-border)] text-xs uppercase tracking-wide text-[var(--pf-text-muted)]">
                 <tr>
                   <th className="px-5 py-3 font-semibold sm:px-6">Event</th>
                   <th className="px-5 py-3 text-right font-semibold sm:px-6">Points</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--pf-card-border)]">
-                {scoring.map(([event, points]) => (
+                <tr className="bg-[var(--pf-navy-deep)]">
+                  <th
+                    className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wide text-[var(--pf-brand-blue)] sm:px-6"
+                    colSpan={2}
+                    scope="rowgroup"
+                  >
+                    WON SINGLES MATCH
+                  </th>
+                </tr>
+                {wonMatchScoring.map(([event, points]) => (
+                  <tr
+                    className="transition hover:bg-[var(--pf-brand-blue-soft)]"
+                    key={event}
+                  >
+                    <td className="px-5 py-3 text-[var(--pf-text-muted)] sm:px-6">{event}</td>
+                    <td className="px-5 py-3 text-right font-black text-[var(--pf-fantasy-yellow)] sm:px-6">
+                      {points}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-[var(--pf-navy-deep)]">
+                  <th
+                    className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wide text-[var(--pf-brand-blue)] sm:px-6"
+                    colSpan={2}
+                    scope="rowgroup"
+                  >
+                    LOST SINGLES MATCH
+                  </th>
+                </tr>
+                {lostMatchScoring.map(([event, points]) => (
+                  <tr
+                    className="transition hover:bg-[var(--pf-brand-blue-soft)]"
+                    key={`lost-${event}`}
+                  >
+                    <td className="px-5 py-3 text-[var(--pf-text-muted)] sm:px-6">{event}</td>
+                    <td className="px-5 py-3 text-right font-black text-[var(--pf-fantasy-yellow)] sm:px-6">
+                      {points}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-[var(--pf-navy-deep)]">
+                  <th
+                    className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wide text-[var(--pf-brand-blue)] sm:px-6"
+                    colSpan={2}
+                    scope="rowgroup"
+                  >
+                    WON DOUBLES MATCHES
+                  </th>
+                </tr>
+                {doublesScoring.map(([event, points]) => (
+                  <tr
+                    className="transition hover:bg-[var(--pf-brand-blue-soft)]"
+                    key={event}
+                  >
+                    <td className="px-5 py-3 text-[var(--pf-text-muted)] sm:px-6">{event}</td>
+                    <td className="px-5 py-3 text-right font-black text-[var(--pf-fantasy-yellow)] sm:px-6">
+                      {points}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-[var(--pf-navy-deep)]">
+                  <th
+                    className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wide text-[var(--pf-brand-blue)] sm:px-6"
+                    colSpan={2}
+                    scope="rowgroup"
+                  >
+                    FIXTURE BONUSES
+                  </th>
+                </tr>
+                {fixtureBonusScoring.map(([event, points]) => (
                   <tr
                     className="transition hover:bg-[var(--pf-brand-blue-soft)]"
                     key={event}

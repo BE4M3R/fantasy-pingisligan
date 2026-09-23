@@ -11,6 +11,8 @@ const PARTICIPANT_ID_BASE = -903001;
 const SUBMATCH_ID_BASE = -904001;
 const ROLE_ID_BASE = -905001;
 
+let requiredTeamCount = 2;
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 const defaultFixtureFile = path.join(
@@ -334,7 +336,7 @@ async function loadScenario(filePath) {
   return addReservedIds(raw);
 }
 
-async function loadTeamsAndSquads(supabase, gameweekId = null) {
+async function loadTeamsAndSquads(supabase, gameweekId = null, minimumTeamCount = requiredTeamCount) {
   const { data: teams, error: teamError } = await supabase
     .from("fantasy_teams")
     .select("id, name, created_at, onboarding_completed")
@@ -342,8 +344,11 @@ async function loadTeamsAndSquads(supabase, gameweekId = null) {
     .order("created_at", { ascending: true });
   ensureNoError(teamError, "Could not load fantasy teams");
 
-  if ((teams ?? []).length < 2) {
-    throw new Error("Create at least two completed fantasy teams first.");
+  if ((teams ?? []).length < minimumTeamCount) {
+    throw new Error(
+      "Create at least " + minimumTeamCount + " completed fantasy team" +
+        (minimumTeamCount === 1 ? "" : "s") + " first.",
+    );
   }
 
   const sourceTable = gameweekId
@@ -555,7 +560,7 @@ function configuredTimes(gameweek, baseDate = new Date()) {
   };
 }
 
-async function setup(supabase, scenario) {
+async function setup(supabase, scenario, minimumTeamCount = 2) {
   const [{ data: existingGameweeks, error: gameweekError }, { data: existingMatches, error: matchError }] =
     await Promise.all([
       supabase.from("fantasy_gameweeks").select("id").eq("stupa_stage_id", scenario.stageId),
@@ -567,7 +572,7 @@ async function setup(supabase, scenario) {
     throw new Error("Test data already exists. Run cleanup before setup again.");
   }
 
-  await loadTeamsAndSquads(supabase);
+  await loadTeamsAndSquads(supabase, null, minimumTeamCount);
   const now = new Date();
   const inserted = [];
 
@@ -624,7 +629,7 @@ async function setup(supabase, scenario) {
 }
 
 function lockWindowTimes(definition, now = new Date()) {
-  return gameweekWindowTimes(definition, addMinutes(now, -1));
+  return gameweekWindowTimes(definition, now);
 }
 
 function gameweekWindowTimes(definition, lockAt) {
@@ -975,19 +980,26 @@ function expectedPlayerPoints(definition, activePlayers) {
           : side === "home"
             ? result.homeSets
             : result.awaySets;
+        const setsLost = result.walkover
+          ? 0
+          : side === "home"
+            ? result.awaySets
+            : result.homeSets;
+        const setScorePoints = result.walkover
+          ? won ? 3 : 0
+          : won
+            ? setsWon - setsLost
+            : setsWon;
         for (const player of players) {
           fixtureParticipants[side].add(player.id);
           played.add(player.id);
           let matchPoints;
           if (match.type === "doubles") {
-            const scoringSetsWon = result.walkover && won ? 3 : setsWon;
-            matchPoints =
-              (won ? 2 : 0) +
-              Math.ceil(scoringSetsWon / players.length);
+            matchPoints = won ? 2 : 0;
           } else if (result.walkover) {
             matchPoints = won ? 7 : 0;
           } else {
-            matchPoints = (won ? 4 : 0) + setsWon;
+            matchPoints = (won ? 4 : 0) + setScorePoints;
           }
           points.set(player.id, (points.get(player.id) ?? 0) + matchPoints);
 
@@ -1005,6 +1017,21 @@ function expectedPlayerPoints(definition, activePlayers) {
       for (const playerId of fixtureParticipants[fixture.winner]) {
         points.set(playerId, (points.get(playerId) ?? 0) + 3);
       }
+
+      const clinchingMatch = [...fixture.matches]
+        .reverse()
+        .find((match) => resultWinner(match.result) === fixture.winner);
+      assert(clinchingMatch, `Missing clinching match for ${fixture.key}.`);
+      const clinchingPlayers = playersForMatch(
+        fixture,
+        fixture.winner === "home"
+          ? clinchingMatch.homePlayers
+          : clinchingMatch.awayPlayers,
+      );
+      const clinchingBonus = clinchingMatch.type === "doubles" ? 1 : 2;
+      for (const player of clinchingPlayers) {
+        points.set(player.id, (points.get(player.id) ?? 0) + clinchingBonus);
+      }
     }
   }
 
@@ -1014,6 +1041,46 @@ function expectedPlayerPoints(definition, activePlayers) {
     }
   }
   return { played, points };
+}
+
+function assertNoFixtureBonusForNonParticipants(
+  definition,
+  databaseMatches,
+  actualPlayerStats,
+) {
+  const matchesByStupaId = new Map(
+    databaseMatches.map((match) => [match.stupa_match_id, match]),
+  );
+
+  for (const fixture of definition.fixtures) {
+    if (!fixture.winner) continue;
+
+    const winningPlayers = fixture.winner === "home"
+      ? fixture.homePlayers
+      : fixture.awayPlayers;
+    const participantIds = new Set(
+      fixture.matches.flatMap((match) =>
+        playersForMatch(
+          fixture,
+          fixture.winner === "home" ? match.homePlayers : match.awayPlayers,
+        ).map((player) => player.id),
+      ),
+    );
+    const databaseMatch = matchesByStupaId.get(fixture.matchId);
+    if (!databaseMatch) throw new Error("Missing database fixture: " + fixture.key + ".");
+
+    for (const player of winningPlayers) {
+      if (participantIds.has(player.id)) continue;
+      const stat = actualPlayerStats.find(
+        (row) => row.match_id === databaseMatch.id && row.player_id === player.id,
+      );
+      assert(
+        !stat,
+        "Non-participant " + displayName(player) + " received points in " + fixture.key + ".",
+      );
+    }
+  }
+
 }
 
 function expectedTeamPoints(team, rows, playerResults, snapshot) {
@@ -1179,9 +1246,15 @@ async function seedAndScore(
   const expectedPlayers = expectedPlayerPoints(definition, activePlayers);
   const { data: actualPlayerStats, error: actualPlayerStatsError } = await supabase
     .from("player_match_stats")
-    .select("player_id, fantasy_points")
+    .select("match_id, player_id, fantasy_points")
     .in("match_id", databaseMatchIds);
   ensureNoError(actualPlayerStatsError, "Could not read test player points");
+  assertNoFixtureBonusForNonParticipants(
+    definition,
+    databaseMatches,
+    actualPlayerStats ?? [],
+  );
+
   const actualPlayerPoints = new Map();
   for (const stat of actualPlayerStats ?? []) {
     actualPlayerPoints.set(
@@ -1598,11 +1671,29 @@ async function cleanup(supabase, scenario, key) {
   );
 }
 
+async function runLocalScoringDemo(supabase, scenario) {
+  requiredTeamCount = 1;
+  try {
+    for (const [index, definition] of scenario.gameweeks.entries()) {
+      if (index > 0) await prepare(supabase, definition);
+      await lock(supabase, definition);
+      await scoreAvailableGameweeks(supabase, scenario, definition);
+      await unlock(supabase, scenario, definition);
+    }
+
+    console.log("Verified every active player against the expected points in all four scoring-demo gameweeks.");
+  } finally {
+    requiredTeamCount = 2;
+  }
+}
+
 async function main() {
   const [, , flag, target, action, key] = process.argv;
   const actions = new Set([
     "validate",
+    "run",
     "setup",
+    "setup-demo",
     "prepare",
     "lock",
     "lock-cron",
@@ -1619,11 +1710,11 @@ async function main() {
   }
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, setup, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
+      "Choose an action: validate, run, setup, setup-demo, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
     );
   }
-  if (action === "setup" && key) {
-    throw new Error("setup creates every gameweek in the JSON fixture and does not accept a key.");
+  if ((action === "setup" || action === "setup-demo" || action === "run") && key) {
+    throw new Error(action + " does not accept a gameweek key.");
   }
 
   const environment = await loadEnvironment(target);
@@ -1643,7 +1734,20 @@ async function main() {
   if (action === "validate") {
     printValidatedScenario(resolvedScenario, environment.fixtureFile);
   }
+  if (action === "run") {
+    if (target !== "local") {
+      throw new Error("The scoring-demo run is available only for local Supabase.");
+    }
+    await runLocalScoringDemo(supabase, resolvedScenario);
+    return;
+  }
   if (action === "setup") await setup(supabase, resolvedScenario);
+  if (action === "setup-demo") {
+    if (target !== "local") {
+      throw new Error("The scoring-demo setup is available only for local Supabase.");
+    }
+    await setup(supabase, resolvedScenario, 1);
+  }
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
   if (["prepare", "lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {

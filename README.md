@@ -51,6 +51,31 @@ The catalogue preserves stored prices and permanent UUIDs. Player setup needs
 no upstream network access, and repeated imports never overwrite existing
 prices. Rankings are optional; active players with prices remain selectable.
 
+### Single-account scoring demo
+
+To rebuild local Supabase with one fixed six-player team that covers every
+scoring component across the synthetic gameweeks, run:
+
+```bash
+npm run dbsetup:scoring-demo
+```
+
+It deletes only local data and Auth users, then creates **[TEST] Scoring rules
+demo** with Truls Möregårdh, Tobias Rasmussen, Simon Berglund, Hampus Nordberg,
+Damian Wederlich, and Ioannis Sgoropoulos. The fixed squad covers singles wins and
+set difference, lost-set points, doubles win and clincher, singles clincher,
+walkover, fixture-win and sweep bonuses. The verification also checks that an
+unplayed club teammate receives no fixture-win bonus.
+
+Run the complete local lifecycle and its point assertions with:
+
+```bash
+npm run test:scoring-demo
+```
+
+The command finishes by verifying every active player's stored points against
+the independently calculated expected points for all four gameweeks.
+
 Verify the catalogue against production with a read-only candidate export:
 
 ```bash

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   applyAutomaticBenchSubstitutions,
   calculateFixtureWinPoints,
+  splitSinglesSetPoints,
 } from "../../app/dashboard/player-types.ts";
 
 function squadResult({
@@ -32,31 +33,54 @@ function squadResult({
   };
 }
 
-test("a non-participant never shows the RPC's club-wide fixture bonus", () => {
-  assert.equal(calculateFixtureWinPoints({
-    fantasy_points: 0,
-    match_win_points: 0,
-    set_points: 0,
-    sweep_bonus_points: 0,
-  }), 0);
+test("the breakdown uses the explicit fixture-win component", () => {
+  assert.equal(calculateFixtureWinPoints({ fixture_win_points: 0 }), 0);
+  assert.equal(calculateFixtureWinPoints({ fixture_win_points: 3 }), 3);
+  assert.equal(calculateFixtureWinPoints({ fixture_win_points: 6 }), 6);
 });
 
-test("the breakdown derives one participating fixture win from scored points", () => {
-  assert.equal(calculateFixtureWinPoints({
-    fantasy_points: 10,
-    match_win_points: 4,
-    set_points: 3,
-    sweep_bonus_points: 0,
-  }), 3);
+test("singles set points split between won and lost matches", () => {
+  assert.deepEqual(splitSinglesSetPoints({
+    singles_wins: 1,
+    singles_losses: 1,
+    singles_sets_won: 5,
+    singles_sets_lost: 3,
+    singles_set_points: 5,
+  }), {
+    wonPoints: 3,
+    lostPoints: 2,
+    wonSetsInWins: 3,
+    lostSetsInWins: 0,
+    wonSetsInLosses: 2,
+    lostSetsInLosses: 3,
+  });
 });
 
-test("the breakdown supports appearances in multiple winning fixtures", () => {
-  assert.equal(calculateFixtureWinPoints({
-    fantasy_points: 20,
-    match_win_points: 8,
-    set_points: 6,
-    sweep_bonus_points: 0,
-  }), 6);
+test("walkover losses contribute no set points", () => {
+  assert.deepEqual(splitSinglesSetPoints({
+    singles_wins: 0,
+    singles_losses: 1,
+    singles_sets_won: 0,
+    singles_sets_lost: 0,
+    singles_set_points: 0,
+  }), {
+    wonPoints: 0,
+    lostPoints: 0,
+    wonSetsInWins: 0,
+    lostSetsInWins: 0,
+    wonSetsInLosses: 0,
+    lostSetsInLosses: 0,
+  });
+});
+
+test("singles set points stay combined when totals cannot be split safely", () => {
+  assert.equal(splitSinglesSetPoints({
+    singles_wins: 1,
+    singles_losses: 1,
+    singles_sets_won: 5,
+    singles_sets_lost: 3,
+    singles_set_points: 4,
+  }), null, "inconsistent total must not display a guessed split");
 });
 
 test("an automatically substituted captain transfers captaincy to the paired bench player", () => {

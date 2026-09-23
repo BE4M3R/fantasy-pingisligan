@@ -75,13 +75,17 @@ for the gameweek.
 | Event | Points |
 | --- | ---: |
 | Win an individual match | +4 |
-| Win a set | +1 |
+| Set difference in a won individual match | +1 per set |
+| Win a set in a lost individual match | +1 |
 | Win a doubles match, per player | +2 |
 | Appear in a team fixture that the player's club wins | +3 |
+| Seal a team-fixture win | +2 singles / +1 each in doubles |
 | Win every singles match in the gameweek, with at least two played | +2 |
 
-A player can still earn points for sets won in a lost individual match. Lost
-sets do not deduct points.
+The set-points award differs by result. In a won individual match, it is the
+set difference: a 3-2 win gives 1 point, a 3-1 win gives 2, and a 3-0 win
+gives 3. In a lost individual match, a player still receives 1 point for each
+set won. Lost sets do not deduct points.
 
 The club-win bonus is awarded only to players with an imported singles or
 doubles appearance in that fixture for the winning club. Other players
@@ -91,13 +95,23 @@ club-win bonuses only if they participate in two fixtures that their club wins
 in the same gameweek. The player's club is frozen at the gameweek deadline, so
 a later transfer or roster import cannot change this bonus during recalculation.
 
+The player or pair that wins the final scored individual match for the club
+recorded as the team-fixture winner receives a clinching bonus. A singles
+clincher earns 2 points; if the clincher is doubles, each player earns 1 point.
+
+These rules also apply to Gameweek 1 and any other previously scored round.
+Migration `20260925122000_rescore_scored_gameweeks.sql` recalculates stored
+player and team points from imported results and the squads locked at each
+deadline. It leaves those squads, player prices, team budgets and transfer
+history unchanged.
+
 ### Walkovers
 
-A player awarded a walkover receives points for an individual match win and
-three sets won:
+A player awarded a singles walkover receives points for an individual match win
+and a three-set difference:
 
 - Individual match win: 4
-- Three sets won: 3
+- Three-set difference: 3
 - **Total before fixture or gameweek bonuses: 7 points**
 
 If a player retires after an individual match has started, the match is treated
@@ -107,13 +121,7 @@ retirement.
 
 ### Doubles
 
-Each player on the winning doubles pair receives 2 points for the match win.
-Points for sets won are added together for the pair and then divided equally
-between the two players. If the result is a half-point, each player's score is
-rounded up to the next whole point. For example, the set points from a 3-1
-doubles win are 3 before division. Each player therefore receives 2 set points
-in addition to the 2-point match-win award, for a total of 4 points. Rounding
-happens once on the doubles match's set total, not separately for each set.
+Each player on the winning doubles pair receives 2 points for the match win. Doubles do not receive set points; a losing doubles pair receives no points.
 
 Fixture-wide and gameweek-wide bonuses are calculated per player and are not
 divided.
@@ -126,9 +134,9 @@ Their results can still be used to calculate the points of an eligible opponent.
 A player wins 3-1 and the player's club wins the fixture:
 
 - Individual match win: 4
-- Three sets won: 3
+- Set difference: 2
 - Club win: 3
-- **Total: 10 points**
+- **Total: 9 points**
 
 ## Captain
 
