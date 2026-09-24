@@ -1,5 +1,44 @@
 # Gameweek lifecycle tests
 
+## Intended use of staging
+
+Keep staging on the same migrations, player UUIDs, application rules, fixture
+schedule and results/scoring lifecycle as production. It has separate users,
+teams and results state; it is not a copy of production's user database. After
+deploying `develop`, manually refresh real STUPA stage `5727` in staging with
+`npm run refresh:staging`. This imports the schedule, then results, scores and
+completes an unlocked gameweek. See
+[Data imports](data-imports.md#results-refresh-and-transfer-reopening) for the
+shared cadence and completion rules.
+
+Use the synthetic gameweek harness routinely against local Supabase. Running
+`test:staging -- setup` inserts real rows into staging's global gameweek table;
+once they lock, they close staging transfers for every user until each test
+round is completed or the test fixture is cleaned up. The scheduled STUPA job
+does not score synthetic stage `-900001`. Use staging synthetic rounds only for
+a short end-to-end smoke test, finish them with `lock`, `score`, and `unlock`,
+then run `npm run test:staging -- cleanup` when the test is finished.
+
+Keep the existing marked `[TEST] Seedlag` accounts and their squads in staging
+as a stable smoke-test baseline. Check them with
+`npm run seed:staging-accounts -- status`; do not routinely rerun `seed`, which
+resets their current squads. After a staging deployment, verify sign-in, team
+and player selection, the current transfer window, and points/standings for a
+completed real gameweek. Use local synthetic rounds for repeatable lock, score,
+and unlock tests. Staging has its own test users and teams; do not copy
+production users or teams into it.
+
+There is no staging results GitHub Actions job. `refresh:staging` reads
+`.env.staging.local` and checks `APP_ENV=staging`, the project URL and ref, and
+the real stage ID before writing. It stops on a failed schedule or results
+import. It then checks real stage fixtures, the last completed round's locked
+squads and scores, any overdue round, and the transfer lock. Run
+`npm run verify:staging` for the same read-only check at any time. A pending
+unlocked real round needs another `refresh:staging` run; each run completes one
+round. `test:staging -- status` reports synthetic rounds only. Check login,
+squads, points, and standings in the staging app as well.
+Production still uses its scheduled GitHub Actions job.
+
 The gameweek lifecycle harness reads its schedule and results from
 [`test-data/staging-gameweeks.json`](../test-data/staging-gameweeks.json). The
 default file contains four synthetic gameweeks covering all seven Pingisligan
@@ -107,25 +146,32 @@ the explicit command: `npm run test:gameweek -- --env local|staging <action> [ga
 
 ## Check automatic results timing locally
 
-The production cadence is a daily 00:07 check plus checks every 15 minutes at
-:07, :22, :37, and :52 after the first match starts on each playing day, ending
-at Stockholm midnight.
-Use the same read-only gate against the local synthetic stage:
+The production cadence is a daily 00:07 check plus checks every 15
+minutes at :07, :22, :37, and :52 from the first match start on each playing
+day until five hours after the last match start, including across midnight.
+Supabase Cron dispatches the match-window GitHub runs in production. Use its
+read-only database rule against local synthetic fixtures or staging real fixtures:
 
 ```bash
 npm run check:results-refresh:local -- --stage-id -900001
 npm run check:results-refresh:local -- --stage-id -900001 --at 2026-09-21T20:00:00+02:00
 npm run check:results-refresh:local -- --daily
+npm run check:results-refresh:staging -- --at 2026-09-21T20:00:00+02:00
 npm run test:results-schedule
 ```
 
 `--at` requires an explicit timezone and simulates the check time only. It does
-not change fixture times or write data. The daily check always reports due;
-interval checks report due only if a fixture has started on that Swedish date.
+not change fixture times or write data. The output shows the checked instant in
+both UTC and Stockholm time; `shouldRun` says whether a results import is due,
+while `refreshSchedule` says whether it would also import fixtures. The daily
+check always reports due;
+interval checks report due only during that Swedish date's match window.
 Tests cover playing days separated by gaps, winter/summer time and daylight
 saving transitions. Continue using `score` and `unlock` for actual synthetic
-scoring. GitHub Actions provides the production timer; there is no local
-background polling process.
+scoring. Supabase Cron provides the production match-window timer; there is no
+local background GitHub polling process. Staging runs the same Cron check
+without a GitHub dispatch token; refresh staging results manually as described
+above.
 
 ## Run the app against staging
 
@@ -148,7 +194,12 @@ The following accounts already exist in the staging environment:
 | 1 | `test_staging@gmail.com` | `test_staging` |
 | 2 | `test_staging_2@gmail.com` | `test_staging_2` |
 
-## JSON format
+## Local synthetic lifecycle: JSON format
+
+The following lifecycle commands target local Supabase. To run a deliberate,
+short staging smoke test instead, replace `test:local` with `test:staging` and
+clean up the synthetic gameweeks immediately afterward. Never leave synthetic
+rounds installed while using staging for real-data checks.
 
 The root contains a reserved `stageId` and one or more gameweeks:
 
@@ -206,7 +257,7 @@ A club fixture explicitly lists its clubs and available lineup players:
 }
 ```
 
-Club and player names are matched case-insensitively against active staging
+Club and player names are matched case-insensitively against active local
 records. Every player must belong to the configured club. `winner` controls the
 club-fixture bonus and can be `"home"`, `"away"`, or `null`; only players listed
 in at least one singles or doubles match for the winning side receive the bonus.
@@ -256,15 +307,15 @@ Validate the JSON structure, clubs, player names, and club memberships without
 writing test data:
 
 ```bash
-npm run test:staging -- validate
+npm run test:local -- validate
 ```
 
 Remove any previous harness version, then install all configured gameweeks:
 
 ```bash
-npm run test:staging -- cleanup
-npm run test:staging -- setup
-npm run test:staging -- status
+npm run test:local -- cleanup
+npm run test:local -- setup
+npm run test:local -- status
 ```
 
 `cleanup` removes only rows using the configured reserved stage ID. Imported
@@ -275,12 +326,12 @@ players, users, fantasy squads, leagues, and real stage data remain.
 First prepare the test round as the dashboard's next gameweek:
 
 ```bash
-npm run test:staging -- prepare gw1
+npm run test:local -- prepare gw1
 ```
 
-Reload the website and verify the transfer deadline belongs to **[TEST]
+Reload the local website and verify the transfer deadline belongs to **[TEST]
 Scoring Gameweek 1** before selecting a chip or saving squad changes. This is
-important: the dashboard can otherwise show an earlier real staging gameweek.
+important: the dashboard can otherwise show an earlier imported gameweek.
 A chip confirmed for that real round remains reserved for it and does not affect
 the synthetic test's scores.
 
@@ -292,21 +343,21 @@ used by production.
 To test the actual five-minute Supabase Cron scheduler:
 
 ```bash
-npm run test:staging -- lock-cron gw1
+npm run test:local -- lock-cron gw1
 sleep 360
-npm run test:staging -- status gw1
+npm run test:local -- status gw1
 ```
 
 The snapshot count must equal the number of fantasy teams with a complete
-four-starter, two-bench squad at the deadline. You can also inspect
-**Integrations > Cron > Jobs > snapshot-locked-squads > History** in Supabase.
+four-starter, two-bench squad at the deadline. You can also inspect the local
+Supabase cron job history.
 Snapshots retain the squad order selected by each manager; that locked order
 sets automatic-substitution and replacement-captain priority.
 
 For a faster snapshot-function test that bypasses the scheduler, use:
 
 ```bash
-npm run test:staging -- lock gw1
+npm run test:local -- lock gw1
 ```
 
 With either path, verify immediately after locking that squad, captain, and
@@ -315,10 +366,10 @@ selected test-gameweek chip was copied to its locked snapshot. Then score,
 inspect, and complete the gameweek:
 
 ```bash
-npm run test:staging -- score gw1
-npm run test:staging -- status gw1
-npm run test:staging -- unlock gw1
-npm run test:staging -- status gw1
+npm run test:local -- score gw1
+npm run test:local -- status gw1
+npm run test:local -- unlock gw1
+npm run test:local -- status gw1
 ```
 
 The scoring action prints every configured individual match, independently
@@ -344,18 +395,18 @@ local test lifecycle or production results workflow.
 
 ## Test Gameweek 2
 
-Keep Gameweek 1 installed. Prepare Gameweek 2 before changing staging squads or
+Keep Gameweek 1 installed. Prepare Gameweek 2 before changing local squads or
 selecting a different chip, so the dashboard attaches the change to the test
-round rather than a real staging gameweek. Then run the next lifecycle:
+round rather than a real imported gameweek. Then run the next lifecycle:
 
 ```bash
-npm run test:staging -- prepare gw2
-npm run test:staging -- lock-cron gw2
+npm run test:local -- prepare gw2
+npm run test:local -- lock-cron gw2
 sleep 360
-npm run test:staging -- status gw2
-npm run test:staging -- score gw2
-npm run test:staging -- status gw1
-npm run test:staging -- unlock gw2
+npm run test:local -- status gw2
+npm run test:local -- score gw2
+npm run test:local -- status gw1
+npm run test:local -- unlock gw2
 ```
 
 After `score gw2`, GW1 has 24 player-result rows. Its delayed fixture has been
@@ -377,15 +428,15 @@ Repeat the same lifecycle, changing squads or chips between deadlines when
 needed:
 
 ```bash
-npm run test:staging -- prepare gw3
-npm run test:staging -- lock gw3
-npm run test:staging -- score gw3
-npm run test:staging -- unlock gw3
+npm run test:local -- prepare gw3
+npm run test:local -- lock gw3
+npm run test:local -- score gw3
+npm run test:local -- unlock gw3
 
-npm run test:staging -- prepare gw4
-npm run test:staging -- lock gw4
-npm run test:staging -- score gw4
-npm run test:staging -- unlock gw4
+npm run test:local -- prepare gw4
+npm run test:local -- lock gw4
+npm run test:local -- score gw4
+npm run test:local -- unlock gw4
 ```
 
 Each score run revisits every earlier gameweek whose configured results are
@@ -396,13 +447,13 @@ available by that point.
 Show every configured gameweek or only one key:
 
 ```bash
-npm run test:staging -- status
-npm run test:staging -- status gw1
+npm run test:local -- status
+npm run test:local -- status gw1
 ```
 
 Remove one gameweek or the entire synthetic stage:
 
 ```bash
-npm run test:staging -- cleanup gw1
-npm run test:staging -- cleanup
+npm run test:local -- cleanup gw1
+npm run test:local -- cleanup
 ```

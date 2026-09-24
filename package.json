@@ -18,7 +18,10 @@
     "import:schedule:dry": "node scripts/import-stupa-schedule.mjs --dry-run",
     "import:results": "node scripts/import-stupa-results.mjs",
     "import:results:dry": "node scripts/import-stupa-results.mjs --dry-run",
+    "refresh:staging": "node --env-file=.env.staging.local scripts/refresh-staging.mjs",
+    "verify:staging": "node --env-file=.env.staging.local scripts/verify-staging-refresh.mjs",
     "check:results-refresh:local": "node scripts/results-refresh-schedule.mjs --local",
+    "check:results-refresh:staging": "node scripts/results-refresh-schedule.mjs --staging",
     "seed:accounts": "node scripts/seed-staging-accounts.mjs",
     "seed:local-accounts": "node scripts/seed-staging-accounts.mjs --env local",
     "seed:staging-accounts": "node scripts/seed-staging-accounts.mjs --env staging",
@@ -37,7 +40,10 @@
     "dbsetup:local": "npm run db:start && npx supabase db reset --local && npm run import:players:catalogue && npm run seed:local-accounts -- seed --count 10 && npm run test:local -- setup",
     "db:lint": "supabase db lint --local --level error --fail-on error",
     "db:new": "supabase migration new",
-    "db:status": "supabase migration list"
+    "db:status": "supabase migration list",
+    "db:backup": "bash scripts/backup-hosted-database.sh",
+    "db:backup:staging": "node scripts/backup-db-env.mjs staging .env.staging.local",
+    "db:backup:production": "node scripts/backup-db-env.mjs production .env.production"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

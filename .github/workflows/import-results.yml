@@ -2,17 +2,21 @@ name: Import Pingisligan results
 
 on:
   schedule:
-    # github.event.schedule preserves the exact expression that triggered a run;
-    # the cadence step uses it to distinguish the daily refresh from polling.
-    # Separate daily trigger remains mandatory even if its runner is delayed.
+    # Supabase Cron dispatches match-window runs; GitHub schedules only nightly.
     - cron: "7 0 * * *"
       timezone: "Europe/Stockholm"
-    # Other 15-minute slots only import after a fixture has started that day.
-    - cron: "22,37,52 * * * *"
-      timezone: "Europe/Stockholm"
-    - cron: "7 1-23 * * *"
-      timezone: "Europe/Stockholm"
   workflow_dispatch:
+    inputs:
+      kind:
+        description: "Full manual refresh or fixture-window results poll"
+        required: false
+        type: choice
+        options: [full, poll]
+        default: full
+      slot_at:
+        description: "Stockholm polling slot timestamp supplied by Supabase Cron"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -44,6 +48,8 @@ jobs:
         run: node scripts/results-refresh-schedule.mjs
         env:
           RESULTS_CRON: ${{ github.event.schedule }}
+          RESULTS_DISPATCH_KIND: ${{ inputs.kind }}
+          RESULTS_SLOT_AT: ${{ inputs.slot_at }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 

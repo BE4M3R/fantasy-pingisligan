@@ -3,9 +3,20 @@ import { appendFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { localDateTimeToUtcIso, nextStockholmMidnightUtcIso, STOCKHOLM_TIME_ZONE } from "./stockholm-time.mjs";
+import { verifyStagingImportTarget } from "./verify-staging-import-target.mjs";
 
 export const DAILY_RESULTS_CRON = "7 0 * * *";
+export const MATCH_POLL_WINDOW_MS = 5 * 60 * 60 * 1000;
 const DEFAULT_STAGE_ID = 5727;
+
+export function parseRefreshCheckTime(value) {
+  if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-](?:0\d|1[0-4])(?::?[0-5]\d)?)$/i.test(value)) {
+    throw new Error("--at must include Z or a UTC offset.");
+  }
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error("Invalid refresh-check time.");
+  return date;
+}
 
 export function stockholmDayWindow(now) {
   const date = new Date(now);
@@ -21,55 +32,71 @@ export function stockholmDayWindow(now) {
   };
 }
 
-export function resultsRefreshDecision({ now, eventName, schedule, matchStarts = [] }) {
+export function resultsRefreshReport(decision, now) {
+  const date = new Date(now);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: STOCKHOLM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return {
+    checkedAtUtc: date.toISOString(),
+    checkedAtStockholm: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`,
+    shouldRun: decision.shouldRun,
+    refreshSchedule: decision.refreshSchedule,
+    reason: decision.reason,
+  };
+}
+
+export function resultsRefreshDecision({ now, eventName, schedule, dispatchKind, matchStarts = [] }) {
   const window = stockholmDayWindow(now);
+  const nowMs = new Date(now).getTime();
   // Use the triggering cron, not the runner's clock: a delayed daily job
   // must still run even if it starts well after midnight.
-  if (eventName === "workflow_dispatch" || (eventName === "schedule" && schedule === DAILY_RESULTS_CRON)) {
+  if ((eventName === "workflow_dispatch" && [undefined, "", "full"].includes(dispatchKind)) || (eventName === "schedule" && schedule === DAILY_RESULTS_CRON)) {
     return { shouldRun: true, refreshSchedule: true, reason: eventName === "workflow_dispatch" ? "Manual refresh" : "Daily 00:07 refresh", ...window };
   }
-  if (eventName !== "schedule") throw new Error(`Unsupported refresh event: ${eventName}`);
-  const matchStartedToday = matchStarts.some((startsAt) => {
-    const start = Date.parse(startsAt);
-    return start >= Date.parse(window.start) && start < Date.parse(window.end) && start <= new Date(now).getTime();
+  if (eventName !== "workflow_dispatch" || dispatchKind !== "poll") {
+    throw new Error(`Unsupported results refresh event: ${eventName} (${schedule ?? dispatchKind ?? "unknown"}).`);
+  }
+  const previousDay = stockholmDayWindow(new Date(Date.parse(window.start) - 1));
+  const starts = matchStarts.map(Date.parse);
+  const withinMatchWindow = [previousDay, window].some((day) => {
+    const dayStarts = starts.filter((start) =>
+      start >= Date.parse(day.start) && start < Date.parse(day.end));
+    return dayStarts.length > 0 && Math.min(...dayStarts) <= nowMs &&
+      nowMs - Math.max(...dayStarts) < MATCH_POLL_WINDOW_MS;
   });
   return {
-    shouldRun: matchStartedToday,
+    shouldRun: withinMatchWindow,
     refreshSchedule: false,
-    reason: matchStartedToday ? "Match day: first fixture has started; poll until Stockholm midnight" : "No fixture has started today; wait for a match or the daily 00:07 refresh",
+    reason: withinMatchWindow ? "Between a playing day's first fixture start and five hours after its last fixture start" : "Outside fixture polling windows",
     ...window,
   };
 }
 
-export async function checkResultsRefresh({ now = new Date(), eventName, schedule, supabaseUrl, serviceKey, stageId = DEFAULT_STAGE_ID, fetchImpl = fetch }) {
-  const base = resultsRefreshDecision({ now, eventName, schedule });
+export async function checkResultsRefresh({ now = new Date(), eventName, schedule, dispatchKind, supabaseUrl, serviceKey, stageId = DEFAULT_STAGE_ID, fetchImpl = fetch }) {
+  const base = resultsRefreshDecision({ now, eventName, schedule, dispatchKind });
   if (base.shouldRun) return base;
   if (!supabaseUrl || !serviceKey) throw new Error("Supabase URL and service-role key are required for the match-day check.");
   if (!Number.isSafeInteger(stageId)) throw new Error("STUPA_STAGE_ID must be an integer.");
-  const url = new URL("/rest/v1/matches", supabaseUrl);
-  url.searchParams.set("select", "starts_at");
-  url.searchParams.set("stupa_stage_id", `eq.${stageId}`);
-  url.searchParams.set("fantasy_gameweek_id", "not.is.null");
-  url.searchParams.append("starts_at", `gte.${base.start}`);
-  url.searchParams.append("starts_at", `lte.${new Date(now).toISOString()}`);
-  url.searchParams.set("or", "(status.is.null,status.not.in.(cancelled,canceled,postponed,deleted))");
-  url.searchParams.set("order", "starts_at.asc");
-  url.searchParams.set("limit", "1");
+  const url = new URL("/rest/v1/rpc/results_refresh_window_active", supabaseUrl);
   const response = await fetchImpl(url, {
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    method: "POST",
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_at: new Date(now).toISOString(), p_stage_id: stageId }),
     signal: AbortSignal.timeout(15000),
   });
-  if (!response.ok) throw new Error(`Could not check today's fixtures: HTTP ${response.status}`);
-  const matches = await response.json();
-  if (!Array.isArray(matches) || matches.some((row) => !Number.isFinite(Date.parse(row.starts_at)))) {
-    throw new Error("Unexpected fixture response from Supabase.");
-  }
-  return resultsRefreshDecision({ now, eventName, schedule, matchStarts: matches.map((match) => match.starts_at) });
+  if (!response.ok) throw new Error(`Could not check the fixture window: HTTP ${response.status}`);
+  const due = await response.json();
+  if (typeof due !== "boolean") throw new Error("Unexpected fixture-window response from Supabase.");
+  return { ...base, shouldRun: due, reason: due ? "Within a fixture polling window" : "Outside fixture polling windows" };
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const local = args.includes("--local");
+  const staging = args.includes("--staging");
+  if (local && staging) throw new Error("Choose either --local or --staging.");
   const option = (name) => {
     const index = args.indexOf(name);
     if (index === -1) return undefined;
@@ -77,30 +104,39 @@ async function main() {
     return args[index + 1];
   };
   let environment = process.env;
-  if (local) {
-    // Ignore hosted shell credentials, matching the other local test commands.
-    const content = await readFile(new URL("../.env.local", import.meta.url), "utf8");
+  if (local || staging) {
+    // Ignore shell credentials and load the selected target explicitly.
+    const content = await readFile(new URL(staging ? "../.env.staging.local" : "../.env.local", import.meta.url), "utf8");
     environment = {};
     for (const line of content.split(/\r?\n/)) {
       const match = line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
       if (match) environment[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
     }
     const url = environment.SUPABASE_URL ?? environment.NEXT_PUBLIC_SUPABASE_URL;
-    if (!url || new URL(url).origin !== "http://127.0.0.1:54321") {
+    if (local && (!url || new URL(url).origin !== "http://127.0.0.1:54321")) {
       throw new Error("Local safety check failed: Supabase must be http://127.0.0.1:54321.");
     }
+    if (staging) verifyStagingImportTarget({
+      supabaseUrl: environment.SUPABASE_URL,
+      publicUrl: environment.NEXT_PUBLIC_SUPABASE_URL,
+      serviceKey: environment.SUPABASE_SERVICE_ROLE_KEY,
+      projectRef: environment.STAGING_PROJECT_REF,
+      appEnv: environment.APP_ENV,
+      stageId: environment.STUPA_STAGE_ID,
+    });
   }
-  const at = option("--at");
-  if (at && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(at)) throw new Error("--at must include Z or a UTC offset.");
+  const at = option("--at") ?? (process.env.RESULTS_DISPATCH_KIND === "poll" ? process.env.RESULTS_SLOT_AT : undefined);
+  const checkTime = at ? parseRefreshCheckTime(at) : new Date();
   const decision = await checkResultsRefresh({
-    now: at ? new Date(at) : new Date(),
-    eventName: local ? "schedule" : process.env.GITHUB_EVENT_NAME,
-    schedule: args.includes("--daily") ? DAILY_RESULTS_CRON : (local ? "7,22,37,52 * * * *" : process.env.RESULTS_CRON),
+    now: checkTime,
+    eventName: local || staging ? (args.includes("--daily") ? "schedule" : "workflow_dispatch") : process.env.GITHUB_EVENT_NAME,
+    schedule: args.includes("--daily") ? DAILY_RESULTS_CRON : process.env.RESULTS_CRON,
+    dispatchKind: local || staging ? "poll" : process.env.RESULTS_DISPATCH_KIND,
     supabaseUrl: environment.SUPABASE_URL ?? environment.NEXT_PUBLIC_SUPABASE_URL,
     serviceKey: environment.SUPABASE_SERVICE_ROLE_KEY,
     stageId: Number(option("--stage-id") ?? environment.STUPA_STAGE_ID ?? DEFAULT_STAGE_ID),
   });
-  console.log(JSON.stringify(decision, null, 2));
+  console.log(JSON.stringify(resultsRefreshReport(decision, checkTime), null, 2));
   if (!local && process.env.GITHUB_OUTPUT) {
     await appendFile(process.env.GITHUB_OUTPUT,
       `should_run=${decision.shouldRun}\nrefresh_schedule=${decision.refreshSchedule}\n`);

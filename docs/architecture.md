@@ -67,11 +67,13 @@ its refresh lock. Prices and budgets remain unchanged; the scheduled results
 job never imports or reprices players.
 
 Results are checked daily at 00:07 Stockholm time and additionally every 15
-minutes at :07, :22, :37, and :52 after the first fixture starts on each playing
-day, until that day ends. Individual fixture dates drive this decision, including
-when a gameweek spans several days. The 00:07 run refreshes the schedule first.
-A shared read-only check gates daytime imports; local tests use the same check.
-GitHub Actions target times may be delayed by runner scheduling.
+minutes at :07, :22, :37, and :52 from the first fixture start on each playing
+day until five hours after that day's last fixture start, including across
+midnight. Individual fixture dates drive this decision, including
+when a gameweek spans several days. GitHub schedules only the nightly run, which
+refreshes fixtures first. Supabase Cron checks the shared database window rule
+every 15 minutes and dispatches GitHub only when due. A dispatched run checks
+the same rule before importing. GitHub Actions runs may be delayed.
 
 The Stupa schedule and completed results are two views of the same real-world
 team fixtures. The schedule importer creates the parent `matches` rows before
