@@ -42,7 +42,7 @@ test("catalogue retains every roster UUID/license and explicitly priced active p
   assert.match(catalogue.syncedFromProductionAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(catalogue.clubs.length, 10);
   assert.equal(catalogue.players.length, 75);
-  assert.equal(catalogue.playerExternalIdentities.length, 80);
+  assert.equal(catalogue.playerExternalIdentities.length, 102);
   const active = catalogue.players.filter((player) => player.active);
   assert.equal(active.length, 53);
   assert.equal(catalogue.players.length - active.length, 22);
@@ -88,7 +88,7 @@ test("setup and repeat imports make no upstream request, preserve snapshot price
 test("replaying the catalogue preserves prices, ownership, historical rows and learned identities", async () => {
   const original = catalogue.players.find((p) => p.active);
   const learned = { ...original, price: original.price + 12345, profixio_id: "renewed-license", stupa_user_role_id: 987654 };
-  const historical = { ...catalogue.players[0], id: "12345678-1234-1234-1234-123456789abc", active: false, first_name: "Historical", last_name: "Player", profixio_id: "historical" };
+  const historical = { ...catalogue.players[0], id: "12345678-1234-1234-1234-123456789abc", active: false, first_name: "Historical", last_name: "Player", profixio_id: "historical", stupa_user_role_id: null };
   const ownership = [{ player_id: original.id, fantasy_team_id: "team" }];
   const db = database({
     clubs: catalogue.clubs, players: [learned, historical],
@@ -150,7 +150,7 @@ test("all existing active and inactive players outside the snapshot survive impo
     ...catalogue.players[0],
     id: `existing-player-${index}`, first_name: "Existing", last_name: `Player ${index}`,
     profixio_id: `existing-license-${index}`, active: index % 2 === 0,
-    price: 7654321 + index,
+    price: 7654321 + index, stupa_user_role_id: null,
   }));
   const ownership = existing.map((player) => ({ player_id: player.id, fantasy_team_id: "team" }));
   const snapshots = ownership.map((row) => ({ ...row, fantasy_gameweek_id: "past-gw" }));
