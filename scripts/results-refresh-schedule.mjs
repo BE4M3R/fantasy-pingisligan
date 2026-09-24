@@ -9,6 +9,15 @@ export const DAILY_RESULTS_CRON = "7 0 * * *";
 export const MATCH_POLL_WINDOW_MS = 5 * 60 * 60 * 1000;
 const DEFAULT_STAGE_ID = 5727;
 
+export function parseRefreshCheckTime(value) {
+  if (!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-](?:0\d|1[0-4])(?::?[0-5]\d)?)$/i.test(value)) {
+    throw new Error("--at must include Z or a UTC offset.");
+  }
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error("Invalid refresh-check time.");
+  return date;
+}
+
 export function stockholmDayWindow(now) {
   const date = new Date(now);
   if (!Number.isFinite(date.getTime())) throw new Error("Invalid refresh-check time.");
@@ -20,6 +29,21 @@ export function stockholmDayWindow(now) {
     localDate,
     start: localDateTimeToUtcIso(`${localDate}T00:00:00`),
     end: nextStockholmMidnightUtcIso(date),
+  };
+}
+
+export function resultsRefreshReport(decision, now) {
+  const date = new Date(now);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: STOCKHOLM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return {
+    checkedAtUtc: date.toISOString(),
+    checkedAtStockholm: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`,
+    shouldRun: decision.shouldRun,
+    refreshSchedule: decision.refreshSchedule,
+    reason: decision.reason,
   };
 }
 
@@ -102,9 +126,9 @@ async function main() {
     });
   }
   const at = option("--at") ?? (process.env.RESULTS_DISPATCH_KIND === "poll" ? process.env.RESULTS_SLOT_AT : undefined);
-  if (at && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(at)) throw new Error("--at must include Z or a UTC offset.");
+  const checkTime = at ? parseRefreshCheckTime(at) : new Date();
   const decision = await checkResultsRefresh({
-    now: at ? new Date(at) : new Date(),
+    now: checkTime,
     eventName: local || staging ? (args.includes("--daily") ? "schedule" : "workflow_dispatch") : process.env.GITHUB_EVENT_NAME,
     schedule: args.includes("--daily") ? DAILY_RESULTS_CRON : process.env.RESULTS_CRON,
     dispatchKind: local || staging ? "poll" : process.env.RESULTS_DISPATCH_KIND,
@@ -112,7 +136,7 @@ async function main() {
     serviceKey: environment.SUPABASE_SERVICE_ROLE_KEY,
     stageId: Number(option("--stage-id") ?? environment.STUPA_STAGE_ID ?? DEFAULT_STAGE_ID),
   });
-  console.log(JSON.stringify(decision, null, 2));
+  console.log(JSON.stringify(resultsRefreshReport(decision, checkTime), null, 2));
   if (!local && process.env.GITHUB_OUTPUT) {
     await appendFile(process.env.GITHUB_OUTPUT,
       `should_run=${decision.shouldRun}\nrefresh_schedule=${decision.refreshSchedule}\n`);

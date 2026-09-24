@@ -1,10 +1,34 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { DAILY_RESULTS_CRON, checkResultsRefresh, resultsRefreshDecision, stockholmDayWindow } from "./results-refresh-schedule.mjs";
+import { DAILY_RESULTS_CRON, checkResultsRefresh, parseRefreshCheckTime, resultsRefreshDecision, resultsRefreshReport, stockholmDayWindow } from "./results-refresh-schedule.mjs";
 import { verifyStagingImportTarget } from "./verify-staging-import-target.mjs";
 
 const interval = (now, matchStarts = []) => resultsRefreshDecision({ now, matchStarts, eventName: "workflow_dispatch", dispatchKind: "poll" });
+
+test("staging check accepts timezone formats copied from Supabase", () => {
+  for (const value of [
+    "2026-10-13 16:00:00+00", "2026-10-13 16:00:00+0000",
+    "2026-10-13 16:00:00+00:00", "2026-10-13T16:00:00Z",
+  ]) {
+    assert.equal(parseRefreshCheckTime(value).toISOString(), "2026-10-13T16:00:00.000Z");
+  }
+  assert.throws(() => parseRefreshCheckTime("2026-10-13 16:00:00"), /UTC offset/);
+  assert.throws(() => parseRefreshCheckTime("2026-10-13 16:00:00+99"), /UTC offset/);
+});
+
+test("check output identifies the checked time without presenting day bounds as a polling window", () => {
+  const report = resultsRefreshReport({ shouldRun: true, refreshSchedule: false, reason: "Within a fixture polling window" }, "2026-10-13T16:00:00Z");
+  assert.deepEqual(report, {
+    checkedAtUtc: "2026-10-13T16:00:00.000Z",
+    checkedAtStockholm: "2026-10-13 18:00",
+    shouldRun: true,
+    refreshSchedule: false,
+    reason: "Within a fixture polling window",
+  });
+  assert.equal("start" in report, false);
+  assert.equal("end" in report, false);
+});
 
 test("00:07 refresh always runs, including off days and delayed Actions starts", async () => {
   for (const now of ["2026-09-20T22:07:00Z", "2026-09-21T03:47:00Z", "2026-12-20T23:07:00Z"]) {
