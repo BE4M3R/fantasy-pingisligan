@@ -161,7 +161,10 @@ npm run test:results-schedule
 ```
 
 `--at` requires an explicit timezone and simulates the check time only. It does
-not change fixture times or write data. The daily check always reports due;
+not change fixture times or write data. The output shows the checked instant in
+both UTC and Stockholm time; `shouldRun` says whether a results import is due,
+while `refreshSchedule` says whether it would also import fixtures. The daily
+check always reports due;
 interval checks report due only during that Swedish date's match window.
 Tests cover playing days separated by gaps, winter/summer time and daylight
 saving transitions. Continue using `score` and `unlock` for actual synthetic
