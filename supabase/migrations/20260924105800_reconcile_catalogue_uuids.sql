@@ -213,17 +213,50 @@ insert into public.players(id,profixio_id,stupa_user_role_id,club_id,first_name,
 select id,profixio_id,stupa_user_role_id,club_id,first_name,last_name,birth_year,ranking_position,ranking_points,price,active,created_at,source_updated_at
 from _catalogue_players where (select should_apply from _catalogue_reconciliation_control) on conflict(id) do nothing;
 
+-- Changing a player UUID is not a squad transfer. An existing squad may
+-- already have three players at a club after a real-world club move; the
+-- normal selection trigger rejects even a same-club UUID replacement. Keep
+-- every FK and uniqueness constraint active, and verify the club counts below.
+create temporary table _squad_club_counts_before on commit drop as
+select squad.fantasy_team_id,player.club_id,count(*)::integer as selected_count
+from public.fantasy_team_players squad
+join public.players player on player.id=squad.player_id
+where (select should_apply from _catalogue_reconciliation_control)
+group by squad.fantasy_team_id,player.club_id;
+
 do $players$
 declare m record;
 begin
  if not (select should_apply from _catalogue_reconciliation_control) then return; end if;
+ -- Keep both trigger changes in this one statement. If any merge fails, the
+ -- statement rolls back the temporary trigger change as well.
+ execute 'alter table public.fantasy_team_players disable trigger enforce_fantasy_team_club_limit';
  for m in select * from _player_uuid_reconciliation loop
   if exists(select 1 from public.players where id=m.source_id) then
    perform public.merge_player_records(m.target_id,m.source_id);
   end if;
  end loop;
+ execute 'alter table public.fantasy_team_players enable trigger enforce_fantasy_team_club_limit';
 end;
 $players$;
+
+do $verify_squads$
+begin
+ if not (select should_apply from _catalogue_reconciliation_control) then return; end if;
+ if exists(
+  select 1 from _squad_club_counts_before before_counts
+  full join (
+   select squad.fantasy_team_id,player.club_id,count(*)::integer as selected_count
+   from public.fantasy_team_players squad
+   join public.players player on player.id=squad.player_id
+   group by squad.fantasy_team_id,player.club_id
+  ) after_counts
+   on after_counts.fantasy_team_id=before_counts.fantasy_team_id
+    and after_counts.club_id is not distinct from before_counts.club_id
+  where after_counts.selected_count is distinct from before_counts.selected_count
+ ) then raise exception 'Catalogue reconciliation stopped: a fantasy squad club count changed.'; end if;
+end;
+$verify_squads$;
 
 -- Match the remaining non-behavioral timestamps to the canonical player rows.
 update public.players p set created_at=e.created_at,source_updated_at=e.source_updated_at
