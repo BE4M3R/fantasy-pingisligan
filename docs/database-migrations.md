@@ -111,6 +111,9 @@ the known old UUIDs to the committed production catalogue. Remap club
 references and merge player references so current squads, locked squads,
 results, statistics, snapshots and identity aliases continue to point at the
 same people. Keep prices and `active` status from the reviewed catalogue.
+The migration briefly suspends the current-squad club-limit trigger while
+replacing player UUIDs, then restores it and verifies each team's per-club
+selection counts. Foreign keys and uniqueness constraints stay enabled.
 
 The one-time migration requires the reviewed legacy roster and clubs before
 remapping staging. It seeds a clean local database from the catalogue. On a
