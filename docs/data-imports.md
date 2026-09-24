@@ -239,50 +239,83 @@ retainable by existing owners but cannot be newly selected.
 
 ## Results refresh and transfer reopening
 
-The results workflow uses `Europe/Stockholm` for all three cron triggers:
+The results importer has two triggers:
 
-- **Every day at 00:07:** refresh the STUPA fixture schedule, then import all
-  available stage results and recalculate affected gameweeks, including older
-  corrected or delayed results. This runs even on days without matches.
-- **Every 15 minutes on match days (:07, :22, :37, :52):** once that day's first
-  fixture has started, import and score results at each slot until midnight. This continues
-  after matches finish so late results can arrive. A start between slots is
-  picked up at the next slot.
+- **GitHub Actions every night at 00:07 Stockholm time:** refresh the STUPA
+  fixture schedule, then import all available stage results and recalculate
+  affected gameweeks, including older corrected or delayed results. This runs
+  even on days without matches.
+- **Supabase Cron every 15 minutes (:07, :22, :37, and :52):** check the real
+  stage's fixture dates in the database. It starts a GitHub Actions results
+  run only from the first fixture start on that Stockholm date until five hours
+  after the last fixture starts, including across midnight. The window stays
+  open between matches on the same date. A start between slots is
+  picked up at the next slot. At 00:07 the nightly run already covers results.
 - **Multi-day gameweeks:** use the individual fixture dates, not the entire
-  gameweek's date range. Each playing day gets its own interval; gap days and
-  hours before the first match get only the daily check.
-- **Manual workflow runs:** always refresh fixtures and results.
+  gameweek's date range. Each playing day gets its own window; gap days and
+  hours before the first match get only the daily check once any previous day's
+  five-hour window ends.
+- **Full manual workflow runs:** refresh fixtures and results at any time.
 
-The lightweight cadence check reads at most one matching fixture from Supabase
-before installing dependencies. It does not contact STUPA or write the database.
-Only fixtures in the configured stage, attached to a gameweek, that started
-since Stockholm midnight qualify. Cancelled/deleted/postponed fixtures do not
-start the interval; already scored fixtures still do. The local check command
-uses the exact same code and only accepts local Supabase:
+The database function `results_refresh_window_active` is the shared rule for
+Supabase Cron, GitHub's dispatched run, and local or staging checks. It reads
+the day's fixture start times without contacting STUPA. Only fixtures in the
+configured stage and attached to a gameweek qualify. Cancelled, deleted and
+postponed fixtures do not define the window; already scored fixtures still do.
+An off-day Cron check makes no GitHub API request. A dispatched GitHub run
+checks the database rule again before installing dependencies.
+
+Check the rule without importing or scoring:
 
 ```bash
 npm run check:results-refresh:local -- --stage-id -900001
 npm run check:results-refresh:local -- --stage-id -900001 --at 2026-09-21T20:00:00+02:00
 npm run check:results-refresh:local -- --daily
+npm run check:results-refresh:staging -- --at 2026-09-21T20:00:00+02:00
 npm run test:results-schedule
 ```
 
-These commands report the decision without importing or scoring anything.
-`-900001` is the synthetic test stage; omit it to check real stage `5727` locally.
-Normal local `score` and `unlock` commands still execute the synthetic lifecycle.
+`-900001` is the synthetic test stage; omit it to check real stage `5727`
+locally. The staging command reads `.env.staging.local` and requires its staging
+project identity. Normal local `score` and `unlock` commands still execute the
+synthetic lifecycle.
 
-The workflow explicitly shares stage `5727` between its check and both importers.
-No new secrets or repository variables are needed. Sweden's summer/winter clock
-changes are handled by the IANA timezone. The 00:07 trigger is identified by
-its cron expression, so it is not accidentally skipped if the runner starts late.
-GitHub Actions schedules run on the default branch and can be delayed or dropped;
-these are target polling times, not exact-time guarantees. See
+The production workflow and Supabase Cron use stage `5727`. Supabase Cron's
+minute slots work in both UTC and Stockholm time because Sweden's offset is a
+whole number of hours; the database rule uses `Europe/Stockholm` for fixture
+dates and carries late-match windows across midnight. GitHub's 00:07 trigger is
+identified by its cron expression, so a delayed nightly run still refreshes fixtures. GitHub Actions
+scheduled runs can be delayed or dropped; these are target times, not guarantees. See
 [GitHub's schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
-No changes are live until the workflow is promoted to the default branch.
+Staging has no GitHub dispatch token; run `npm run refresh:staging` after staging
+deployments and when checking new real results.
+
+### Enable production match-window dispatch
+
+The migration `20260924164500_dispatch_results_refresh_from_supabase_cron.sql`
+creates the database rule, the `dispatch-results-refresh` Cron job, and the
+`pg_net` network extension. It queues GitHub dispatches only when the
+production Supabase Vault contains a secret named
+`results_dispatch_github_token`. Keep that secret absent from staging and local.
+Until it is configured, the nightly GitHub results import still runs.
+
+After the migration has passed staging checks and deployed to production,
+create a fine-grained GitHub personal access token for
+`BE4M3R/fantasy-pingisligan` with **Actions: Read and write** repository
+permission. In the **production Supabase Dashboard → Database → Vault**, add
+it under the exact name `results_dispatch_github_token`. Never commit or print
+the token. The Cron job calls GitHub's workflow dispatch API with `kind=poll`;
+it includes the due slot time so a delayed GitHub runner still imports for that
+slot. An ordinary manual GitHub run uses `kind=full`. Check the
+`dispatch-results-refresh` job history in Supabase and the resulting
+`Import Pingisligan results` run in GitHub during a match window. A missing or
+expired token stops match-window dispatches but leaves the nightly import in
+place; replace it in production Vault when needed.
 
 Every due results import uses `--complete-gameweek-refresh`.
 Only after result persistence and scoring succeed does it score the oldest
-pending gameweek that was already unlocked when the import began, then atomically
+pending gameweek in the imported STUPA stage that was already unlocked when
+the import began, then atomically
 record `data_refreshed_at` and mark that round's locked chips as used. That
 clears the gameweek's refresh lock without touching prices or budgets. Other
 pending/locked gameweeks still keep transfers closed.

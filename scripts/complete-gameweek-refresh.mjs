@@ -1,10 +1,11 @@
-export async function completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId } = {}) {
+export async function completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId, stageId } = {}) {
   let pending = supabase
     .from("fantasy_gameweeks")
     .select("id, name, unlock_at")
     .lt("unlock_at", refreshedAt)
     .is("data_refreshed_at", null);
   if (gameweekId) pending = pending.eq("id", gameweekId);
+  if (stageId !== undefined) pending = pending.eq("stupa_stage_id", stageId);
   const { data: gameweek, error: lookupError } = await pending
     .order("unlock_at", { ascending: true })
     .limit(1)

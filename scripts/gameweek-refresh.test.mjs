@@ -126,6 +126,36 @@ test("results scoring precedes pending-gameweek scoring and the completion marke
   const marker = calls.findIndex(([, name]) => name === "complete_gameweek_refresh");
   assert.equal(calls.slice(0, marker).filter(([operation]) => operation === "rpc").length, 2);
   assert.ok(calls.some(([operation, column, value]) => operation === "lt" && column === "unlock_at" && value === options.refreshStartedAt));
+  assert.ok(calls.some(([operation, column, value]) => operation === "eq" && column === "stupa_stage_id" && value === 5727));
+});
+
+test("scheduled completion only considers its own stage; synthetic unlock targets its gameweek", async () => {
+  const gameweeks = [
+    { id: "synthetic-gw", name: "Test", stupa_stage_id: -900001, unlock_at: "2026-09-19T00:00:00Z" },
+    { id: "real-gw", name: "Round 1", stupa_stage_id: 5727, unlock_at: "2026-09-19T12:00:00Z" },
+  ];
+  const completed = [];
+  const client = {
+    from(table) {
+      assert.equal(table, "fantasy_gameweeks");
+      const filters = new Map();
+      return {
+        select() { return this; }, lt() { return this; }, is() { return this; },
+        eq(column, value) { filters.set(column, value); return this; },
+        order() { return this; }, limit() { return this; },
+        async maybeSingle() {
+          return { data: gameweeks.find((week) => [...filters].every(([column, value]) => week[column] === value)) ?? null, error: null };
+        },
+      };
+    },
+    async rpc(name, args) {
+      if (name === "complete_gameweek_refresh") completed.push(args.p_gameweek_id);
+      return { data: true, error: null };
+    },
+  };
+  await completeOldestUnlockedGameweek(client, options.refreshStartedAt, { stageId: 5727 });
+  await completeOldestUnlockedGameweek(client, options.refreshStartedAt, { gameweekId: "synthetic-gw" });
+  assert.deepEqual(completed, ["real-gw", "synthetic-gw"]);
 });
 
 test("failed result writes or scoring cannot reopen transfers", async () => {

@@ -152,34 +152,25 @@ npm run import:schedule
 npm run import:results
 ```
 
-The results workflow checks every day at 00:07 Swedish time. On each day with
-fixtures it also checks every 15 minutes at :07, :22, :37, and :52 from the
-first match start until the day ends; gap days in a multi-day gameweek get only
-the daily check. The 00:07 and manual runs refresh fixtures first. GitHub Actions
-may delay runs.
+GitHub schedules one results workflow each night at 00:07 Swedish time. Supabase
+Cron checks fixtures at :07, :22, :37, and :52 and starts a GitHub results run
+only from the first match start until five hours after that day's last match
+starts, including across midnight. Gap days in a multi-day gameweek get only
+the nightly run after any prior day's window ends. Nightly and full manual runs
+refresh fixtures first. GitHub Actions may delay scheduled runs.
 
 Nightly schedule refreshes accept changed deadlines until the existing deadline
 passes. After that point the gameweek's lock and unlock boundaries are frozen,
 while individual fixture times and statuses still update. An existing fixture
 also keeps its original gameweek if STUPA later moves or postpones it.
 
-GitHub includes the exact triggering cron expression in
-`github.event.schedule`. The workflow passes it to the cadence check as
-`RESULTS_CRON`, so a delayed run still knows why it was started:
+GitHub's only cron is `7 0 * * *` in `Europe/Stockholm`. Supabase Cron uses the
+same database match-window rule as the read-only local and staging checks, then
+dispatches the workflow with `kind=poll` during the window. The dispatched run
+checks the rule again before installing dependencies or contacting STUPA.
+Ordinary manual workflow runs use `kind=full` and refresh fixtures and results.
 
-- `7 0 * * *` is the special daily 00:07 run. It always refreshes fixtures and
-  imports results.
-- `22,37,52 * * * *` covers :22, :37 and :52 in every hour.
-- `7 1-23 * * *` covers :07 in hours 01–23; midnight :07 is already handled by
-  the daily expression.
-- `workflow_dispatch` is treated like the daily run.
-
-For the 15-minute expressions, the cadence check reads at most one matching
-fixture from Supabase. It proceeds only when a fixture in the configured stage
-has started on the current Stockholm date. Otherwise the run stops before
-installing dependencies or contacting STUPA.
-
-The workflow uses `npm run import:results -- --complete-gameweek-refresh`:
+The production workflow uses `npm run import:results -- --complete-gameweek-refresh`:
 STUPA import and scoring must succeed before the pending unlocked gameweek is
 marked refreshed. Prices and budgets stay unchanged. Profixio is not called and
 no price-refresh GitHub variable is required. See
@@ -191,6 +182,7 @@ writing data:
 
 ```bash
 npm run check:results-refresh:local -- --stage-id -900001
+npm run check:results-refresh:staging -- --at 2026-09-21T20:00:00+02:00
 npm run test:results-schedule
 ```
 
@@ -244,9 +236,29 @@ npm run test:local -- cleanup
 
 ## Staging gameweek lifecycle test
 
-`test:staging` reads `.env.staging.local` and requires `APP_ENV=staging` plus a
-matching `STAGING_PROJECT_REF`. It changes staging test data. Use the same
-commands as above, replacing `test:local` with `test:staging`.
+Staging uses the real fixture schedule and results, refreshed manually after
+deploying `develop`:
+
+```bash
+npm run refresh:staging
+npm run verify:staging
+npm run seed:staging-accounts -- status
+```
+
+`refresh:staging` checks the target in `.env.staging.local`, imports fixtures,
+then imports results, scores and completes an unlocked real gameweek. It prints
+the real fixture, gameweek, score and transfer-lock status afterward and stops
+if an import or verification step fails. `verify:staging` repeats that read-only
+check without importing. If an older real round remains pending after unlock,
+run `refresh:staging` again; each import completes one round. Keep the existing
+`[TEST] Seedlag` teams as a stable baseline; do not reseed them for ordinary
+checks, because seeding resets their current squads. Check the app's login,
+teams, transfers, points and standings
+against staging. No GitHub Actions job imports staging results automatically.
+
+Run the synthetic lock/score/unlock sequence above against local Supabase.
+`test:staging` changes staging test data and can lock transfers for everyone;
+use it only for a short, deliberate smoke test and always clean it up.
 
 To create staging test accounts, put `TEST_ACCOUNT_PASSWORD` in
 `.env.staging.local`, then run `npm run seed:staging-accounts`.
@@ -259,18 +271,6 @@ source .env.staging.local
 set +a
 npm run dev
 ```
-
-## Local gameweek lifecycle test
-npm run test:staging -- cleanup
-npm run test:staging -- validate
-npm run test:staging -- setup
-npm run test:staging -- status gw1
-npm run test:staging -- lock gw1
-npm run test:staging -- status gw1
-npm run test:staging -- score gw1
-npm run test:staging -- status gw1
-npm run test:staging -- unlock gw1
-npm run test:staging -- status gw1
 
 ## Further documentation
 

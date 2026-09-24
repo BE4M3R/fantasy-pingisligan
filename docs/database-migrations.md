@@ -149,3 +149,35 @@ historical record. Promote it with the
 same `develop` then `main` process as every other migration. Do not generate a
 migration for the whole historical catalogue or run it directly against a
 hosted project.
+
+## Back up hosted application data
+
+Before risky hosted database work, create a logical backup outside the
+repository. Add `SUPABASE_DB_URL` to the matching ignored local env file:
+`.env.production` for production and `.env.staging.local` for staging. Copy the
+Postgres connection URL from the matching Supabase project's **Connect** panel.
+Keep these URLs private; the env files are ignored by Git.
+
+Then run the matching command:
+
+```bash
+npm run db:backup:production
+npm run db:backup:staging
+```
+
+Each command checks that the database URL appears to match the project URL in
+that env file, then writes role, schema, and data SQL files into a timestamped
+folder under `/mnt/c/Users/gusta/OneDrive/fantasy-pingisligan-db-backups/production`
+or `/mnt/c/Users/gusta/OneDrive/fantasy-pingisligan-db-backups/staging`. Keep
+the OneDrive folders private, wait for syncing to finish, and periodically test
+a restore against a separate project or local database. Never commit backup
+files.
+
+For an ad hoc target, `npm run db:backup -- "/path/to/private/folder"` still
+prompts for a connection URL without displaying it.
+
+The CLI's standard dump excludes Supabase-managed schemas such as `auth` and
+`storage`; this procedure backs up application tables (including gameweek team
+snapshots and their stored points), but does not back up login accounts or
+Storage file objects. It also does not back up project settings, API keys, or
+Edge Functions. Treat Auth recovery as a separate procedure.
