@@ -31,11 +31,14 @@ This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based
   using synthetic results; production performs it through the results job.
   Neither flow automatically changes player prices or team budgets, and a
   failed results/scoring step must leave transfers closed.
-- Results polling uses Europe/Stockholm: a daily midnight check, plus checks
-  every 30 minutes after the first fixture starts on each playing day until
-  midnight. Use individual fixture dates, including every playing day of a
-  multi-day gameweek; do not poll throughout gap days. Keep the shared cadence
-  check and its local tests aligned with the production workflow.
+- Results polling uses Europe/Stockholm: a daily 00:07 check, plus checks
+  every 15 minutes from the first fixture start on each playing day until five
+  hours after that day's last fixture start, including across midnight. GitHub
+  schedules the nightly run; Supabase Cron checks the match window and dispatches
+  GitHub only when due. Use individual fixture dates,
+  including every playing day of a multi-day gameweek; do not poll throughout
+  gap days. Keep the shared database cadence check, local tests and production
+  workflow aligned.
 - When changing a flow, update its local test harness, production workflow,
   relevant tests and documentation together. Reuse shared implementation where
   practical to prevent the environments from drifting apart.

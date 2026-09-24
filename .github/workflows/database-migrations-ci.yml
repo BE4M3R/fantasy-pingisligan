@@ -32,6 +32,11 @@ jobs:
       - name: Rebuild database from migrations
         run: supabase db start
 
+      - name: Check results dispatch windows
+        run: |
+          (printf 'begin;\n'; cat scripts/results-refresh-dispatch.local.sql; printf '\nrollback;\n') |
+            docker exec -i supabase_db_fantasy-pingisligan psql -v ON_ERROR_STOP=1 -U postgres -d postgres
+
       - name: Lint database functions
         run: supabase db lint --local --level error --fail-on error
 

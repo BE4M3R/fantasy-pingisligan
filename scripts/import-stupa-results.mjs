@@ -574,7 +574,7 @@ async function scoreAffectedGameweeks(supabase, gameweekIds) {
   return gameweekIds.length;
 }
 
-export async function persistScoreAndComplete(supabase, rows, { complete = false, refreshStartedAt } = {}) {
+export async function persistScoreAndComplete(supabase, rows, { complete = false, refreshStartedAt, stageId = DEFAULT_STAGE_ID } = {}) {
   if (complete && !Number.isFinite(Date.parse(refreshStartedAt))) {
     throw new Error("Gameweek completion requires the results import start time.");
   }
@@ -584,7 +584,7 @@ export async function persistScoreAndComplete(supabase, rows, { complete = false
   }
   await persistRows(supabase, rows);
   const scored = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
-  if (complete) await completeOldestUnlockedGameweek(supabase, refreshStartedAt);
+  if (complete) await completeOldestUnlockedGameweek(supabase, refreshStartedAt, { stageId });
   return scored;
 }
 
@@ -638,7 +638,7 @@ async function main() {
       );
     }
     scoredGameweekCount = await persistScoreAndComplete(supabase, rows, {
-      complete: process.argv.includes("--complete-gameweek-refresh"), refreshStartedAt,
+      complete: process.argv.includes("--complete-gameweek-refresh"), refreshStartedAt, stageId,
     });
   }
 
