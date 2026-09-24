@@ -102,6 +102,25 @@ schema forward. Keep player, fixture and result imports in their existing
 server-side jobs; migrations are for schema objects, policies, functions,
 triggers, and small controlled reference-data changes.
 
+## Reconcile staging player and club UUIDs
+
+If a hosted environment already has the same players under different UUIDs,
+do not use the routine insert-only player migration generator: it correctly
+stops on those identity conflicts. Add a reviewed forward migration that maps
+the known old UUIDs to the committed production catalogue. Remap club
+references and merge player references so current squads, locked squads,
+results, statistics, snapshots and identity aliases continue to point at the
+same people. Keep prices and `active` status from the reviewed catalogue.
+
+The one-time migration requires the reviewed legacy roster and clubs before
+remapping staging. It seeds a clean local database from the catalogue. On a
+populated database without the legacy UUIDs, it verifies the current players,
+clubs, and committed identity mappings before doing nothing; unexpected data
+aborts the migration. After it reaches staging, export a fresh staging
+candidate and compare its players and clubs with `data/player-catalogue.json`
+before promoting the exact tested commit to `main`. Do not reset a hosted
+environment to solve a catalogue UUID mismatch.
+
 ## New player catalogue rows
 
 New shared players are small controlled reference-data changes. After adding and

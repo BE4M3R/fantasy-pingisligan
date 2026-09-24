@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "committed-catalogue",
-  "syncedFromProductionAt": "2026-09-21T05:44:23.775Z",
+  "syncedFromProductionAt": "2026-09-24T10:02:30.174Z",
   "clubs": [
     {
       "id": "24f4d5f3-7cb6-44f6-9531-530a44d1b27e",
@@ -68,7 +68,7 @@
     {
       "id": "08ff8c42-b000-48f2-92a9-e147d5e76385",
       "profixio_id": "68237",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 28334,
       "club_id": "f6d6d519-c925-47c3-9db8-3cbec544818d",
       "first_name": "Elliot",
       "last_name": "Lundqvist",
@@ -98,7 +98,7 @@
     {
       "id": "10e59118-c649-481c-b9a7-ffd3df63ee67",
       "profixio_id": "100713",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22233,
       "club_id": "340451e0-8b80-4746-9c76-3f7a9c4a4c9b",
       "first_name": "Charlie",
       "last_name": "Widing",
@@ -128,7 +128,7 @@
     {
       "id": "130f0754-d127-4fd2-9b4f-3b1d87448fcd",
       "profixio_id": "114454",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23975,
       "club_id": "77f2d02c-715c-4bef-8ae1-f4cc101b2e93",
       "first_name": "William",
       "last_name": "Bergenblock",
@@ -143,7 +143,7 @@
     {
       "id": "1929bba7-889a-4d7f-a4c7-6355c3f1ee1c",
       "profixio_id": "14450",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23942,
       "club_id": "77f2d02c-715c-4bef-8ae1-f4cc101b2e93",
       "first_name": "Truls",
       "last_name": "Möregårdh",
@@ -173,7 +173,7 @@
     {
       "id": "1e012a98-e38a-4f08-84cf-e79339036346",
       "profixio_id": "11924",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 21914,
       "club_id": "36804e63-fa5e-4525-a76c-a14fad17dd59",
       "first_name": "Viktor",
       "last_name": "Brodd",
@@ -248,7 +248,7 @@
     {
       "id": "2e80b173-3627-4406-ad44-fd1304bdc7d3",
       "profixio_id": "976954",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23398,
       "club_id": "ca863192-8330-4b9a-9459-54f993eda7a0",
       "first_name": "Aleksi",
       "last_name": "Räsänen",
@@ -323,7 +323,7 @@
     {
       "id": "3fe76b59-b344-4925-ab40-59fac4e43070",
       "profixio_id": "13409",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 20643,
       "club_id": "f6d6d519-c925-47c3-9db8-3cbec544818d",
       "first_name": "Sebastian",
       "last_name": "Loso",
@@ -338,7 +338,7 @@
     {
       "id": "41afc750-129e-47f5-b886-fd7b9bf03a01",
       "profixio_id": "17355",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22225,
       "club_id": "340451e0-8b80-4746-9c76-3f7a9c4a4c9b",
       "first_name": "Hampus",
       "last_name": "Söderlund",
@@ -353,7 +353,7 @@
     {
       "id": "436bb34e-3d5e-4464-be10-f8d7ecd0e7ba",
       "profixio_id": "1060683",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23373,
       "club_id": "ca863192-8330-4b9a-9459-54f993eda7a0",
       "first_name": "Oliver",
       "last_name": "Berntsen",
@@ -383,7 +383,7 @@
     {
       "id": "4db17165-c608-4d16-94a6-8a761654d8fb",
       "profixio_id": "1064626",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23903,
       "club_id": "77f2d02c-715c-4bef-8ae1-f4cc101b2e93",
       "first_name": "Vladislav",
       "last_name": "Ursu",
@@ -398,7 +398,7 @@
     {
       "id": "4dd0a8f6-a8b9-463e-b569-3183012e7191",
       "profixio_id": "12456",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 20631,
       "club_id": "f6d6d519-c925-47c3-9db8-3cbec544818d",
       "first_name": "Simon",
       "last_name": "Berglund",
@@ -458,7 +458,7 @@
     {
       "id": "5aa1adc4-db8c-4771-8b8f-87b743716b87",
       "profixio_id": "17925",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 21920,
       "club_id": "36804e63-fa5e-4525-a76c-a14fad17dd59",
       "first_name": "Anders",
       "last_name": "Eriksson",
@@ -473,7 +473,7 @@
     {
       "id": "5c678ba8-dbc4-443a-82a8-08b652123cc0",
       "profixio_id": "578412",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23498,
       "club_id": "ca863192-8330-4b9a-9459-54f993eda7a0",
       "first_name": "Martin",
       "last_name": "Fröseth",
@@ -488,7 +488,7 @@
     {
       "id": "5cd7d15d-7cca-40bb-97c4-4a3a1d8348e3",
       "profixio_id": "12325",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 20627,
       "club_id": "f6d6d519-c925-47c3-9db8-3cbec544818d",
       "first_name": "Harald",
       "last_name": "Andersson",
@@ -503,7 +503,7 @@
     {
       "id": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
       "profixio_id": "1061624",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 33289,
       "club_id": "36804e63-fa5e-4525-a76c-a14fad17dd59",
       "first_name": "Khai",
       "last_name": "Lam",
@@ -548,7 +548,7 @@
     {
       "id": "65cc4d15-b5ab-4102-be16-896f257a3fed",
       "profixio_id": "245079",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22405,
       "club_id": "a68f7a5b-9b7c-4b4c-a9c3-1464110ffb34",
       "first_name": "Noa",
       "last_name": "Dahlström",
@@ -788,7 +788,7 @@
     {
       "id": "b1a3d763-2136-4a34-859f-39c8a7fd8041",
       "profixio_id": "14527",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 29717,
       "club_id": "36804e63-fa5e-4525-a76c-a14fad17dd59",
       "first_name": "Jens",
       "last_name": "Lundqvist",
@@ -833,7 +833,7 @@
     {
       "id": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
       "profixio_id": "983359",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22393,
       "club_id": "a68f7a5b-9b7c-4b4c-a9c3-1464110ffb34",
       "first_name": "Dominykas",
       "last_name": "Samuolis",
@@ -878,7 +878,7 @@
     {
       "id": "c82575d7-5a90-43aa-b88b-f8d8d851c28b",
       "profixio_id": "110873",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 20781,
       "club_id": "f6d6d519-c925-47c3-9db8-3cbec544818d",
       "first_name": "Charlie",
       "last_name": "Carlsson",
@@ -923,7 +923,7 @@
     {
       "id": "cde479a6-aca3-4311-a04e-79091577f838",
       "profixio_id": "961725",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22391,
       "club_id": "a68f7a5b-9b7c-4b4c-a9c3-1464110ffb34",
       "first_name": "Gabrielius",
       "last_name": "Camara",
@@ -938,7 +938,7 @@
     {
       "id": "d9384b9a-7435-44af-9b01-74af1524c5f0",
       "profixio_id": "10131",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22222,
       "club_id": "340451e0-8b80-4746-9c76-3f7a9c4a4c9b",
       "first_name": "Simon",
       "last_name": "Arvidsson",
@@ -1028,7 +1028,7 @@
     {
       "id": "ec5e92a9-f7e2-4380-9ed5-7c8f2ae1057f",
       "profixio_id": "69847",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 22229,
       "club_id": "340451e0-8b80-4746-9c76-3f7a9c4a4c9b",
       "first_name": "Max",
       "last_name": "Hedbom",
@@ -1043,7 +1043,7 @@
     {
       "id": "ec7f46dd-3c2e-4839-bbd7-c5e7d35104cb",
       "profixio_id": "12691",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23336,
       "club_id": "ca863192-8330-4b9a-9459-54f993eda7a0",
       "first_name": "Pär",
       "last_name": "Gerell",
@@ -1088,7 +1088,7 @@
     {
       "id": "f2fc409d-fe3c-4573-b202-d18e18d1c612",
       "profixio_id": "336287",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 23621,
       "club_id": "77f2d02c-715c-4bef-8ae1-f4cc101b2e93",
       "first_name": "Alex",
       "last_name": "Naumi",
@@ -1133,7 +1133,7 @@
     {
       "id": "f5dc2860-c95e-4262-b87a-ce17082a9ce1",
       "profixio_id": "966772",
-      "stupa_user_role_id": null,
+      "stupa_user_role_id": 24202,
       "club_id": "a68f7a5b-9b7c-4b4c-a9c3-1464110ffb34",
       "first_name": "Tobias",
       "last_name": "Rasmussen",
@@ -1206,7 +1206,7 @@
       "player_id": "10e59118-c649-481c-b9a7-ffd3df63ee67",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1214,23 +1214,23 @@
       "player_id": "d9384b9a-7435-44af-9b01-74af1524c5f0",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
       "external_id": "1027359",
       "player_id": "cde479a6-aca3-4311-a04e-79091577f838",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
       "external_id": "1053541",
       "player_id": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1302,7 +1302,7 @@
       "player_id": "436bb34e-3d5e-4464-be10-f8d7ecd0e7ba",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1318,7 +1318,7 @@
       "player_id": "4db17165-c608-4d16-94a6-8a761654d8fb",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1357,8 +1357,8 @@
       "external_id": "1103027",
       "player_id": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1374,7 +1374,7 @@
       "player_id": "c82575d7-5a90-43aa-b88b-f8d8d851c28b",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1382,7 +1382,7 @@
       "player_id": "130f0754-d127-4fd2-9b4f-3b1d87448fcd",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1398,7 +1398,7 @@
       "player_id": "1e012a98-e38a-4f08-84cf-e79339036346",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1414,7 +1414,7 @@
       "player_id": "5cd7d15d-7cca-40bb-97c4-4a3a1d8348e3",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1422,7 +1422,7 @@
       "player_id": "4dd0a8f6-a8b9-463e-b569-3183012e7191",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1438,7 +1438,7 @@
       "player_id": "ec7f46dd-3c2e-4839-bbd7-c5e7d35104cb",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1462,7 +1462,7 @@
       "player_id": "3fe76b59-b344-4925-ab40-59fac4e43070",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1494,7 +1494,7 @@
       "player_id": "1929bba7-889a-4d7f-a4c7-6355c3f1ee1c",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1502,7 +1502,7 @@
       "player_id": "b1a3d763-2136-4a34-859f-39c8a7fd8041",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1534,7 +1534,7 @@
       "player_id": "41afc750-129e-47f5-b886-fd7b9bf03a01",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1542,7 +1542,7 @@
       "player_id": "5aa1adc4-db8c-4771-8b8f-87b743716b87",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1574,7 +1574,7 @@
       "player_id": "65cc4d15-b5ab-4102-be16-896f257a3fed",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1622,7 +1622,7 @@
       "player_id": "f2fc409d-fe3c-4573-b202-d18e18d1c612",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1702,7 +1702,7 @@
       "player_id": "5c678ba8-dbc4-443a-82a8-08b652123cc0",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1718,7 +1718,7 @@
       "player_id": "08ff8c42-b000-48f2-92a9-e147d5e76385",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1726,7 +1726,7 @@
       "player_id": "ec5e92a9-f7e2-4380-9ed5-7c8f2ae1057f",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1774,7 +1774,7 @@
       "player_id": "f5dc2860-c95e-4262-b87a-ce17082a9ce1",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1790,7 +1790,7 @@
       "player_id": "2e80b173-3627-4406-ad44-fd1304bdc7d3",
       "is_current": true,
       "first_seen_at": "2026-09-05T05:30:09.276647+00:00",
-      "last_seen_at": "2026-09-14T16:14:55.62+00:00"
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "sbtf_license",
@@ -1810,27 +1810,203 @@
     },
     {
       "provider": "stupa_user_role",
+      "external_id": "20627",
+      "player_id": "5cd7d15d-7cca-40bb-97c4-4a3a1d8348e3",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "20631",
+      "player_id": "4dd0a8f6-a8b9-463e-b569-3183012e7191",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "20643",
+      "player_id": "3fe76b59-b344-4925-ab40-59fac4e43070",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T19:45:19.726433+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "20781",
+      "player_id": "c82575d7-5a90-43aa-b88b-f8d8d851c28b",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "21914",
+      "player_id": "1e012a98-e38a-4f08-84cf-e79339036346",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "21920",
+      "player_id": "5aa1adc4-db8c-4771-8b8f-87b743716b87",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22222",
+      "player_id": "d9384b9a-7435-44af-9b01-74af1524c5f0",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22225",
+      "player_id": "41afc750-129e-47f5-b886-fd7b9bf03a01",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22229",
+      "player_id": "ec5e92a9-f7e2-4380-9ed5-7c8f2ae1057f",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22233",
+      "player_id": "10e59118-c649-481c-b9a7-ffd3df63ee67",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
       "external_id": "22391",
       "player_id": "cde479a6-aca3-4311-a04e-79091577f838",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "stupa_user_role",
       "external_id": "22393",
       "player_id": "bb13634f-4599-4f22-93e7-6977dd8d29a0",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "22405",
+      "player_id": "65cc4d15-b5ab-4102-be16-896f257a3fed",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23336",
+      "player_id": "ec7f46dd-3c2e-4839-bbd7-c5e7d35104cb",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23373",
+      "player_id": "436bb34e-3d5e-4464-be10-f8d7ecd0e7ba",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23398",
+      "player_id": "2e80b173-3627-4406-ad44-fd1304bdc7d3",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23498",
+      "player_id": "5c678ba8-dbc4-443a-82a8-08b652123cc0",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23621",
+      "player_id": "f2fc409d-fe3c-4573-b202-d18e18d1c612",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:47:25.803457+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23903",
+      "player_id": "4db17165-c608-4d16-94a6-8a761654d8fb",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23942",
+      "player_id": "1929bba7-889a-4d7f-a4c7-6355c3f1ee1c",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "23975",
+      "player_id": "130f0754-d127-4fd2-9b4f-3b1d87448fcd",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:03:13.861047+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "24202",
+      "player_id": "f5dc2860-c95e-4262-b87a-ce17082a9ce1",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "28334",
+      "player_id": "08ff8c42-b000-48f2-92a9-e147d5e76385",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T17:25:03.884542+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
+    },
+    {
+      "provider": "stupa_user_role",
+      "external_id": "29717",
+      "player_id": "b1a3d763-2136-4a34-859f-39c8a7fd8041",
+      "is_current": false,
+      "first_seen_at": "2026-09-22T16:59:06.10526+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     },
     {
       "provider": "stupa_user_role",
       "external_id": "33289",
       "player_id": "5d7bc8ee-4e19-4897-905f-e30f08761d7c",
       "is_current": false,
-      "first_seen_at": "2026-09-22T17:24:56+00:00",
-      "last_seen_at": "2026-09-22T17:24:56+00:00"
+      "first_seen_at": "2026-09-22T19:44:04.65205+00:00",
+      "last_seen_at": "2026-09-24T00:25:41.078+00:00"
     }
   ]
 }
