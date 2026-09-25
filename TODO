@@ -36,22 +36,26 @@ Maybe create some notication box if something is not working properly or just to
 
 Add upcoming matches on home page (with results maybe?)
 
-Make it clear when gameweek is live on home page.
+(FIXED) Make it clear when gameweek is live on home page.
 
 When pressing a guy in league show the players squad he has (same as in result mode)
 
 Show stats when pressing a player in squad mode and transfer mode.
 
-Making scoring of different teams appearing immediately whne scoring is done
+(FIXED) Making scoring of different teams appearing immediately when scoring is done
 
 Make sure you can not captain a bench player and if captain is subbed out move captain to the new player from bench
 
-Make sure we update schedule in production before GW1
+(FIXED) Make sure we update schedule in production before GW1
 
 Should substitutions not happen until gameweek has finished?
 
-Automatically get license id from STUPA when profixio does not work
+Automatically get license id from STUPA when profixio does not work (not sure this is needed)
 
-No points from winning team match
+(FIXED) No points from winning team match
 
 Why are not doubles in calculations
+
+add Vice Captain
+
+Wildcard should not be possible to use GW1

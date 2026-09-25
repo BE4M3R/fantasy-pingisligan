@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import catalogue from "../data/player-catalogue.json" with { type: "json" };
-import roster from "../data/sbtf-rosters.json" with { type: "json" };
-import { buildCataloguePlan, buildExplicitPriceUpdates, importCatalogue, importLocalCatalogue, validateCatalogue } from "./import-fantasy-players.mjs";
+import catalogue from "../../data/player-catalogue.json" with { type: "json" };
+import roster from "../../data/sbtf-rosters.json" with { type: "json" };
+import { buildCataloguePlan, buildExplicitPriceUpdates, importCatalogue, importLocalCatalogue, validateCatalogue } from "../../scripts/import-fantasy-players.mjs";
 
 function database(initial = {}) {
   const state = { clubs: [], players: [], player_external_identities: [], ...structuredClone(initial) };

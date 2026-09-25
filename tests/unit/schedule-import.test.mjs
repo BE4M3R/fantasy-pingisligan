@@ -4,7 +4,7 @@ import {
   buildGameweeks,
   preserveLockedGameweekBoundaries,
   resolveFixtureGameweekId,
-} from "./import-stupa-schedule.mjs";
+} from "../../scripts/import-stupa-schedule.mjs";
 
 const incomingGameweek = {
   stupa_stage_id: 5727,

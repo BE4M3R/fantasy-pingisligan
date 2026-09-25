@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   applyAutomaticBenchSubstitutions,
   calculateFixtureWinPoints,
-} from "../app/dashboard/player-types.ts";
+} from "../../app/dashboard/player-types.ts";
 
 function squadResult({
   chip = null,
