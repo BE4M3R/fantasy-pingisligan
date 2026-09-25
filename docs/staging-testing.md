@@ -295,6 +295,11 @@ Use two names per side for doubles. A walkover omits the set score:
 }
 ```
 
+For a deciding golden doubles, append a doubles match as the fixture's final
+`matches` entry and set `"isGoldenMatch": true`. The harness stores its STUPA
+match order as `1`, as the real importer does, while scoring it as the final
+played match for the fixture clincher bonus.
+
 The script generates all reserved database identifiers; do not add Stupa IDs
 to the JSON.
 
