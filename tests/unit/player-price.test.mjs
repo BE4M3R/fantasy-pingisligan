@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePlayerPrice, parsePriceArguments } from "./calculate-player-price.mjs";
+import { calculatePlayerPrice, parsePriceArguments } from "../../scripts/calculate-player-price.mjs";
 
 test("manual price calculator preserves the former fantasy price formula", () => {
   assert.deepEqual(calculatePlayerPrice(2114), {

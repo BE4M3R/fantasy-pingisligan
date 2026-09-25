@@ -5,8 +5,8 @@ import {
   buildImportRows,
   buildManualPlayerLookup,
   reportUnmatchedPlayers,
-} from "./import-stupa-results.mjs";
-import roster from "../data/sbtf-rosters.json" with { type: "json" };
+} from "../../scripts/import-stupa-results.mjs";
+import roster from "../../data/sbtf-rosters.json" with { type: "json" };
 
 function stupaParent(detail) {
   return {

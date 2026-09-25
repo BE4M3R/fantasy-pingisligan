@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import catalogue from "../data/player-catalogue.json" with { type: "json" };
-import { buildPlayerDataMigration, parsePlayerMigrationArguments } from "./generate-player-migration.mjs";
+import catalogue from "../../data/player-catalogue.json" with { type: "json" };
+import { buildPlayerDataMigration, parsePlayerMigrationArguments } from "../../scripts/generate-player-migration.mjs";
 
 test("player migration contains only explicitly selected catalogue players and safe inserts", () => {
   const player = catalogue.players.find((row) => row.profixio_id && row.club_id);

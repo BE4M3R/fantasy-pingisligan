@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { DAILY_RESULTS_CRON, checkResultsRefresh, parseRefreshCheckTime, resultsRefreshDecision, resultsRefreshReport, stockholmDayWindow } from "./results-refresh-schedule.mjs";
-import { verifyStagingImportTarget } from "./verify-staging-import-target.mjs";
+import { DAILY_RESULTS_CRON, checkResultsRefresh, parseRefreshCheckTime, resultsRefreshDecision, resultsRefreshReport, stockholmDayWindow } from "../../scripts/results-refresh-schedule.mjs";
+import { verifyStagingImportTarget } from "../../scripts/verify-staging-import-target.mjs";
 
 const interval = (now, matchStarts = []) => resultsRefreshDecision({ now, matchStarts, eventName: "workflow_dispatch", dispatchKind: "poll" });
 
@@ -137,7 +137,7 @@ test("a late fixture keeps the previous playing day's window open past midnight"
 test("GitHub schedules one nightly run and accepts a gated match-window dispatch", async () => {
   // js-yaml is already installed by ESLint; no runtime dependency is added.
   const { load } = await import("js-yaml");
-  const workflow = load(await readFile(new URL("../.github/workflows/import-results.yml", import.meta.url), "utf8"));
+  const workflow = load(await readFile(new URL("../../.github/workflows/import-results.yml", import.meta.url), "utf8"));
   assert.deepEqual(workflow.on.schedule, [{ cron: DAILY_RESULTS_CRON, timezone: "Europe/Stockholm" }]);
   assert.deepEqual(workflow.on.workflow_dispatch.inputs.kind.options, ["full", "poll"]);
   assert.equal(workflow.on.workflow_dispatch.inputs.slot_at.type, "string");

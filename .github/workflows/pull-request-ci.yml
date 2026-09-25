@@ -1,0 +1,81 @@
+name: Validate pull request
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pull-request-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-and-unit:
+    name: code-and-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - name: Run named rule and import tests
+        run: npm run test:unit
+      - name: Summarize tests
+        if: always()
+        run: node scripts/test-summary.mjs test-results/unit/results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: test-results/unit/
+          if-no-files-found: ignore
+
+  functional-and-browser:
+    name: functional-and-browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start isolated local Supabase
+        run: supabase start > /dev/null
+      - name: Prepare local-only credentials
+        run: node scripts/prepare-ci-test-env.mjs
+      - name: Lint migrated database
+        run: npm run db:lint
+      - name: Build application against local configuration
+        run: npm run build
+      - name: Run authenticated database flows
+        run: npm run test:functional
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:e2e
+      - name: Summarize tests
+        if: always()
+        run: node scripts/test-summary.mjs test-results/functional/results.xml test-results/browser/results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: functional-test-results
+          path: |
+            test-results/functional/
+            test-results/browser/
+          if-no-files-found: ignore
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup

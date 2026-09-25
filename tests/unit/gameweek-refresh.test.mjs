@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { persistScoreAndComplete } from "./import-stupa-results.mjs";
-import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
+import { persistScoreAndComplete } from "../../scripts/import-stupa-results.mjs";
+import { completeOldestUnlockedGameweek } from "../../scripts/complete-gameweek-refresh.mjs";
 
 function query(result, calls) {
   return {
@@ -303,7 +303,7 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
 const testDefinition = { key: "gw1", roundId: -901001 };
 
 test("local refresh verifies synthetic results then clears only the selected round; retries are idempotent", async () => {
-  const { completeTestGameweekResults } = await import("./staging-gameweek-test.mjs");
+  const { completeTestGameweekResults } = await import("../../scripts/staging-gameweek-test.mjs");
   const db = localRefreshDatabase();
   const verify = async (client, scenario, definition, updateTimes) => {
     assert.equal(client, db.client);
@@ -323,7 +323,7 @@ test("local refresh verifies synthetic results then clears only the selected rou
 });
 
 test("local refresh keeps transfers closed on result verification or scoring failure", async () => {
-  const { completeTestGameweekResults } = await import("./staging-gameweek-test.mjs");
+  const { completeTestGameweekResults } = await import("../../scripts/staging-gameweek-test.mjs");
   for (const scoringFailure of [false, true]) {
     const db = localRefreshDatabase({ scoringFailure });
     await assert.rejects(completeTestGameweekResults(db.client, {}, testDefinition, async () => {
@@ -335,7 +335,7 @@ test("local refresh keeps transfers closed on result verification or scoring fai
 });
 
 test("local refresh refuses a gameweek before its unlock time", async () => {
-  const { completeTestGameweekResults } = await import("./staging-gameweek-test.mjs");
+  const { completeTestGameweekResults } = await import("../../scripts/staging-gameweek-test.mjs");
   const db = localRefreshDatabase({ unlocked: false });
   await assert.rejects(completeTestGameweekResults(db.client, {}, testDefinition, async () => {
     assert.fail("Must not import results before the selected round unlocks");
@@ -345,7 +345,7 @@ test("local refresh refuses a gameweek before its unlock time", async () => {
 
 
 test("unlock completes verified scoring in one command without a separate refresh", async () => {
-  const { unlock } = await import("./staging-gameweek-test.mjs");
+  const { unlock } = await import("../../scripts/staging-gameweek-test.mjs");
   const db = localRefreshDatabase({ unlocked: false });
   const definition = { ...testDefinition, fixtures: [{ matchId: -902001, startsAfterMinutes: 0, durationMinutes: 60 }] };
   await unlock(db.client, {}, definition, async (client, scenario, selected, updateTimes) => {
@@ -364,7 +364,7 @@ test("unlock completes verified scoring in one command without a separate refres
 });
 
 test("unlock leaves completion pending if synthetic result verification fails", async () => {
-  const { unlock } = await import("./staging-gameweek-test.mjs");
+  const { unlock } = await import("../../scripts/staging-gameweek-test.mjs");
   const db = localRefreshDatabase({ unlocked: false });
   const definition = { ...testDefinition, fixtures: [{ matchId: -902001, startsAfterMinutes: 0, durationMinutes: 60 }] };
   await assert.rejects(unlock(db.client, {}, definition, async () => { throw new Error("results failed"); }), /results failed/);

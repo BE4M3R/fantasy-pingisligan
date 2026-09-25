@@ -4,7 +4,7 @@ import {
   canReplaceClub,
   canTransferFromClub,
   getOverLimitClubIds,
-} from "../lib/squad-club-limit.ts";
+} from "../../lib/squad-club-limit.ts";
 
 const savedSquad = [
   { club: "eskilstuna", position: "starter" },

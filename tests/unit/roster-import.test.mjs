@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import roster from "../data/sbtf-rosters.json" with { type: "json" };
-import { canonicalClubName, getClub } from "../lib/clubs.ts";
-import { findExistingClub, getOrCreateClubId } from "./club-identity.mjs";
+import roster from "../../data/sbtf-rosters.json" with { type: "json" };
+import { canonicalClubName, getClub } from "../../lib/clubs.ts";
+import { findExistingClub, getOrCreateClubId } from "../../scripts/club-identity.mjs";
 test("roster lists 53 unique players across seven clubs", () => {
   assert.equal(roster.clubs.length, 7);
   const entries = roster.clubs.flatMap((club) => club.players);

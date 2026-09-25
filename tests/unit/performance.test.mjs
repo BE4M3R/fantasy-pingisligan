@@ -9,7 +9,7 @@ import ts from "typescript";
 async function loadLeaderboard({ rows = [], failAt = -1 } = {}) {
   const calls = [];
   let currentRows = rows;
-  const source = await readFile(new URL("../lib/leaderboard.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../../lib/leaderboard.ts", import.meta.url), "utf8");
   const code = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -79,7 +79,7 @@ test("empty and exact-batch-size leaderboards terminate correctly", async () => 
 });
 
 async function loadRoute(userId) {
-  const source = await readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../../app/api/leaderboard/route.ts", import.meta.url), "utf8");
   const exports = {};
   let reads = 0;
   const code = ts.transpileModule(source, {

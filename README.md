@@ -89,8 +89,12 @@ npm run generate:player-migration -- --player-id <new-player-uuid>
 ```bash
 npm run lint
 npm run build
-npm run test:imports
+npm run test:unit
 ```
+
+Run `npm run test:all` against local Supabase for authenticated game-rule tests
+and browser smoke tests. See [automated testing](docs/automated-testing.md) for
+setup, CI reports, and test isolation.
 
 ## Database migrations
 
