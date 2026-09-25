@@ -90,7 +90,11 @@ test.describe.serial("manager gameweek journey", () => {
     await complete(fixture);
     await login(page);
     await page.getByRole("button", { name: "Result mode" }).click();
-    await expect(page.getByLabel("Result gameweeks")).toContainText("12 pts");
+    await expect(page.getByLabel("Result gameweeks")).toContainText("13 pts");
     await expect(page.getByLabel("Squad editor")).toContainText("F.Player0");
+    await page.getByRole("button", { name: "Open result details for Functional Player2" }).click();
+    const breakdown = page.getByRole("dialog", { name: "Functional Player2" });
+    await expect(breakdown.getByText("Lost singles set-score")).toBeVisible();
+    await expect(breakdown.getByText("1 set won, 3 sets lost")).toBeVisible();
   });
 });

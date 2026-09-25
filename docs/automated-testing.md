@@ -34,10 +34,11 @@ Supabase stack and `.env.local` are left untouched. The browser run uses a
 separate temporary Next build directory, so an existing `npm run dev` session
 can keep running.
 
-Use `test:functional` or `test:e2e` individually while developing against an
-already clean local stack. `test:functional` stops with one clear error if that
-stack contains fantasy teams or gameweeks. For direct `test:e2e` runs on the
-host, install Chromium and its dependencies with
+`npm run test:functional` starts and removes its own clean disposable Supabase
+stack, without changing your usual local database. CI uses
+`test:functional:db` against the clean stack it has already started; that
+internal command refuses to run when teams or gameweeks already exist.
+For direct `test:e2e` runs on the host, install Chromium and its dependencies with
 `npx playwright install --with-deps chromium`. CI does this automatically.
 
 The functional tests create unique synthetic clubs, players, gameweeks, and an
@@ -47,6 +48,10 @@ uses the same fixture helper and checks sign-in, squad transfers and swaps,
 captain and chip actions, results, private league creation and joining, and
 navigation through a team's gameweek scores. No hosted Supabase project or STUPA
 request is used.
+The functional suite also completes two consecutive gameweeks for two managers,
+including a transfer between weeks, and checks player scores, per-week team
+scores, preserved first-week scores, and cumulative private league standings.
+The browser league journey checks both per-week scores and cumulative standings.
 The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.
 

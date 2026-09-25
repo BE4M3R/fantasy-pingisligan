@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     supabase.rpc("get_my_squad_result", {
       target_gameweek_id: gameweekId,
     }),
-    supabase.rpc("get_my_squad_set_breakdown", {
+    supabase.rpc("get_my_squad_score_breakdown", {
       target_gameweek_id: gameweekId,
     }),
     supabase

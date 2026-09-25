@@ -11,6 +11,14 @@ const STARTER_SIZE = 4;
 const MAX_PLAYERS_PER_CLUB = 2;
 const SEED_SOURCE = "fantasy-pingisligan-staging-squads-v1";
 const LOCAL_TEST_ACCOUNT_PASSWORD = "test12";
+const SCORING_DEMO_PLAYER_NAMES = [
+  "Truls Möregårdh",
+  "Tobias Rasmussen",
+  "Simon Berglund",
+  "Hampus Nordberg",
+  "Damian Wederlich",
+  "Ioannis Sgoropoulos",
+];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -119,7 +127,7 @@ function parseArguments(argv) {
     }
   }
 
-  if (!new Set(["seed", "status", "cleanup"]).has(command)) {
+  if (!new Set(["seed", "scoring-demo", "status", "cleanup"]).has(command)) {
     throw new Error(`Unknown command: ${command}`);
   }
 
@@ -134,6 +142,15 @@ function accountDefinition(index) {
     email: `fantasy-squad-test-${suffix}@example.com`,
     index,
     teamName: `[TEST] Seedlag ${suffix}`,
+  };
+}
+
+function scoringDemoDefinition() {
+  return {
+    displayName: "Scoring rules demo",
+    email: "fantasy-scoring-demo" + "@" + "example.com",
+    index: 0,
+    teamName: "[TEST] Scoring rules demo",
   };
 }
 
@@ -222,6 +239,36 @@ function selectSquad(players, seed, budget) {
   }
 
   return selected;
+}
+
+function selectScoringDemoSquad(players) {
+  const playersByName = new Map(
+    players.map((player) => [player.first_name + " " + player.last_name, player]),
+  );
+  const missingNames = SCORING_DEMO_PLAYER_NAMES.filter(
+    (name) => !playersByName.has(name),
+  );
+  if (missingNames.length > 0) {
+    throw new Error("Missing scoring-demo players: " + missingNames.join(", ") + ".");
+  }
+
+  const squad = SCORING_DEMO_PLAYER_NAMES.map((name) => playersByName.get(name));
+  const totalCost = squad.reduce((total, player) => total + player.numericPrice, 0);
+  if (totalCost > DEFAULT_BUDGET) {
+    throw new Error("The scoring-demo squad exceeds the SEK 100m budget.");
+  }
+
+  const clubCounts = new Map();
+  for (const player of squad) {
+    if (!player.club_id) continue;
+    const count = (clubCounts.get(player.club_id) ?? 0) + 1;
+    if (count > MAX_PLAYERS_PER_CLUB) {
+      throw new Error("The scoring-demo squad exceeds the two-player club limit.");
+    }
+    clubCounts.set(player.club_id, count);
+  }
+
+  return squad;
 }
 
 async function loadActivePlayers(supabase) {
@@ -407,6 +454,32 @@ async function seedAccounts(supabase, password, count) {
   );
 }
 
+async function seedScoringDemo(supabase, password) {
+  const players = await loadActivePlayers(supabase);
+  const allUsers = await listAllUsers(supabase);
+  const usersByEmail = new Map(
+    allUsers
+      .filter((user) => user.email)
+      .map((user) => [user.email.toLowerCase(), user]),
+  );
+  const definition = scoringDemoDefinition();
+  const squad = selectScoringDemoSquad(players);
+  const { created, user } = await getOrCreateUser(
+    supabase,
+    definition,
+    password,
+    usersByEmail,
+  );
+  await saveTeamAndSquad(supabase, user, definition, squad);
+
+  console.log((created ? "Created " : "Updated ") + definition.teamName + ".");
+  console.table(squad.map((player) => ({
+    club_id: player.club_id,
+    player: player.first_name + " " + player.last_name,
+  })));
+  console.log("The squad covers singles wins and set difference, lost-set points, a doubles win and clincher, a singles clincher, a walkover, fixture wins, and a sweep.");
+}
+
 async function showStatus(supabase) {
   const users = (await listAllUsers(supabase)).filter(isSeededUser);
   if (users.length === 0) {
@@ -486,7 +559,7 @@ async function main() {
 
   const options = parseArguments(commandArgs);
   const environment = await loadEnvironment(target, {
-    requirePassword: options.command === "seed",
+    requirePassword: options.command === "seed" || options.command === "scoring-demo",
   });
   console.log(`Target confirmed: ${target === "local" ? "local Supabase" : "staging"}.`);
   const supabase = createClient(environment.supabaseUrl, environment.serviceKey, {
@@ -495,6 +568,11 @@ async function main() {
 
   if (options.command === "seed") {
     await seedAccounts(supabase, environment.password, options.count);
+  } else if (options.command === "scoring-demo") {
+    if (target !== "local") {
+      throw new Error("The scoring demo can only be seeded locally.");
+    }
+    await seedScoringDemo(supabase, environment.password);
   } else if (options.command === "status") {
     await showStatus(supabase);
   } else {

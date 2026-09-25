@@ -141,10 +141,13 @@ export async function addMatch(fixture, { week = fixture.weeks[0], winner = "hom
   return { match, homeId, awayId };
 }
 
-export async function addResult(fixture, game, { home, away, homeSets = 3, awaySets = 1, walkover = false, order = 1 }) {
+export async function addResult(fixture, game, {
+  home, away, homeSets = 3, awaySets = 1, walkover = false, order = 1, golden = false,
+}) {
   const id = -(randomInt(100000000, 1900000000));
   checked(await fixture.admin.from("stupa_submatches").insert({ stupa_submatch_id: id,
-    match_id: game.match.id, match_order: order, status: "SCORED", raw_payload: {} }), "Create submatch");
+    match_id: game.match.id, match_order: order, status: "SCORED",
+    is_golden_match: golden, raw_payload: {} }), "Create submatch");
   const rows = [
     ...home.map((player) => ({ player, teamId: game.homeId, won: homeSets > awaySets,
       setsWon: homeSets, setsLost: awaySets })),

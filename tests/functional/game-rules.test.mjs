@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { applyAutomaticBenchSubstitutions } from "../../app/dashboard/player-types.ts";
+import { createClient } from "@supabase/supabase-js";
+import { applyAutomaticBenchSubstitutions, splitSinglesSetPoints } from "../../app/dashboard/player-types.ts";
 import { addMatch, addResult, checked, cleanupFixture, complete, createFixture, lock, save, squad } from "./fixture.mjs";
 
 async function withFixture(t, options) {
@@ -55,7 +57,7 @@ test("locked snapshot preserves lineup and captain, and transfers stay closed un
   assert.equal(checked(await f.user.rpc("current_transfer_lock"), "Read open transfer lock")[0].is_locked, false);
 });
 
-test("scoring applies singles, doubles rounding, sweep, bench substitutions and captain multiplier exactly once", async (t) => {
+test("scoring applies singles set difference, doubles wins, sweep, clincher, substitutions and captain multiplier exactly once", async (t) => {
   const f = await withFixture(t);
   const [a, b, c, d, e, g] = [f.players[0], f.players[1], f.players[2], f.players[3], f.players[4], f.players[6]];
   checked(await save(f, squad([a, c, e, g, b, d])), "Save squad");
@@ -68,13 +70,297 @@ test("scoring applies singles, doubles rounding, sweep, bench substitutions and 
   const stats = checked(await f.admin.from("player_match_stats").select("player_id, fantasy_points")
     .eq("match_id", match.match.id), "Read player scoring");
   const byPlayer = Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points]));
-  assert.equal(byPlayer[a.id], 23, "two singles wins, sets, doubles, sweep and club win");
-  assert.equal(byPlayer[b.id], 7, "doubles win, rounded set points and club win");
-  assert.equal(byPlayer[c.id], 2, "lost singles and doubles sets still score");
-  assert.equal(byPlayer[d.id], 2);
-  assert.equal(await points(f), 57, "captain 46 + starter 2 + bench substitutes 7 and 2");
+  assert.equal(byPlayer[a.id], 20, "two singles wins and set differences, doubles, sweep, club win and doubles clincher");
+  assert.equal(byPlayer[b.id], 6, "doubles win, club win and doubles clincher; no doubles set points");
+  assert.equal(byPlayer[c.id], 1, "one set won in a lost singles match; no doubles set points");
+  assert.equal(byPlayer[d.id], 1);
+  assert.equal(await points(f), 48, "captain 40 + starter 1 + bench substitutes 6 and 1");
   checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Rescore gameweek");
-  assert.equal(await points(f), 57, "recalculation is idempotent");
+  assert.equal(await points(f), 48, "recalculation is idempotent");
+});
+
+test("a deciding golden doubles earns the only fixture clincher bonus even when its order restarts", async (t) => {
+  const f = await withFixture(t);
+  const [regularWinner, doublesWinner, doublesPartner, opponent, otherOpponent] =
+    [f.players[10], f.players[1], f.players[0], f.players[2], f.players[3]];
+  checked(await save(f, squad([
+    regularWinner, opponent, f.players[4], f.players[6], doublesWinner, otherOpponent,
+  ])), "Save golden doubles squad");
+  await lock(f);
+  const match = await addMatch(f);
+  await addResult(f, match, { home: [regularWinner], away: [opponent], order: 7 });
+  await addResult(f, match, {
+    home: [doublesWinner], away: [otherOpponent], homeSets: 1, awaySets: 3, order: 8,
+  });
+  await addResult(f, match, {
+    home: [doublesWinner, doublesPartner], away: [opponent, otherOpponent],
+    order: 1, golden: true,
+  });
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Score deciding doubles");
+
+  const stats = checked(await f.admin.from("player_match_stats")
+    .select("player_id, fantasy_points").eq("match_id", match.match.id), "Read deciding doubles points");
+  const byPlayer = Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points]));
+  assert.equal(byPlayer[regularWinner.id], 9, "regular singles winner gets no clincher bonus");
+  assert.equal(byPlayer[doublesWinner.id], 7, "deciding doubles winner gets one clincher point");
+  assert.equal(byPlayer[doublesPartner.id], 6, "deciding doubles partner gets one clincher point");
+  const breakdown = checked(await f.user.rpc("get_my_squad_score_breakdown", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Read deciding doubles breakdown");
+  assert.equal(breakdown.find((row) => row.player_id === regularWinner.id)?.clinching_bonus_points, 0);
+  assert.equal(breakdown.find((row) => row.player_id === doublesWinner.id)?.clinching_bonus_points, 1);
+  assert.equal(await points(f), 32, "team total includes the doubles clincher only");
+});
+
+test("a fixture winner gets no clincher bonus when the other club wins the final scored match", async (t) => {
+  const f = await withFixture(t);
+  const [a, b, c, d] = [f.players[0], f.players[1], f.players[2], f.players[3]];
+  checked(await save(f, squad([a, c, f.players[4], f.players[6], b, d])), "Save final-match squad");
+  await lock(f);
+  const match = await addMatch(f);
+  await addResult(f, match, { home: [a], away: [c], order: 1 });
+  await addResult(f, match, { home: [b], away: [d], order: 2 });
+  await addResult(f, match, { home: [a], away: [c], homeSets: 1, awaySets: 3, order: 3 });
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Score final opposing win");
+
+  const stats = checked(await f.admin.from("player_match_stats")
+    .select("player_id, fantasy_points").eq("match_id", match.match.id), "Read final-match points");
+  const byPlayer = Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points]));
+  assert.equal(byPlayer[a.id], 10);
+  assert.equal(byPlayer[b.id], 9);
+  const breakdown = checked(await f.user.rpc("get_my_squad_score_breakdown", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Read final-match breakdown");
+  assert.equal(breakdown.find((row) => row.player_id === a.id)?.clinching_bonus_points, 0);
+  assert.equal(breakdown.find((row) => row.player_id === b.id)?.clinching_bonus_points, 0);
+});
+
+test("won singles use set difference and lost singles score only sets won", async (t) => {
+  const f = await withFixture(t);
+  const [a, b, c, d, e, g] = [f.players[0], f.players[1], f.players[2], f.players[3], f.players[4], f.players[6]];
+  checked(await save(f, squad([a, c, e, g, b, d])), "Save squad");
+  await lock(f);
+  const wonFixture = await addMatch(f);
+  await addResult(f, wonFixture, { home: [a], away: [c], homeSets: 3, awaySets: 0, order: 1 });
+  await addResult(f, wonFixture, { home: [a], away: [d], homeSets: 3, awaySets: 1, order: 2 });
+  await addResult(f, wonFixture, { home: [b], away: [c], homeSets: 3, awaySets: 2, order: 3 });
+  const lostFixture = await addMatch(f, { homeClub: 1, awayClub: 0 });
+  await addResult(f, lostFixture, { home: [c], away: [a], homeSets: 3, awaySets: 2 });
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score mixed singles results");
+
+  const stats = checked(await f.admin.from("player_match_stats")
+    .select("match_id, fantasy_points").eq("player_id", a.id), "Read mixed singles points");
+  assert.equal(stats.find((row) => row.match_id === wonFixture.match.id)?.fantasy_points, 16,
+    "3-0 earns seven, 3-1 earns six, plus three for the club fixture");
+  assert.equal(stats.find((row) => row.match_id === lostFixture.match.id)?.fantasy_points, 2,
+    "a 2-3 loss earns two set points without a match or fixture bonus");
+
+  const breakdown = checked(await f.user.rpc("get_my_squad_score_breakdown", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Read singles set breakdown").find((row) => row.player_id === a.id);
+  assert.deepEqual({
+    singles_sets_won: breakdown.singles_sets_won,
+    singles_sets_lost: breakdown.singles_sets_lost,
+    singles_set_points: breakdown.singles_set_points,
+  }, { singles_sets_won: 8, singles_sets_lost: 4, singles_set_points: 7 });
+  assert.deepEqual(splitSinglesSetPoints({
+    singles_wins: 2,
+    singles_losses: 1,
+    ...breakdown,
+  }), {
+    wonPoints: 5,
+    lostPoints: 2,
+    wonSetsInWins: 6,
+    lostSetsInWins: 1,
+    wonSetsInLosses: 2,
+    lostSetsInLosses: 3,
+  });
+});
+
+test("rescoring a completed gameweek updates every locked team and leaderboard", async (t) => {
+  const f = await withFixture(t);
+  const guestTeamId = randomUUID();
+  const guestAuth = checked(await f.admin.auth.admin.createUser({
+    email: `rescore-${guestTeamId}@example.invalid`,
+    password: f.password,
+    email_confirm: true,
+  }), "Create second manager");
+
+  try {
+    checked(await f.admin.from("fantasy_teams").insert({
+      id: guestTeamId,
+      user_id: guestAuth.user.id,
+      name: `Rescore ${guestTeamId}`,
+      onboarding_completed: true,
+      created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    }), "Create second team");
+    const guestUser = createClient(f.url, f.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    checked(await guestUser.auth.signInWithPassword({
+      email: `rescore-${guestTeamId}@example.invalid`, password: f.password,
+    }), "Sign in second manager");
+    const guestFixture = { ...f, user: guestUser, teamId: guestTeamId };
+    const [a, b, c, d, e, g] = [f.players[0], f.players[1], f.players[2], f.players[3], f.players[4], f.players[6]];
+    const players = [a, c, e, g, b, d];
+    checked(await save(f, squad(players)), "Save first locked squad");
+    checked(await save(guestFixture, squad(players, { captain: 1 })), "Save second locked squad");
+    await lock(f);
+    const snapshotsBefore = checked(await f.admin.from("fantasy_team_gameweek_snapshots")
+      .select("fantasy_team_id, team_name_at_lock, budget_at_lock, active_chip, transfer_penalty_points")
+      .eq("fantasy_gameweek_id", f.weeks[0].id), "Read locked squads");
+    assert.equal(snapshotsBefore.length, 2);
+
+    const match = await addMatch(f);
+    await addResult(f, match, { home: [a], away: [c] });
+    await complete(f);
+    const refreshedAt = checked(await f.admin.from("fantasy_gameweeks")
+      .select("data_refreshed_at").eq("id", f.weeks[0].id).single(), "Read completion marker").data_refreshed_at;
+    assert.ok(refreshedAt);
+
+    checked(await f.admin.from("fantasy_team_gameweek_points").update({ points: -99 })
+      .eq("fantasy_gameweek_id", f.weeks[0].id), "Simulate stale team scores");
+    checked(await f.admin.from("player_match_stats").update({ fantasy_points: -99 })
+      .eq("match_id", match.match.id).eq("player_id", a.id), "Simulate stale player score");
+    assert.equal(checked(await f.admin.rpc("calculate_fantasy_gameweek_points", {
+      target_gameweek_id: f.weeks[0].id,
+    }), "Rescore completed gameweek"), 2);
+
+    const teamScores = checked(await f.admin.from("fantasy_team_gameweek_points")
+      .select("fantasy_team_id, points").eq("fantasy_gameweek_id", f.weeks[0].id), "Read rescored teams");
+    assert.deepEqual(Object.fromEntries(teamScores.map((row) => [row.fantasy_team_id, row.points])), {
+      [f.teamId]: 23,
+      [guestTeamId]: 13,
+    });
+    assert.equal(checked(await f.admin.from("player_match_stats")
+      .select("fantasy_points").eq("match_id", match.match.id)
+      .eq("player_id", a.id).single(), "Read rescored player").fantasy_points, 11);
+    const snapshotsAfter = checked(await f.admin.from("fantasy_team_gameweek_snapshots")
+      .select("fantasy_team_id, team_name_at_lock, budget_at_lock, active_chip, transfer_penalty_points")
+      .eq("fantasy_gameweek_id", f.weeks[0].id), "Read preserved locked squads");
+    assert.deepEqual(snapshotsAfter, snapshotsBefore);
+    assert.equal(checked(await f.admin.from("fantasy_gameweeks")
+      .select("data_refreshed_at").eq("id", f.weeks[0].id).single(), "Read preserved completion marker")
+      .data_refreshed_at, refreshedAt);
+
+    checked(await f.admin.from("fantasy_gameweeks").update({
+      first_match_starts_at: new Date(Date.now() - 60_000).toISOString(),
+    }).eq("id", f.weeks[0].id), "Make completed gameweek visible");
+    const leaderboard = checked(await f.user.rpc("get_global_leaderboard"), "Read updated leaderboard");
+    assert.deepEqual(Object.fromEntries(leaderboard.map((row) => [row.user_id, Number(row.total_points)])), {
+      [f.userId]: 23,
+      [guestAuth.user.id]: 13,
+    });
+  } finally {
+    checked(await f.admin.from("fantasy_teams").delete().eq("id", guestTeamId), "Remove second team");
+    checked(await f.admin.auth.admin.deleteUser(guestAuth.user.id), "Remove second manager");
+  }
+});
+
+test("two completed gameweeks keep player scores, team scores and private league totals in sync", async (t) => {
+  const f = await createFixture({ gameweeks: 2 });
+  const guestTeamId = randomUUID();
+  const guestEmail = `two-weeks-${guestTeamId}@example.invalid`;
+  let guestUserId;
+  let leagueId;
+  t.after(async () => {
+    if (leagueId) checked(await f.admin.from("leagues").delete().eq("id", leagueId), "Remove two-week league");
+    if (guestUserId) {
+      checked(await f.admin.from("fantasy_teams").delete().eq("id", guestTeamId), "Remove two-week guest team");
+      checked(await f.admin.auth.admin.deleteUser(guestUserId), "Remove two-week guest");
+    }
+    await cleanupFixture(f);
+  });
+  const auth = checked(await f.admin.auth.admin.createUser({
+    email: guestEmail, password: f.password, email_confirm: true,
+  }), "Create two-week guest");
+  guestUserId = auth.user.id;
+  checked(await f.admin.from("fantasy_teams").insert({
+    id: guestTeamId, user_id: guestUserId, name: `Two-week guest ${guestTeamId}`,
+    onboarding_completed: true, created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+  }), "Create two-week guest team");
+  const guestUser = createClient(f.url, f.anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  checked(await guestUser.auth.signInWithPassword({ email: guestEmail, password: f.password }), "Sign in two-week guest");
+  const guest = { ...f, user: guestUser, teamId: guestTeamId };
+  leagueId = checked(await f.user.rpc("create_private_league", { p_name: "Two-week functional league" }), "Create two-week league");
+  const inviteCode = checked(await f.admin.from("leagues").select("invite_code")
+    .eq("id", leagueId).single(), "Read two-week invite code").invite_code;
+  assert.equal(checked(await guestUser.rpc("join_private_league", { p_invite_code: inviteCode }),
+    "Join two-week league"), leagueId);
+
+  const [a, b, c, d, e, g, replacement] =
+    [f.players[0], f.players[1], f.players[2], f.players[3], f.players[4], f.players[6], f.players[8]];
+  const initial = [a, c, e, g, b, d];
+  const expectedWeeks = [
+    { playerPoints: [[a, 11], [c, 1]], owner: 23, guest: 13, ownerTotal: 23, guestTotal: 13 },
+    { playerPoints: [[e, 11], [g, 1]], owner: 23, guest: 12, ownerTotal: 46, guestTotal: 25 },
+  ];
+
+  for (const [index, week] of f.weeks.entries()) {
+    const ownerSquad = index === 0 ? squad(initial) : squad([replacement, c, e, g, b, d], { captain: 2 });
+    const guestSquad = squad(initial, { captain: 1 });
+    checked(await save(f, ownerSquad, null, week), `Save owner squad for week ${index + 1}`);
+    checked(await save(guest, guestSquad, null, week), `Save guest squad for week ${index + 1}`);
+    const snapshot = await lock(f, week);
+    if (index === 1) {
+      assert.equal(snapshot.transfer_count_at_lock, 1);
+      assert.equal(snapshot.free_transfers_at_lock, 1);
+      assert.equal(snapshot.transfer_penalty_points, 0);
+    }
+    const match = index === 0
+      ? await addMatch(f, { week })
+      : await addMatch(f, { week, homeClub: 2, awayClub: 3 });
+    await addResult(f, match, index === 0 ? { home: [a], away: [c] } : { home: [e], away: [g] });
+    checked(await f.admin.from("fantasy_gameweeks").update({
+      first_match_starts_at: new Date(Date.now() - 60_000).toISOString(),
+    }).eq("id", week.id), `Show week ${index + 1} results`);
+    await complete(f, week);
+
+    const expected = expectedWeeks[index];
+    const stats = checked(await f.admin.from("player_match_stats")
+      .select("player_id, fantasy_points").eq("match_id", match.match.id), `Read week ${index + 1} player scores`);
+    assert.deepEqual(Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points])),
+      Object.fromEntries(expected.playerPoints.map(([player, score]) => [player.id, score])));
+    for (const [account, rows, total] of [[f, ownerSquad, expected.owner], [guest, guestSquad, expected.guest]]) {
+      const stored = checked(await f.admin.from("fantasy_team_gameweek_points")
+        .select("points").eq("fantasy_team_id", account.teamId)
+        .eq("fantasy_gameweek_id", week.id).single(), `Read week ${index + 1} team score`);
+      assert.equal(stored.points, total);
+      const squadResult = checked(await account.user.rpc("get_my_squad_result", { target_gameweek_id: week.id }),
+        `Read week ${index + 1} squad result`);
+      assert.deepEqual(squadResult.map((row) => [row.player_id, row.fantasy_points]),
+        rows.map((row) => [row.player_id,
+          expected.playerPoints.find(([player]) => player.id === row.player_id)?.[1] ?? 0]));
+    }
+    const standings = checked(await f.user.rpc("get_private_league_leaderboard", { p_league_id: leagueId }),
+      `Read league after week ${index + 1}`);
+    assert.deepEqual(standings.map((row) => [row.user_id, Number(row.total_points)]),
+      [[f.userId, expected.ownerTotal], [guestUserId, expected.guestTotal]]);
+    for (const [userId, scores] of [
+      [f.userId, expectedWeeks.slice(0, index + 1).map((item) => item.owner)],
+      [guestUserId, expectedWeeks.slice(0, index + 1).map((item) => item.guest)],
+    ]) {
+      const history = checked(await f.user.rpc("get_leaderboard_team_gameweek_points", { p_user_id: userId }),
+        `Read league week history after week ${index + 1}`);
+      assert.deepEqual(history.map((row) => [row.gameweek_id, row.points]),
+        f.weeks.slice(0, index + 1).map((item, weekIndex) => [item.id, scores[weekIndex]]));
+    }
+    if (index === 1) {
+      const firstWeekAfterSecond = checked(await f.admin.from("fantasy_team_gameweek_points")
+        .select("fantasy_team_id, points").eq("fantasy_gameweek_id", f.weeks[0].id),
+      "Read week 1 scores after week 2 completion");
+      assert.deepEqual(Object.fromEntries(firstWeekAfterSecond.map((row) => [row.fantasy_team_id, row.points])), {
+        [f.teamId]: 23,
+        [guestTeamId]: 13,
+      });
+    }
+  }
 });
 
 test("an absent captain is replaced by the first playing bench player, while the second stays out", async (t) => {
@@ -100,12 +386,12 @@ test("an absent captain is replaced by the first playing bench player, while the
   assert.equal(byPlayer[absentCaptain.id].team_points_contribution, 0);
   assert.equal(byPlayer[firstBench.id].automatic_substitution, "in");
   assert.equal(byPlayer[firstBench.id].is_captain, true);
-  assert.equal(byPlayer[firstBench.id].fantasy_points, 10);
-  assert.equal(byPlayer[firstBench.id].team_points_contribution, 20);
+  assert.equal(byPlayer[firstBench.id].fantasy_points, 11);
+  assert.equal(byPlayer[firstBench.id].team_points_contribution, 22);
   assert.equal(byPlayer[secondBench.id].automatic_substitution, null);
-  assert.equal(byPlayer[secondBench.id].fantasy_points, 10);
+  assert.equal(byPlayer[secondBench.id].fantasy_points, 11);
   assert.equal(byPlayer[secondBench.id].team_points_contribution, 0);
-  assert.equal(await points(f), 32, "incoming captain 20 + other starters 1 + 10 + 1");
+  assert.equal(await points(f), 35, "incoming captain 22 + other starters 1 + 11 + 1");
 });
 
 test("club-win bonus requires an appearance; walkover gives seven match points", async (t) => {
@@ -118,7 +404,8 @@ test("club-win bonus requires an appearance; walkover gives seven match points",
   checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score walkover");
   const stats = checked(await f.admin.from("player_match_stats").select("player_id, fantasy_points")
     .eq("match_id", match.match.id), "Read walkover points");
-  assert.equal(stats.find((row) => row.player_id === winner.id)?.fantasy_points, 10);
+  assert.equal(stats.find((row) => row.player_id === winner.id)?.fantasy_points, 12,
+    "seven walkover points, three club-win points and two singles-clincher points");
   assert.equal(stats.find((row) => row.player_id === absentClubmate.id)?.fantasy_points ?? 0, 0);
 });
 
@@ -190,7 +477,7 @@ test("late results rescore the original locked squad after the manager transfers
   const match = await addMatch(f, { week: f.weeks[0] });
   await addResult(f, match, { home: [f.players[0]], away: [f.players[2]] });
   checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Rescore delayed fixture");
-  assert.equal(await points(f), 21, "original captain still doubles the late result");
+  assert.equal(await points(f), 23, "original captain still doubles the late result, including the clincher");
   const original = checked(await f.admin.from("fantasy_team_gameweek_players")
     .select("player_id").eq("fantasy_team_id", f.teamId).eq("fantasy_gameweek_id", f.weeks[0].id), "Read original snapshot");
   assert.ok(original.some((row) => row.player_id === f.players[0].id));
@@ -205,7 +492,7 @@ test("triple captain triples exactly, bench boost adds both bench scores, and us
   const match = await addMatch(f);
   await addResult(f, match, { home: [f.players[0]], away: [f.players[2]] });
   checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score triple captain");
-  assert.equal(await points(f), 31, "captain 10 x 3 plus opponent's one set and no bench appearance");
+  assert.equal(await points(f), 34, "captain 11 x 3 plus opponent's one set and no bench appearance");
   await complete(f);
   assert.match((await save(f, rows, "triple_captain", f.weeks[1])).error.message, /already been used/i);
   checked(await save(f, rows, "bench_boost", f.weeks[1]), "Select bench boost");
@@ -221,9 +508,9 @@ test("triple captain triples exactly, bench boost adds both bench scores, and us
     .select("player_id, fantasy_points").eq("fantasy_team_id", f.teamId)
     .eq("fantasy_gameweek_id", f.weeks[1].id), "Read boosted player points");
   const byPlayer = Object.fromEntries(playerPoints.map((player) => [player.player_id, player.fantasy_points]));
-  assert.deepEqual(rows.map((player) => byPlayer[player.player_id]), [10, 1, 10, 1, 10, 1]);
-  const regularStarterTotal = 10 * 2 + 1 + 10 + 1;
-  const benchTotal = 10 + 1;
-  assert.equal(await points(f, f.weeks[1]), 43, "all starters play; bench boost adds 11 bench points to 32 starter points");
+  assert.deepEqual(rows.map((player) => byPlayer[player.player_id]), [9, 1, 11, 1, 11, 1]);
+  const regularStarterTotal = 9 * 2 + 1 + 11 + 1;
+  const benchTotal = 11 + 1;
+  assert.equal(await points(f, f.weeks[1]), 43, "all starters play; bench boost adds 12 bench points to 31 starter points");
   assert.equal((await points(f, f.weeks[1])) - regularStarterTotal, benchTotal);
 });

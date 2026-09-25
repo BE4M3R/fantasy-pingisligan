@@ -54,8 +54,12 @@ Automatically get license id from STUPA when profixio does not work (not sure th
 
 (FIXED) No points from winning team match
 
-Why are not doubles in calculations
-
 add Vice Captain
 
 Wildcard should not be possible to use GW1
+
+(FIXED) Why are not doubles in calculations
+
+(FIXED) Make us fetch schedule once every night and results once every night normally. But on game days fetch only results every 15min from first match starts until 00:00. After that back daily rutine again.
+
+Supabase mail about adding GRANT attribute, do we need to do that?

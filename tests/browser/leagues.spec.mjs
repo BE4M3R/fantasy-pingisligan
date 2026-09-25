@@ -69,8 +69,8 @@ test.describe.serial("private league journey", () => {
       const scores = checked(await fixture.admin.from("fantasy_team_gameweek_points")
         .select("fantasy_team_id, points").eq("fantasy_gameweek_id", week.id), "Read seeded league scores");
       const byTeam = Object.fromEntries(scores.map((row) => [row.fantasy_team_id, row.points]));
-      assert.equal(byTeam[fixture.teamId], index === 0 ? 21 : 11);
-      assert.equal(byTeam[guest.teamId], index === 0 ? 12 : 11);
+      assert.equal(byTeam[fixture.teamId], index === 0 ? 23 : 12);
+      assert.equal(byTeam[guest.teamId], index === 0 ? 13 : 12);
     }
   });
 
@@ -114,16 +114,21 @@ test.describe.serial("private league journey", () => {
   test("pressing a team name shows its exact scores while navigating between gameweeks", async ({ page }) => {
     await login(page, fixture);
     await page.goto(`/dashboard/leagues/${leagueId}`);
+    const table = page.getByRole("table");
+    await expect(table.getByRole("row").filter({ hasText: guest.teamName })
+      .getByRole("cell").last()).toHaveText("25");
+    await expect(table.getByRole("row").filter({ hasText: `Functional ${fixture.id}` })
+      .getByRole("cell").last()).toHaveText("35");
     await page.getByRole("table").getByRole("button", { name: guest.teamName }).click();
     const scores = page.getByRole("dialog", { name: guest.teamName });
     await expect(scores).toBeVisible();
     await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(scores.getByText("11", { exact: true })).toBeVisible();
+    await expect(scores.getByText("12", { exact: true })).toBeVisible();
     await scores.getByRole("button", { name: "Previous gameweek" }).click();
     await expect(scores.getByText("Gameweek 1", { exact: true })).toBeVisible();
-    await expect(scores.getByText("12", { exact: true })).toBeVisible();
+    await expect(scores.getByText("13", { exact: true })).toBeVisible();
     await scores.getByRole("button", { name: "Next gameweek" }).click();
     await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(scores.getByText("11", { exact: true })).toBeVisible();
+    await expect(scores.getByText("12", { exact: true })).toBeVisible();
   });
 });
