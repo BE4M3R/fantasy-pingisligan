@@ -98,6 +98,10 @@ a later transfer or roster import cannot change this bonus during recalculation.
 The player or pair that wins the final scored individual match for the club
 recorded as the team-fixture winner receives a clinching bonus. A singles
 clincher earns 2 points; if the clincher is doubles, each player earns 1 point.
+When a deciding golden doubles follows the regular matches, it is the final
+match even though STUPA numbers it from one again. An earlier singles winner
+does not also receive a clincher bonus. If the final scored match was won by
+the other club, no clincher bonus is awarded.
 
 These rules also apply to Gameweek 1 and any other previously scored round.
 Migration `20260925122000_rescore_scored_gameweeks.sql` recalculates stored

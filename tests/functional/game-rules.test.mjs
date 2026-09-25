@@ -79,6 +79,66 @@ test("scoring applies singles set difference, doubles wins, sweep, clincher, sub
   assert.equal(await points(f), 48, "recalculation is idempotent");
 });
 
+test("a deciding golden doubles earns the only fixture clincher bonus even when its order restarts", async (t) => {
+  const f = await withFixture(t);
+  const [regularWinner, doublesWinner, doublesPartner, opponent, otherOpponent] =
+    [f.players[10], f.players[1], f.players[0], f.players[2], f.players[3]];
+  checked(await save(f, squad([
+    regularWinner, opponent, f.players[4], f.players[6], doublesWinner, otherOpponent,
+  ])), "Save golden doubles squad");
+  await lock(f);
+  const match = await addMatch(f);
+  await addResult(f, match, { home: [regularWinner], away: [opponent], order: 7 });
+  await addResult(f, match, {
+    home: [doublesWinner], away: [otherOpponent], homeSets: 1, awaySets: 3, order: 8,
+  });
+  await addResult(f, match, {
+    home: [doublesWinner, doublesPartner], away: [opponent, otherOpponent],
+    order: 1, golden: true,
+  });
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Score deciding doubles");
+
+  const stats = checked(await f.admin.from("player_match_stats")
+    .select("player_id, fantasy_points").eq("match_id", match.match.id), "Read deciding doubles points");
+  const byPlayer = Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points]));
+  assert.equal(byPlayer[regularWinner.id], 9, "regular singles winner gets no clincher bonus");
+  assert.equal(byPlayer[doublesWinner.id], 7, "deciding doubles winner gets one clincher point");
+  assert.equal(byPlayer[doublesPartner.id], 6, "deciding doubles partner gets one clincher point");
+  const breakdown = checked(await f.user.rpc("get_my_squad_score_breakdown", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Read deciding doubles breakdown");
+  assert.equal(breakdown.find((row) => row.player_id === regularWinner.id)?.clinching_bonus_points, 0);
+  assert.equal(breakdown.find((row) => row.player_id === doublesWinner.id)?.clinching_bonus_points, 1);
+  assert.equal(await points(f), 32, "team total includes the doubles clincher only");
+});
+
+test("a fixture winner gets no clincher bonus when the other club wins the final scored match", async (t) => {
+  const f = await withFixture(t);
+  const [a, b, c, d] = [f.players[0], f.players[1], f.players[2], f.players[3]];
+  checked(await save(f, squad([a, c, f.players[4], f.players[6], b, d])), "Save final-match squad");
+  await lock(f);
+  const match = await addMatch(f);
+  await addResult(f, match, { home: [a], away: [c], order: 1 });
+  await addResult(f, match, { home: [b], away: [d], order: 2 });
+  await addResult(f, match, { home: [a], away: [c], homeSets: 1, awaySets: 3, order: 3 });
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Score final opposing win");
+
+  const stats = checked(await f.admin.from("player_match_stats")
+    .select("player_id, fantasy_points").eq("match_id", match.match.id), "Read final-match points");
+  const byPlayer = Object.fromEntries(stats.map((row) => [row.player_id, row.fantasy_points]));
+  assert.equal(byPlayer[a.id], 10);
+  assert.equal(byPlayer[b.id], 9);
+  const breakdown = checked(await f.user.rpc("get_my_squad_score_breakdown", {
+    target_gameweek_id: f.weeks[0].id,
+  }), "Read final-match breakdown");
+  assert.equal(breakdown.find((row) => row.player_id === a.id)?.clinching_bonus_points, 0);
+  assert.equal(breakdown.find((row) => row.player_id === b.id)?.clinching_bonus_points, 0);
+});
+
 test("won singles use set difference and lost singles score only sets won", async (t) => {
   const f = await withFixture(t);
   const [a, b, c, d, e, g] = [f.players[0], f.players[1], f.players[2], f.players[3], f.players[4], f.players[6]];

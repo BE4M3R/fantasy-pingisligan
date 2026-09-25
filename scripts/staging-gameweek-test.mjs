@@ -271,6 +271,14 @@ function validateScenario(raw) {
           match.type === "singles" || match.type === "doubles",
           `${matchContext}.type must be "singles" or "doubles".`,
         );
+        if (match.isGoldenMatch !== undefined) {
+          assert(typeof match.isGoldenMatch === "boolean", `${matchContext}.isGoldenMatch must be a boolean.`);
+        }
+        if (match.isGoldenMatch) {
+          assert(match.type === "doubles", `${matchContext}.isGoldenMatch requires doubles.`);
+          assert(matchIndex === fixture.matches.length - 1,
+            `${matchContext}.isGoldenMatch must be the final played match.`);
+        }
         const expectedPlayers = match.type === "singles" ? 1 : 2;
         assert(
           Array.isArray(match.homePlayers) && match.homePlayers.length === expectedPlayers,
@@ -906,9 +914,9 @@ function buildResultRows(definition, roleIds) {
 
       submatches.push({
         stupa_submatch_id: match.submatchId,
-        match_order: matchIndex + 1,
+        match_order: match.isGoldenMatch ? 1 : matchIndex + 1,
         status: "SCORED",
-        is_golden_match: false,
+        is_golden_match: match.isGoldenMatch === true,
         winning_team_stupa_id: homeWon
           ? fixture.homeParticipantId
           : fixture.awayParticipantId,
@@ -1018,19 +1026,16 @@ function expectedPlayerPoints(definition, activePlayers) {
         points.set(playerId, (points.get(playerId) ?? 0) + 3);
       }
 
-      const clinchingMatch = [...fixture.matches]
-        .reverse()
-        .find((match) => resultWinner(match.result) === fixture.winner);
-      assert(clinchingMatch, `Missing clinching match for ${fixture.key}.`);
-      const clinchingPlayers = playersForMatch(
-        fixture,
-        fixture.winner === "home"
-          ? clinchingMatch.homePlayers
-          : clinchingMatch.awayPlayers,
-      );
-      const clinchingBonus = clinchingMatch.type === "doubles" ? 1 : 2;
-      for (const player of clinchingPlayers) {
-        points.set(player.id, (points.get(player.id) ?? 0) + clinchingBonus);
+      const finalMatch = fixture.matches.at(-1);
+      if (resultWinner(finalMatch.result) === fixture.winner) {
+        const clinchingPlayers = playersForMatch(
+          fixture,
+          fixture.winner === "home" ? finalMatch.homePlayers : finalMatch.awayPlayers,
+        );
+        const clinchingBonus = finalMatch.type === "doubles" ? 1 : 2;
+        for (const player of clinchingPlayers) {
+          points.set(player.id, (points.get(player.id) ?? 0) + clinchingBonus);
+        }
       }
     }
   }
