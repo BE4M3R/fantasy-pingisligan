@@ -39,6 +39,17 @@ round. `test:staging -- status` reports synthetic rounds only. Check login,
 squads, points, and standings in the staging app as well.
 Production still uses its scheduled GitHub Actions job.
 
+When the revised scoring migrations reach staging, the backfill migration
+rescores every player result and locked team in previously scored gameweeks,
+including GW1. Check a completed GW1 in the staging app: the result breakdown
+should show the revised singles and doubles points, and the same team's GW1
+score should agree across its squad, progress, league standings and leaderboard.
+Check another locked team to
+confirm the change applies beyond one account. The migration stops if an
+already scored team lacks its snapshot or if the number of rescored teams does
+not match the locked snapshots. Repeat these checks in production after
+the tested `develop` commit is promoted to `main`.
+
 The gameweek lifecycle harness reads its schedule and results from
 [`test-data/staging-gameweeks.json`](../test-data/staging-gameweeks.json). The
 default file contains four synthetic gameweeks covering all seven Pingisligan

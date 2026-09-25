@@ -234,7 +234,7 @@ export default async function SquadPage({
   let [selectedSquadResult, selectedSetBreakdownResult] = selectedResultGameweek
     ? await Promise.all([
         supabase.rpc("get_my_squad_result", { target_gameweek_id: selectedResultGameweek.id }),
-        supabase.rpc("get_my_squad_set_breakdown", { target_gameweek_id: selectedResultGameweek.id }),
+        supabase.rpc("get_my_squad_score_breakdown", { target_gameweek_id: selectedResultGameweek.id }),
       ])
     : [{ data: [], error: null }, { data: [], error: null }];
   let resultHistoryMigrationMissing = false;
@@ -244,7 +244,7 @@ export default async function SquadPage({
     selectedResultGameweek = latestResultGameweek;
     [selectedSquadResult, selectedSetBreakdownResult] = await Promise.all([
       supabase.rpc("get_my_latest_squad_result"),
-      supabase.rpc("get_my_latest_squad_set_breakdown"),
+      supabase.rpc("get_my_latest_squad_score_breakdown"),
     ]);
   }
 

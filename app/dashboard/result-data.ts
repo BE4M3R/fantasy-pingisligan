@@ -37,9 +37,8 @@ export type SquadResultRow = {
 };
 
 export type SquadSetBreakdownRow = {
-  doubles_set_points: number | string;
-  doubles_sets_lost: number | string;
-  doubles_sets_won: number | string;
+  clinching_bonus_points: number | string;
+  fixture_win_points: number | string;
   player_id: string;
   singles_set_points: number | string;
   singles_sets_lost: number | string;
@@ -58,15 +57,15 @@ function getSquadResultPlayer(
     clubs: row.club_name
       ? { id: row.club_id ?? "", name: row.club_name }
       : null,
+    clinching_bonus_points: Number(setBreakdown?.clinching_bonus_points ?? 0),
     counts_for_team: row.counts_for_team,
     doubles_losses: Number(row.doubles_losses),
-    doubles_set_points: Number(setBreakdown?.doubles_set_points ?? 0),
-    doubles_sets_lost: Number(setBreakdown?.doubles_sets_lost ?? 0),
-    doubles_sets_won: Number(setBreakdown?.doubles_sets_won ?? 0),
     doubles_wins: Number(row.doubles_wins),
     fantasy_points: Number(row.fantasy_points),
     first_name: row.first_name,
-    fixture_win_points: calculateFixtureWinPoints(row),
+    fixture_win_points: calculateFixtureWinPoints(
+      setBreakdown ?? { fixture_win_points: 0 },
+    ),
     gameweek_id: row.gameweek_id,
     gameweek_name: row.gameweek_name,
     id: row.player_id,

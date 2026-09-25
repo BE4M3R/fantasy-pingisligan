@@ -17,7 +17,7 @@
           "durationMinutes": 120,
           "home": {
             "club": "Söderhamns UIF",
-            "players": ["Viktor Brodd", "Anders Eriksson", "Jon Persson"]
+            "players": ["Viktor Brodd", "Anders Eriksson", "Jon Persson", "Adam Grawsiö Wallin"]
           },
           "away": {
             "club": "Eskilstuna by STIGA",
@@ -137,6 +137,12 @@
           "winner": "home",
           "matches": [
             {
+              "type": "doubles",
+              "homePlayers": ["Vladislav Ursu", "Elias Sjögren"],
+              "awayPlayers": ["Kim Taehyun", "Marek Badowski"],
+              "result": { "homeSets": 3, "awaySets": 2 }
+            },
+            {
               "type": "singles",
               "homePlayers": ["Truls Möregårdh"],
               "awayPlayers": ["Hampus Nordberg"],
@@ -147,12 +153,6 @@
               "homePlayers": ["Truls Möregårdh"],
               "awayPlayers": ["Kim Taehyun"],
               "result": { "homeSets": 3, "awaySets": 1 }
-            },
-            {
-              "type": "doubles",
-              "homePlayers": ["Vladislav Ursu", "Elias Sjögren"],
-              "awayPlayers": ["Kim Taehyun", "Marek Badowski"],
-              "result": { "homeSets": 3, "awaySets": 2 }
             }
           ]
         },
@@ -428,7 +428,7 @@
               "type": "singles",
               "homePlayers": ["Hampus Nordberg"],
               "awayPlayers": ["Tobias Rasmussen"],
-              "result": { "homeSets": 0, "awaySets": 3 }
+              "result": { "walkover": true, "winner": "away" }
             },
             {
               "type": "singles",

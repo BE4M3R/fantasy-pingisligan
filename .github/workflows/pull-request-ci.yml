@@ -60,7 +60,7 @@ jobs:
       - name: Build application against local configuration
         run: npm run build
       - name: Run authenticated database flows
-        run: npm run test:functional
+        run: npm run test:functional:db
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke tests

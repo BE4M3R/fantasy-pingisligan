@@ -14,6 +14,7 @@ import type {
 import {
   getDisplayedResultPoints,
   hasPlayedMatch,
+  splitSinglesSetPoints,
 } from "@/app/dashboard/player-types";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
 import { canTransferFromClub, getOverLimitClubIds } from "@/lib/squad-club-limit";
@@ -46,6 +47,10 @@ function formatPoints(value: number) {
   return `${value > 0 ? "+" : ""}${value} pts`;
 }
 
+function formatSetScore(setsWon: number, setsLost: number) {
+  return `${setsWon} ${setsWon === 1 ? "set" : "sets"} won, ${setsLost} ${setsLost === 1 ? "set" : "sets"} lost`;
+}
+
 function getGameweekLabel(result: SquadPlayerResult) {
   return result.round_order !== null
     ? `Gameweek ${result.round_order}`
@@ -55,47 +60,65 @@ function getGameweekLabel(result: SquadPlayerResult) {
 function ResultBreakdown({ result }: { result: SquadPlayerResult }) {
   const playedMatch = hasPlayedMatch(result);
   const displayedPoints = getDisplayedResultPoints(result);
-  const rows = [
+  const singlesSetPoints = result.set_breakdown_available
+    ? splitSinglesSetPoints(result)
+    : null;
+  const rows: {
+    detail: string;
+    label: string;
+    points: number;
+    show: boolean;
+  }[] = [
     {
       detail: `${result.singles_wins} won, ${result.singles_losses} lost`,
-      label: "Singles wins",
+      label: "Singles won",
       points: result.singles_wins * 4,
       show: result.singles_wins + result.singles_losses > 0,
     },
     {
       detail: `${result.doubles_wins} won, ${result.doubles_losses} lost`,
-      label: "Doubles wins",
+      label: "Doubles won",
       points: result.doubles_wins * 2,
       show: result.doubles_wins + result.doubles_losses > 0,
     },
-    ...(result.set_breakdown_available
+    ...(singlesSetPoints
       ? [
           {
-            detail: `${result.singles_sets_won} won, ${result.singles_sets_lost} lost`,
-            label: "Singles set points",
-            points: result.singles_set_points,
-            show: result.singles_sets_won + result.singles_sets_lost > 0,
+            detail: formatSetScore(singlesSetPoints.wonSetsInWins, singlesSetPoints.lostSetsInWins),
+            label: "Won singles set-score",
+            points: singlesSetPoints.wonPoints,
+            show: result.singles_wins > 0,
           },
           {
-            detail: `${result.doubles_sets_won} won, ${result.doubles_sets_lost} lost`,
-            label: "Doubles set points",
-            points: result.doubles_set_points,
-            show: result.doubles_sets_won + result.doubles_sets_lost > 0,
+            detail: formatSetScore(singlesSetPoints.wonSetsInLosses, singlesSetPoints.lostSetsInLosses),
+            label: "Lost singles set-score",
+            points: singlesSetPoints.lostPoints,
+            show: result.singles_losses > 0,
           },
         ]
       : [
           {
-            detail: `${result.sets_won} won, ${result.sets_lost} lost`,
-            label: "Set points",
-            points: result.set_points,
-            show: result.sets_won + result.sets_lost > 0,
+            detail: result.set_breakdown_available
+              ? `${result.singles_sets_won} sets won, ${result.singles_sets_lost} lost`
+              : `${result.sets_won} won, ${result.sets_lost} lost`,
+            label: result.set_breakdown_available ? "Singles set-score" : "Set-score points",
+            points: result.set_breakdown_available ? result.singles_set_points : result.set_points,
+            show: result.set_breakdown_available
+              ? result.singles_sets_won + result.singles_sets_lost > 0
+              : result.sets_won + result.sets_lost > 0,
           },
         ]),
     {
-      detail: `${result.fixture_win_points / 3} fixture ${result.fixture_win_points === 3 ? "win" : "wins"}`,
-      label: "Fixture wins",
+      detail: `${result.fixture_win_points / 3} ${result.fixture_win_points === 3 ? "fixture" : "fixtures"} won`,
+      label: "Fixtures won",
       points: result.fixture_win_points,
       show: result.fixture_win_points !== 0,
+    },
+    {
+      detail: "Sealed your club's fixture win",
+      label: "Fixture clincher bonus",
+      points: result.clinching_bonus_points,
+      show: result.clinching_bonus_points !== 0,
     },
     {
       detail: "Won every singles match (minimum two)",

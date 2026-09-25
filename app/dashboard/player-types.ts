@@ -31,11 +31,9 @@ export type SquadPlayerResult = DraftSquadPlayer & {
   active_chip: "wildcard" | "triple_captain" | "bench_boost" | null;
   automatic_substitution: "in" | "out" | null;
   captain_bonus_points: number;
+  clinching_bonus_points: number;
   counts_for_team: boolean;
   doubles_losses: number;
-  doubles_set_points: number;
-  doubles_sets_lost: number;
-  doubles_sets_won: number;
   doubles_wins: number;
   fantasy_points: number;
   fixture_win_points: number;
@@ -66,26 +64,39 @@ export function hasPlayedMatch(result: SquadPlayerResult) {
     0
   );
 }
-
-export function calculateFixtureWinPoints(result: {
-  fantasy_points: number | string;
-  match_win_points: number | string;
-  set_points: number | string;
-  sweep_bonus_points: number | string;
-}) {
-  return Math.max(
-    0,
-    Number(result.fantasy_points)
-      - Number(result.match_win_points)
-      - Number(result.set_points)
-      - Number(result.sweep_bonus_points),
-  );
+export function calculateFixtureWinPoints(result: { fixture_win_points: number | string }) {
+  return Math.max(0, Number(result.fixture_win_points));
 }
 
 export function getDisplayedResultPoints(result: SquadPlayerResult) {
   return result.original_position === "bench" && !result.counts_for_team
     ? result.fantasy_points
     : result.team_points_contribution;
+}
+
+export function splitSinglesSetPoints(result: Pick<
+  SquadPlayerResult,
+  "singles_wins" | "singles_losses" | "singles_sets_won" | "singles_sets_lost" | "singles_set_points"
+>) {
+  // Completed singles wins have three won sets, including walkovers. Lost
+  // matches have either three lost sets or no set score for a walkover.
+  const wonSetsInWins = result.singles_wins * 3;
+  const wonSetsInLosses = result.singles_sets_won - wonSetsInWins;
+  const lostPoints = wonSetsInLosses;
+  const wonPoints = result.singles_set_points - lostPoints;
+  const lostSetsInWins = wonSetsInWins - wonPoints;
+  const lostSetsInLosses = result.singles_sets_lost - lostSetsInWins;
+
+  if (
+    lostSetsInWins < 0 || lostSetsInWins > result.singles_wins * 2 ||
+    wonSetsInLosses < 0 || wonSetsInLosses > result.singles_losses * 2 ||
+    lostSetsInLosses < 0 || lostSetsInLosses > result.singles_losses * 3 ||
+    lostSetsInLosses % 3 !== 0
+  ) {
+    return null;
+  }
+
+  return { wonPoints, lostPoints, wonSetsInWins, lostSetsInWins, wonSetsInLosses, lostSetsInLosses };
 }
 
 export function applyAutomaticBenchSubstitutions(

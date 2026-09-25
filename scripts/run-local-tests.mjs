@@ -9,6 +9,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const functionalOnly = process.argv[2] === "functional";
+if (process.argv[2] && !functionalOnly) throw new Error("Use 'functional' or no argument.");
 const supabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
 const playwrightVersion = createRequire(import.meta.url)("@playwright/test/package.json").version;
 const image = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
@@ -131,7 +133,7 @@ async function main() {
   const cliEnv = { ...process.env };
   for (const key of ["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_ID"]) delete cliEnv[key];
   try {
-    await run("npm", ["run", "test:unit"]);
+    if (!functionalOnly) await run("npm", ["run", "test:unit"]);
     const portBase = await choosePortBase();
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "fpl-tests-"));
     await prepareProject(tempRoot, portBase);
@@ -142,14 +144,16 @@ async function main() {
       cwd: tempRoot, env: cliEnv, capture: true,
     }));
     const environment = localEnvironment(values, portBase);
-    testDistDir = environment.TEST_APP_DIST_DIR;
-    testTsconfig = environment.TEST_APP_TSCONFIG;
     console.log("Running database scenarios against the disposable stack...");
-    await run("npm", ["run", "test:functional"], { env: environment });
-    console.log("Running Chromium smoke tests in the matching Playwright container...");
-    await writeFile(path.join(projectRoot, testTsconfig), '{"extends":"./tsconfig.json"}\n');
-    await run("docker", browserArgs(environment), { env: environment });
-    console.log("All local tests passed.");
+    await run("npm", ["run", "test:functional:db"], { env: environment });
+    if (!functionalOnly) {
+      testDistDir = environment.TEST_APP_DIST_DIR;
+      testTsconfig = environment.TEST_APP_TSCONFIG;
+      console.log("Running Chromium smoke tests in the matching Playwright container...");
+      await writeFile(path.join(projectRoot, testTsconfig), '{"extends":"./tsconfig.json"}\n');
+      await run("docker", browserArgs(environment), { env: environment });
+    }
+    console.log(functionalOnly ? "Functional tests passed." : "All local tests passed.");
   } finally {
     if (tempRoot && startAttempted) {
       console.log("Stopping disposable Supabase stack...");
