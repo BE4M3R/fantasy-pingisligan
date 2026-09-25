@@ -3,6 +3,9 @@
 Database schema changes are versioned in `supabase/migrations/` and applied in
 filename order by the Supabase CLI. The migration directory is the source of
 truth; do not change staging or production directly.
+Give every new migration a version later than the latest migration already
+deployed to staging or production. An older filename added on a feature branch
+will block the normal deploy even if it applies cleanly to a fresh local stack.
 
 The old manually applied scripts are retained in `supabase/legacy/` for audit
 history only. They must not be run again.
