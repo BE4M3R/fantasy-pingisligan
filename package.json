@@ -45,7 +45,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "dbsetup:local": "npm run db:start && npx supabase db reset --local && npm run import:players:catalogue && npm run seed:local-accounts -- seed --count 10 && npm run test:local -- setup-demo",
-    "dbsetup:scoring-demo": "npm run db:start && npx supabase db reset --local && npm run import:players:catalogue && npm run seed:scoring-demo && npm run test:local -- setup-demo",
+    "dbsetup:scoring-demo": "npm run db:start && npx supabase db reset --local && npm run import:players:catalogue && npm run seed:scoring-demo && npm run seed:local-accounts -- seed --count 9 && npm run test:local -- setup && npm run test:scoring-demo",
     "db:lint": "supabase db lint --local --level error --fail-on error",
     "db:new": "supabase migration new",
     "db:status": "supabase migration list",

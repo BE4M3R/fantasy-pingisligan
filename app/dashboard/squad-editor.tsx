@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   confirmGameweekChip,
   saveSquadDraft,
@@ -246,6 +246,7 @@ export function SquadEditor({
         : [],
     ),
   );
+  const resultRequestsRef = useRef(new Map<string, Promise<ResultGameweekPayload>>());
   const resultRequestRef = useRef(0);
   const [saveMessage, setSaveMessage] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
@@ -291,6 +292,45 @@ export function SquadEditor({
     selectedResultGameweekIndex < resultGameweeks.length - 1
       ? resultGameweeks[selectedResultGameweekIndex + 1]
       : null;
+  const loadResultGameweek = useCallback((gameweekId: string) => {
+    const cached = resultCacheRef.current.get(gameweekId);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = resultRequestsRef.current;
+    const existing = pending.get(gameweekId);
+    if (existing) return existing;
+
+    const request = (async () => {
+      const response = await fetch(`/api/squad-results?gameweek=${gameweekId}`);
+      const responseBody = (await response.json()) as
+        | ResultGameweekPayload
+        | { error?: string };
+
+      if (!response.ok || !("squad" in responseBody)) {
+        throw new Error(
+          "error" in responseBody && responseBody.error
+            ? responseBody.error
+            : "This gameweek result could not be loaded.",
+        );
+      }
+
+      resultCacheRef.current.set(gameweekId, responseBody);
+      return responseBody;
+    })().finally(() => pending.delete(gameweekId));
+    pending.set(gameweekId, request);
+    return request;
+  }, []);
+
+  useEffect(() => {
+    if (viewMode !== "results" || selectedResultGameweekIndex < 0) return;
+
+    for (const index of [selectedResultGameweekIndex - 1, selectedResultGameweekIndex + 1]) {
+      const adjacent = resultGameweeks[index];
+      if (adjacent) void loadResultGameweek(adjacent.id).catch(() => {
+        // Navigation retries a failed background request.
+      });
+    }
+  }, [viewMode, selectedResultGameweekIndex, resultGameweeks, loadResultGameweek]);
   const latestResultLabel = latestResult
     ? latestResult.round_order !== null
       ? `Gameweek ${latestResult.round_order}`
@@ -429,28 +469,8 @@ export function SquadEditor({
     setResultLoadError("");
 
     try {
-      let payload = resultCacheRef.current.get(gameweek.id);
-
-      if (!payload) {
-        setIsResultLoading(true);
-        const response = await fetch(
-          `/api/squad-results?gameweek=${gameweek.id}`,
-        );
-        const responseBody = (await response.json()) as
-          | ResultGameweekPayload
-          | { error?: string };
-
-        if (!response.ok || !("squad" in responseBody)) {
-          throw new Error(
-            "error" in responseBody && responseBody.error
-              ? responseBody.error
-              : "This gameweek result could not be loaded.",
-          );
-        }
-
-        payload = responseBody;
-        resultCacheRef.current.set(gameweek.id, payload);
-      }
+      if (!resultCacheRef.current.has(gameweek.id)) setIsResultLoading(true);
+      const payload = await loadResultGameweek(gameweek.id);
 
       if (resultRequestRef.current !== requestId) return;
 
