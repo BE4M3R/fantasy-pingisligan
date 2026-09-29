@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { canonicalClubName } from "@/lib/clubs";
 import { ClubLogo, ResultBreakdown } from "@/app/dashboard/result-player-details";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
+import { animatePopupOpen, type PopupOrigin } from "@/app/dashboard/popup-animation";
 import { squadCardShellClass } from "@/app/dashboard/squad-card-visual";
 import type {
   DashboardPlayer,
@@ -60,6 +61,8 @@ export function SquadCardActions({
   transfersLocked,
 }: SquadCardActionsProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const popupOriginRef = useRef<PopupOrigin | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [swapPickerOpen, setSwapPickerOpen] = useState(false);
   const playerName = `${player.first_name} ${player.last_name}`;
@@ -68,6 +71,10 @@ export function SquadCardActions({
   const transferRestricted = !canTransferFromClub(selectedClubIds, playerClubId);
 
   useBodyScrollLock(isOpen);
+
+  useLayoutEffect(() => {
+    if (isOpen) animatePopupOpen(panelRef.current, triggerRef.current, popupOriginRef.current);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -97,8 +104,11 @@ export function SquadCardActions({
       <button
         aria-label={`Open ${result ? "result details" : "actions"} for ${playerName}`}
         aria-expanded={isOpen}
-        className={`${squadCardShellClass(player, isOpen)} touch-manipulation cursor-pointer transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)]`}
-        onClick={() => setIsOpen(true)}
+        className={`${squadCardShellClass(player, { isOpen })} touch-manipulation cursor-pointer transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)]`}
+        onClick={(event) => {
+          popupOriginRef.current = event.detail ? { x: event.clientX, y: event.clientY } : null;
+          setIsOpen(true);
+        }}
         ref={triggerRef}
         type="button"
       >
@@ -127,6 +137,7 @@ export function SquadCardActions({
               <div
                 className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:p-6"
                 onClick={(event) => event.stopPropagation()}
+                ref={panelRef}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">

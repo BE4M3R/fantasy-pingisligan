@@ -115,6 +115,7 @@ test.describe.serial("private league journey", () => {
   });
 
   test("pressing a team name shows its locked lineup, chip and scores across gameweeks", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1100 });
     await login(page, fixture);
     await page.goto(`/dashboard/leagues/${leagueId}`);
     let previousLineupRequested = false;
@@ -122,8 +123,17 @@ test.describe.serial("private league journey", () => {
     const previousLineupResponse = new Promise((resolve) => {
       releasePreviousLineup = resolve;
     });
+    let latestLineupRequested = false;
+    let releaseLatestLineup;
+    const latestLineupResponse = new Promise((resolve) => {
+      releaseLatestLineup = resolve;
+    });
     await page.route("**/rest/v1/rpc/get_leaderboard_team_gameweek_lineup", async (route) => {
       const request = route.request().postDataJSON();
+      if (request.p_user_id === guest.userId && request.p_gameweek_id === fixture.weeks[1].id) {
+        latestLineupRequested = true;
+        await latestLineupResponse;
+      }
       if (request.p_user_id === guest.userId && request.p_gameweek_id === fixture.weeks[0].id) {
         previousLineupRequested = true;
         await previousLineupResponse;
@@ -138,6 +148,18 @@ test.describe.serial("private league journey", () => {
     await page.getByRole("table").getByRole("button", { name: guest.teamName }).click();
     const scores = page.getByRole("dialog", { name: guest.teamName });
     await expect(scores).toBeVisible();
+    await expect.poll(() => latestLineupRequested).toBe(true);
+    let loadingHeight;
+    try {
+      await expect(scores.getByRole("status")).toHaveText("Loading team…");
+      loadingHeight = await scores.evaluate((dialog) => getComputedStyle(dialog).height);
+    } finally {
+      releaseLatestLineup();
+    }
+    await expect(scores.getByRole("status")).toHaveCount(0);
+    const loadedHeight = await scores.evaluate((dialog) => getComputedStyle(dialog).height);
+    expect(Math.abs(parseFloat(loadedHeight) - parseFloat(loadingHeight))).toBeLessThan(32);
+    expect(await scores.evaluate((dialog) => dialog.scrollHeight - dialog.clientHeight)).toBeLessThan(3);
     await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
     await expect(scores.getByText("12 pts", { exact: true })).toBeVisible();
     await expect(scores.getByText("Triple Captain activated")).toBeVisible();
@@ -166,6 +188,8 @@ test.describe.serial("private league journey", () => {
     await scores.getByRole("button", { name: "Open result details for Functional Player0" }).click();
     const playerDetails = page.getByRole("dialog", { name: "Functional Player0" });
     await expect(playerDetails).toBeVisible();
+    expect(await playerDetails.evaluate((dialog) => getComputedStyle(dialog, "::backdrop").backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    await playerDetails.evaluate((dialog) => Promise.all(dialog.getAnimations().map((animation) => animation.finished)));
     const dialogBounds = await playerDetails.boundingBox();
     const viewport = page.viewportSize();
     assert.ok(dialogBounds && viewport);

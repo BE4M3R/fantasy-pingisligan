@@ -1,7 +1,9 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, type MouseEvent, useRef, useState } from "react";
 import { LeagueSquadPreview, type LeagueSnapshotPlayer } from "@/app/dashboard/league-squad-preview";
+import { animatePopupOpen } from "@/app/dashboard/popup-animation";
+import { SquadLineupView } from "@/app/dashboard/squad-lineup-view";
 import { createClient } from "@/lib/supabase/browser";
 
 export type LeagueTableRow = {
@@ -56,6 +58,37 @@ function getRankClass(rank: number) {
     default:
       return "border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] text-[var(--pf-text-muted)]";
   }
+}
+
+function LeagueTeamLoading() {
+  const placeholderCard = <div className="h-24 w-[96%] max-w-[12.25rem] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy)] sm:h-32" />;
+
+  return (
+    <div className="relative mt-6">
+      <div aria-hidden="true" className="opacity-60">
+        <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3">
+          <div className="h-11 w-11 rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)]" />
+          <div className="mx-auto h-6 w-28 rounded bg-[var(--pf-navy-elevated)]" />
+          <div className="h-11 w-11 rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)]" />
+        </div>
+        <div className="mx-auto mt-3 h-4 w-32 rounded bg-[var(--pf-navy-elevated)]" />
+        <div className="mt-4 h-[3.75rem] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)]" />
+        <SquadLineupView
+          className="mt-4"
+          idPrefix="league-loading"
+          title="Active players"
+          compactTitle
+          starterCount={4}
+          benchCount={2}
+          renderStarter={() => placeholderCard}
+          renderBench={() => placeholderCard}
+        />
+      </div>
+      <p className="absolute inset-0 z-30 flex items-center justify-center text-center text-sm font-semibold text-[var(--pf-text)]" role="status">
+        <span className="rounded-md bg-[var(--pf-navy)] px-4 py-2 shadow-lg">Loading team…</span>
+      </p>
+    </div>
+  );
 }
 
 export function LeagueTable({
@@ -129,7 +162,7 @@ export function LeagueTable({
     }
   }
 
-  async function openGameweekScores(row: LeagueTableRow) {
+  async function openGameweekScores(row: LeagueTableRow, event: MouseEvent<HTMLButtonElement>) {
     const requestId = ++scoresRequestRef.current;
     ++lineupRequestRef.current;
     setSelectedTeam(row);
@@ -144,14 +177,31 @@ export function LeagueTable({
     setIsNavigating(false);
     setNavigationErrorIndex(null);
     setIsLoading(true);
-    dialogRef.current?.showModal();
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    animatePopupOpen(dialog, event.currentTarget, event.detail
+      ? { x: event.clientX, y: event.clientY }
+      : null);
 
     try {
       const scores = await loadGameweekScores(row.user_id);
       if (requestId !== scoresRequestRef.current) return;
       setGameweekScores(scores);
-      setGameweekIndex(Math.max(scores.length - 1, 0));
-      if (scores.length) void selectLineup(row.user_id, scores, scores.length - 1);
+      const index = Math.max(scores.length - 1, 0);
+      setGameweekIndex(index);
+      if (scores.length) {
+        const lineupRequestId = ++lineupRequestRef.current;
+        try {
+          const players = await getCachedLineup(row.user_id, scores[index].gameweek_id);
+          if (requestId !== scoresRequestRef.current || lineupRequestId !== lineupRequestRef.current) return;
+          setLineupByGameweek({ [scores[index].gameweek_id]: players });
+          prefetchAdjacentLineups(row.user_id, scores, index);
+        } catch {
+          if (requestId === scoresRequestRef.current && lineupRequestId === lineupRequestRef.current) {
+            setLineupError(true);
+          }
+        }
+      }
     } catch {
       if (requestId === scoresRequestRef.current) setLoadError(true);
     } finally {
@@ -243,7 +293,7 @@ export function LeagueTable({
                 ) : null}
                 <button
                   className="flex w-full items-center gap-3 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-4 text-left transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                  onClick={() => openGameweekScores(row)}
+                  onClick={(event) => void openGameweekScores(row, event)}
                   type="button"
                 >
                   <span
@@ -326,7 +376,7 @@ export function LeagueTable({
                       <td className="px-4 py-3 font-medium text-[var(--pf-text)]">
                         <button
                           className="flex items-center gap-2 text-left hover:text-[var(--pf-brand-blue-hover)] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                          onClick={() => openGameweekScores(row)}
+                          onClick={(event) => void openGameweekScores(row, event)}
                           type="button"
                         >
                           <span>{row.team_name}</span>
@@ -375,7 +425,7 @@ export function LeagueTable({
 
       <dialog
         aria-labelledby="gameweek-score-title"
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-page-blue)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80"
         onClick={(event) => {
           if (event.target === dialogRef.current) dialogRef.current?.close();
         }}
@@ -384,7 +434,7 @@ export function LeagueTable({
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-text)]">
                 Gameweek team
               </p>
               <h2
@@ -405,9 +455,7 @@ export function LeagueTable({
           </div>
 
           {isLoading ? (
-            <p className="mt-6 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-6 text-center text-sm text-[var(--pf-text-muted)]">
-              Loading gameweeks…
-            </p>
+            <LeagueTeamLoading />
           ) : loadError ? (
             <p className="mt-6 rounded-lg border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-4 text-sm text-[var(--pf-coral-text)]">
               Gameweek details could not be loaded. Please try again.
