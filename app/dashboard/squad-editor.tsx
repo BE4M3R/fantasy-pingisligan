@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -13,8 +12,6 @@ import {
   type Chip,
   type ChipSelection,
 } from "@/app/dashboard/chip-selector";
-import { canonicalClubName } from "@/lib/clubs";
-import { getClubLogo } from "@/app/dashboard/club-logos";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
@@ -24,7 +21,9 @@ import type {
   SquadPosition,
 } from "@/app/dashboard/player-types";
 import { getDisplayedResultPoints } from "@/app/dashboard/player-types";
+import { SquadCardVisual } from "@/app/dashboard/squad-card-visual";
 import { SquadCardActions } from "@/app/dashboard/squad-card-actions";
+import { BENCH_SIZE, STARTER_SIZE, SquadLineupView } from "@/app/dashboard/squad-lineup-view";
 import {
   canReplaceClub,
   canTransferFromClub,
@@ -32,16 +31,7 @@ import {
   getOverLimitClubIds,
 } from "@/lib/squad-club-limit";
 
-const STARTER_SIZE = 4;
-const BENCH_SIZE = 2;
 const MAX_FREE_TRANSFERS = 4;
-const COURT_POSITION_STYLE = {
-  padding:
-    "clamp(0.25rem, 1vw, 0.55rem) clamp(0.45rem, 1.5vw, 0.75rem)",
-};
-const BENCH_POSITION_STYLE = {
-  padding: "0 clamp(0.45rem, 1.5vw, 0.75rem)",
-};
 
 type UpcomingGameweek = {
   id: string;
@@ -76,17 +66,6 @@ type ResultGameweekPayload = {
 
 function formatMoney(value: number | string) {
   return `${(Number(value) / 1000000).toFixed(1)}m`;
-}
-
-function formatPlayerCardName(player: DashboardPlayer) {
-  const firstInitial = player.first_name.trim().slice(0, 1);
-
-  return firstInitial ? `${firstInitial}.${player.last_name}` : player.last_name;
-}
-
-function getClubName(player: DashboardPlayer) {
-  const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
-  return canonicalClubName(name ?? "Free agent");
 }
 
 function getClubId(player: DashboardPlayer) {
@@ -167,28 +146,6 @@ function orderResultSquadLikeDraft(
   return [...orderPosition("starter"), ...orderPosition("bench")];
 }
 
-function ClubLogoBadge({ clubName }: { clubName: string }) {
-  const logo = getClubLogo(clubName);
-
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-white/15 bg-[#fffaf0] p-1">
-      {logo ? (
-        <Image
-          alt={logo.alt}
-          className="h-auto w-auto max-h-9 max-w-9 object-contain"
-          height={36}
-          src={logo.src}
-          width={36}
-        />
-      ) : (
-        <span className="text-xs font-bold text-zinc-500">
-          {clubName.slice(0, 1)}
-        </span>
-      )}
-    </div>
-  );
-}
-
 function SquadCard({
   onMakeCaptain,
   onRemove,
@@ -214,8 +171,6 @@ function SquadCard({
   transfersLocked: boolean;
   result?: SquadPlayerResult;
 }) {
-  const clubName = getClubName(player);
-
   return (
     <SquadCardActions
       onMakeCaptain={onMakeCaptain}
@@ -230,65 +185,11 @@ function SquadCard({
       transfersLocked={transfersLocked}
       result={result}
     >
-      <div className="flex min-w-0 w-full flex-col items-center">
-        <ClubLogoBadge clubName={clubName} />
-        <h3 className="mt-1.5 line-clamp-2 min-w-0 w-full break-words text-xs font-black leading-[1.15] text-[var(--pf-text)] sm:text-sm">
-          {formatPlayerCardName(player)}
-        </h3>
-        <p className="mt-1 hidden min-w-0 w-full leading-tight text-[var(--pf-text-muted)] sm:line-clamp-1 sm:text-[0.7rem]">
-          {clubName}
-        </p>
-        <p className="mt-0.5 text-[0.65rem] font-bold text-[var(--pf-text)] sm:text-xs">
-          {result
-            ? `${getDisplayedResultPoints(result)} pts`
-            : formatMoney(player.price)}
-        </p>
-        {player.is_captain || player.active === false || result?.automatic_substitution ? (
-          <div className="absolute left-1.5 top-1.5 z-10 flex flex-col items-start gap-1 sm:static sm:mt-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
-            {player.is_captain ? (
-              <span
-                aria-label="Captain"
-                className="inline-flex items-center justify-center rounded-full bg-[var(--pf-fantasy-yellow)] font-black uppercase tracking-wide text-[var(--pf-navy-deep)]"
-                style={{
-                  fontSize: "0.6rem",
-                  lineHeight: 1,
-                  padding: "0.2rem 0.5rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span className="sm:hidden">C</span>
-                <span className="hidden sm:inline">Captain</span>
-              </span>
-            ) : null}
-            {player.active === false ? (
-              <span className="inline-flex items-center justify-center rounded-full bg-[var(--pf-coral-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-coral-text)] ring-1 ring-[var(--pf-coral)]/60">
-                N/A
-              </span>
-            ) : null}
-            {result?.automatic_substitution ? (
-              <span
-                aria-label={
-                  result.automatic_substitution === "in"
-                    ? "Subbed in"
-                    : "Subbed out"
-                }
-                className="inline-flex items-center justify-center rounded-full bg-[var(--pf-brand-blue-soft)] px-2 py-0.5 text-[0.55rem] font-black uppercase leading-none text-[var(--pf-brand-blue-hover)] ring-1 ring-[var(--pf-brand-blue-border)]"
-              >
-                <span className="sm:hidden">
-                  {result.automatic_substitution === "in"
-                    ? "Sub in"
-                    : "Sub out"}
-                </span>
-                <span className="hidden sm:inline">
-                  {result.automatic_substitution === "in"
-                    ? "Subbed in"
-                    : "Subbed out"}
-                </span>
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+      <SquadCardVisual
+        player={player}
+        resultPoints={result ? getDisplayedResultPoints(result) : undefined}
+        automaticSubstitution={result?.automatic_substitution}
+      />
     </SquadCardActions>
   );
 }
@@ -996,226 +897,103 @@ export function SquadEditor({
         </div>
       ) : null}
 
-      <section
-        aria-labelledby="starting-lineup-title"
-        className={`mt-3 transition-opacity duration-150 ${
-          viewMode === "results" && !latestResult ? "hidden" : ""
-        } ${viewMode === "results" && isResultLoading ? "opacity-55" : ""}`}
-      >
-        {viewMode === "transfers" && clubRepairRequired ? (
-          <p
-            className="mx-auto mb-3 max-w-xl rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] px-3 py-2 text-sm text-[var(--pf-coral-text)]"
-            role="status"
-          >
-            <span className="font-semibold">{CLUB_LIMIT_MESSAGE}</span>
-            <span className="mt-1 block text-xs">
-              This includes main and bench players.
-            </span>
-          </p>
-        ) : null}
-        <div className="mx-auto mb-2 flex max-w-xl items-end justify-between gap-4 px-1">
-          <h2
-            className="text-xl font-black tracking-tight sm:text-2xl"
-            id="starting-lineup-title"
-          >
-            {viewMode === "results"
-              ? `Results for ${latestResultLabel}`
-              : transfersLocked
-                ? "Squad locked"
-                : "Select your squad"}
-          </h2>
-          <span className="rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] px-3 py-1 text-xs font-bold text-[var(--pf-text-muted)]">
-            {displayedStarters.length} / {STARTER_SIZE}
+      {viewMode === "transfers" && clubRepairRequired ? (
+        <p
+          className="mx-auto mb-3 max-w-xl rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] px-3 py-2 text-sm text-[var(--pf-coral-text)]"
+          role="status"
+        >
+          <span className="font-semibold">{CLUB_LIMIT_MESSAGE}</span>
+          <span className="mt-1 block text-xs">
+            This includes main and bench players.
           </span>
-        </div>
-
-        <div>
-          <div className="mx-auto w-full max-w-xl">
+        </p>
+      ) : null}
+      <SquadLineupView
+        title={
+          viewMode === "results"
+            ? "Active players"
+            : transfersLocked
+              ? "Squad locked"
+              : "Select your squad"
+        }
+        compactTitle={viewMode === "results"}
+        starterCount={displayedStarters.length}
+        benchCount={displayedBench.length}
+        hidden={viewMode === "results" && !latestResult}
+        dimmed={viewMode === "results" && isResultLoading}
+        renderStarter={(index) => {
+          const player = displayedStarters[index];
+          return player ? (
+            <SquadCard
+              key={player.id}
+              onMakeCaptain={() => makeCaptain(player.id)}
+              onRemove={() => removePlayer(player.id)}
+              onReplace={(incomingPlayer) => replacePlayer(player.id, incomingPlayer)}
+              onSwapPosition={(targetPlayerId) => swapPlayers(player.id, targetPlayerId)}
+              player={player}
+              remainingBudget={remainingBudget}
+              selectedClubIds={selectedClubIds}
+              selectedPlayerIds={selectedPlayerIds}
+              swapTargets={bench}
+              transfersLocked={transfersLocked}
+              result={viewMode === "results" ? resultSquad.find((row) => row.id === player.id) : undefined}
+            />
+          ) : viewMode === "transfers" && index === starters.length ? (
+            <PlayerPicker
+              onSelect={(selectedPlayer) => addPlayer(selectedPlayer, "starter")}
+              position="starter"
+              remainingBudget={remainingBudget}
+              selectedClubIds={selectedClubIds}
+              selectedPlayerIds={selectedPlayerIds}
+              transfersLocked={transfersLocked}
+              trigger="court"
+            />
+          ) : (
             <div
-              className="relative w-full"
-              style={{ paddingBottom: "66%" }}
+              aria-label="Empty main player slot"
+              className="court-empty-slot flex w-full max-w-52 items-center justify-center rounded-lg border border-dashed border-white/30 bg-[var(--pf-navy)]/20 px-3 text-center text-xs font-semibold text-white/55 sm:text-sm"
             >
-              <div
-                aria-label="Table tennis starting lineup"
-                className="absolute inset-0 grid grid-cols-2 grid-rows-2 overflow-visible rounded-md"
-                role="group"
-                style={{
-                  background: "var(--pf-table-blue)",
-                  border: "2px solid rgba(242, 246, 248, 0.68)",
-                  boxShadow:
-                    "0 4px 0 var(--pf-table-blue-deep), 0 18px 38px rgba(1, 23, 43, 0.3), inset 0 0 32px rgba(1, 33, 60, 0.16)",
-                  isolation: "isolate",
-                }}
-              >
-                {Array.from({ length: STARTER_SIZE }, (_, index) => {
-                  const player = displayedStarters[index];
-
-                  return (
-                    <div
-                      className="relative z-10 flex min-w-0 items-center justify-center"
-                      key={player?.id ?? `starter-slot-${index}`}
-                      style={COURT_POSITION_STYLE}
-                    >
-                      {player ? (
-                        <SquadCard
-                          onMakeCaptain={() => makeCaptain(player.id)}
-                          onRemove={() => removePlayer(player.id)}
-                          onReplace={(incomingPlayer) =>
-                            replacePlayer(player.id, incomingPlayer)
-                          }
-                          onSwapPosition={(targetPlayerId) =>
-                            swapPlayers(player.id, targetPlayerId)
-                          }
-                          player={player}
-                          remainingBudget={remainingBudget}
-                          selectedClubIds={selectedClubIds}
-                          selectedPlayerIds={selectedPlayerIds}
-                          swapTargets={bench}
-                          transfersLocked={transfersLocked}
-                          result={
-                            viewMode === "results"
-                              ? resultSquad.find(
-                                  (row) => row.id === player.id,
-                                )
-                              : undefined
-                          }
-                        />
-                      ) : viewMode === "transfers" &&
-                        index === starters.length ? (
-                        <PlayerPicker
-                          onSelect={(selectedPlayer) =>
-                            addPlayer(selectedPlayer, "starter")
-                          }
-                          position="starter"
-                          remainingBudget={remainingBudget}
-                          selectedClubIds={selectedClubIds}
-                          selectedPlayerIds={selectedPlayerIds}
-                          transfersLocked={transfersLocked}
-                          trigger="court"
-                        />
-                      ) : (
-                        <div
-                          aria-label="Empty main player slot"
-                          className="court-empty-slot flex w-full max-w-52 items-center justify-center rounded-lg border border-dashed border-white/30 bg-[var(--pf-navy)]/20 px-3 text-center text-xs font-semibold text-white/55 sm:text-sm"
-                        >
-                          Empty slot
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div
-                  aria-hidden="true"
-                  style={{
-                    backgroundColor: "rgba(242, 246, 248, 0.58)",
-                    boxShadow: "0 0 1px rgba(255, 255, 255, 0.7)",
-                    height: "2px",
-                    left: 0,
-                    pointerEvents: "none",
-                    position: "absolute",
-                    right: 0,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 5,
-                  }}
-                />
-                <div
-                  aria-hidden="true"
-                  className="squad-table-net pointer-events-none absolute z-20"
-                />
-              </div>
+              Empty slot
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        aria-labelledby="bench-title"
-        className={`mx-auto mt-2 max-w-2xl transition-opacity duration-150 ${
-          viewMode === "results" && !latestResult ? "hidden" : ""
-        } ${viewMode === "results" && isResultLoading ? "opacity-55" : ""}`}
-      >
-        <div className="mb-2 flex items-center justify-between gap-4 px-1">
-          <h2 className="text-lg font-black" id="bench-title">
-            Bench
-          </h2>
-          <span className="text-xs font-semibold text-[var(--pf-text-muted)]">
-            {displayedBench.length} / {BENCH_SIZE}
-          </span>
-        </div>
-
-        <div className="grid min-w-0 grid-cols-2 px-1">
-          {Array.from({ length: BENCH_SIZE }, (_, index) => {
-            const player = displayedBench[index];
-
-            if (player) {
-              return (
-                <div
-                  className="flex min-w-0 justify-center"
-                  key={player.id}
-                  style={BENCH_POSITION_STYLE}
-                >
-                  <SquadCard
-                    onMakeCaptain={() => makeCaptain(player.id)}
-                    onRemove={() => removePlayer(player.id)}
-                    onReplace={(incomingPlayer) =>
-                      replacePlayer(player.id, incomingPlayer)
-                    }
-                    onSwapPosition={(targetPlayerId) =>
-                      swapPlayers(player.id, targetPlayerId)
-                    }
-                    player={player}
-                    remainingBudget={remainingBudget}
-                    selectedClubIds={selectedClubIds}
-                    selectedPlayerIds={selectedPlayerIds}
-                    swapTargets={starters}
-                    transfersLocked={transfersLocked}
-                    result={
-                      viewMode === "results"
-                        ? resultSquad.find((row) => row.id === player.id)
-                        : undefined
-                    }
-                  />
-                </div>
-              );
-            }
-
-            return viewMode === "transfers" && index === bench.length ? (
-              <div
-                className="flex min-w-0 justify-center"
-                key={`bench-picker-${index}`}
-                style={BENCH_POSITION_STYLE}
-              >
-                <PlayerPicker
-                  onSelect={(selectedPlayer) =>
-                    addPlayer(selectedPlayer, "bench")
-                  }
-                  position="bench"
-                  remainingBudget={remainingBudget}
-                  selectedClubIds={selectedClubIds}
-                  selectedPlayerIds={selectedPlayerIds}
-                  transfersLocked={transfersLocked}
-                  trigger="court"
-                />
-              </div>
-            ) : (
-              <div
-                className="flex min-w-0 justify-center"
-                key={`bench-empty-${index}`}
-                style={BENCH_POSITION_STYLE}
-              >
-                <div
-                  aria-label="Empty bench player slot"
-                  className="flex min-h-28 w-full max-w-52 items-center justify-center rounded-lg border border-dashed border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)]/45 px-2 text-center text-xs font-semibold text-[var(--pf-text-muted)]/60"
-                >
-                  Empty slot
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+          );
+        }}
+        renderBench={(index) => {
+          const player = displayedBench[index];
+          return player ? (
+            <SquadCard
+              key={player.id}
+              onMakeCaptain={() => makeCaptain(player.id)}
+              onRemove={() => removePlayer(player.id)}
+              onReplace={(incomingPlayer) => replacePlayer(player.id, incomingPlayer)}
+              onSwapPosition={(targetPlayerId) => swapPlayers(player.id, targetPlayerId)}
+              player={player}
+              remainingBudget={remainingBudget}
+              selectedClubIds={selectedClubIds}
+              selectedPlayerIds={selectedPlayerIds}
+              swapTargets={starters}
+              transfersLocked={transfersLocked}
+              result={viewMode === "results" ? resultSquad.find((row) => row.id === player.id) : undefined}
+            />
+          ) : viewMode === "transfers" && index === bench.length ? (
+            <PlayerPicker
+              onSelect={(selectedPlayer) => addPlayer(selectedPlayer, "bench")}
+              position="bench"
+              remainingBudget={remainingBudget}
+              selectedClubIds={selectedClubIds}
+              selectedPlayerIds={selectedPlayerIds}
+              transfersLocked={transfersLocked}
+              trigger="court"
+            />
+          ) : (
+            <div
+              aria-label="Empty bench player slot"
+              className="flex min-h-28 w-full max-w-52 items-center justify-center rounded-lg border border-dashed border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)]/45 px-2 text-center text-xs font-semibold text-[var(--pf-text-muted)]/60"
+            >
+              Empty slot
+            </div>
+          );
+        }}
+      />
 
       <dialog
         aria-labelledby="unsaved-changes-title"

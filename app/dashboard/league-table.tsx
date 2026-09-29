@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useRef, useState } from "react";
+import { LeagueSquadPreview, type LeagueSnapshotPlayer } from "@/app/dashboard/league-squad-preview";
 import { createClient } from "@/lib/supabase/browser";
 
 export type LeagueTableRow = {
@@ -24,6 +25,21 @@ async function loadGameweekScores(userId: string) {
   if (error) throw new Error(error.message);
   return (data ?? []) as GameweekScore[];
 }
+
+async function loadSnapshotLineup(userId: string, gameweekId: string) {
+  const { data, error } = await createClient().rpc(
+    "get_leaderboard_team_gameweek_lineup",
+    { p_user_id: userId, p_gameweek_id: gameweekId },
+  );
+  if (error) throw new Error(error.message);
+  return (data ?? []) as LeagueSnapshotPlayer[];
+}
+
+const CHIP_LABELS = {
+  wildcard: "Wildcard",
+  triple_captain: "Triple Captain",
+  bench_boost: "Bench Boost",
+} as const;
 
 function formatPoints(value: number | string | null | undefined) {
   return new Intl.NumberFormat("sv-SE").format(Number(value ?? 0));
@@ -60,6 +76,9 @@ export function LeagueTable({
   const [rowsError, setRowsError] = useState("");
   const [remainingTotal, setRemainingTotal] = useState(totalRowCount ?? rows.length);
   const scoresRequestRef = useRef(0);
+  const lineupRequestRef = useRef(0);
+  const lineupCacheRef = useRef<Record<string, LeagueSnapshotPlayer[]>>({});
+  const lineupRequestsRef = useRef(new Map<string, Promise<LeagueSnapshotPlayer[]>>());
   const paginated = totalRowCount !== undefined;
   const displayedRows = paginated && showAll ? loadedRows : rows;
   const [selectedTeam, setSelectedTeam] = useState<LeagueTableRow | null>(null);
@@ -67,7 +86,13 @@ export function LeagueTable({
   const [gameweekIndex, setGameweekIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [lineupByGameweek, setLineupByGameweek] = useState<Record<string, LeagueSnapshotPlayer[]>>({});
+  const [isLoadingLineup, setIsLoadingLineup] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [navigationErrorIndex, setNavigationErrorIndex] = useState<number | null>(null);
+  const [lineupError, setLineupError] = useState(false);
   const selectedGameweek = gameweekScores[gameweekIndex];
+  const selectedLineup = selectedGameweek ? lineupByGameweek[selectedGameweek.gameweek_id] : undefined;
   const rankedRows = displayedRows.map((row, index) => ({ rank: row.rank ?? index + 1, row }));
   const currentUserRow = rankedRows.find(
     ({ row }) => row.user_id === currentUserId,
@@ -106,10 +131,18 @@ export function LeagueTable({
 
   async function openGameweekScores(row: LeagueTableRow) {
     const requestId = ++scoresRequestRef.current;
+    ++lineupRequestRef.current;
     setSelectedTeam(row);
     setGameweekScores([]);
     setGameweekIndex(0);
+    lineupCacheRef.current = {};
+    lineupRequestsRef.current = new Map();
+    setLineupByGameweek({});
     setLoadError(false);
+    setLineupError(false);
+    setIsLoadingLineup(false);
+    setIsNavigating(false);
+    setNavigationErrorIndex(null);
     setIsLoading(true);
     dialogRef.current?.showModal();
 
@@ -118,11 +151,76 @@ export function LeagueTable({
       if (requestId !== scoresRequestRef.current) return;
       setGameweekScores(scores);
       setGameweekIndex(Math.max(scores.length - 1, 0));
+      if (scores.length) void selectLineup(row.user_id, scores, scores.length - 1);
     } catch {
       if (requestId === scoresRequestRef.current) setLoadError(true);
     } finally {
       if (requestId === scoresRequestRef.current) setIsLoading(false);
     }
+  }
+
+  function getCachedLineup(userId: string, gameweekId: string) {
+    const cached = lineupCacheRef.current[gameweekId];
+    if (cached) return Promise.resolve(cached);
+    const pending = lineupRequestsRef.current;
+    const existing = pending.get(gameweekId);
+    if (existing) return existing;
+
+    const cache = lineupCacheRef.current;
+    const request = loadSnapshotLineup(userId, gameweekId)
+      .then((players) => {
+        cache[gameweekId] = players;
+        return players;
+      })
+      .finally(() => pending.delete(gameweekId));
+    pending.set(gameweekId, request);
+    return request;
+  }
+
+  function prefetchAdjacentLineups(userId: string, scores: GameweekScore[], index: number) {
+    for (const adjacentIndex of [index - 1, index + 1]) {
+      const adjacent = scores[adjacentIndex];
+      if (adjacent) void getCachedLineup(userId, adjacent.gameweek_id).catch(() => {
+        // Navigation can retry if a background request fails.
+      });
+    }
+  }
+
+  async function selectLineup(
+    userId: string,
+    scores: GameweekScore[],
+    index: number,
+    keepCurrent = false,
+  ) {
+    const gameweekId = scores[index].gameweek_id;
+    const requestId = ++lineupRequestRef.current;
+    const navigating = keepCurrent && Boolean(selectedLineup?.length);
+    setLineupError(false);
+    setNavigationErrorIndex(null);
+    setIsNavigating(navigating);
+    if (!navigating) setIsLoadingLineup(true);
+    try {
+      const players = await getCachedLineup(userId, gameweekId);
+      if (requestId !== lineupRequestRef.current) return;
+      setLineupByGameweek((previous) => ({ ...previous, [gameweekId]: players }));
+      setGameweekIndex(index);
+      prefetchAdjacentLineups(userId, scores, index);
+    } catch {
+      if (requestId === lineupRequestRef.current) {
+        if (navigating) setNavigationErrorIndex(index);
+        else setLineupError(true);
+      }
+    } finally {
+      if (requestId === lineupRequestRef.current) {
+        setIsLoadingLineup(false);
+        setIsNavigating(false);
+      }
+    }
+  }
+
+  function navigateGameweek(index: number) {
+    if (!gameweekScores[index] || !selectedTeam || isNavigating) return;
+    void selectLineup(selectedTeam.user_id, gameweekScores, index, true);
   }
 
   return (
@@ -277,7 +375,7 @@ export function LeagueTable({
 
       <dialog
         aria-labelledby="gameweek-score-title"
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80"
         onClick={(event) => {
           if (event.target === dialogRef.current) dialogRef.current?.close();
         }}
@@ -287,7 +385,7 @@ export function LeagueTable({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
-                Gameweek points
+                Gameweek team
               </p>
               <h2
                 className="mt-1 truncate text-xl font-black"
@@ -297,7 +395,7 @@ export function LeagueTable({
               </h2>
             </div>
             <button
-              aria-label="Close gameweek points"
+              aria-label="Close gameweek team"
               className="-mr-2 -mt-2 rounded-md p-2 text-2xl leading-none text-[var(--pf-text-muted)] transition hover:bg-[var(--pf-navy-elevated)] hover:text-[var(--pf-text)]"
               onClick={() => dialogRef.current?.close()}
               type="button"
@@ -312,8 +410,7 @@ export function LeagueTable({
             </p>
           ) : loadError ? (
             <p className="mt-6 rounded-lg border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-4 text-sm text-[var(--pf-coral-text)]">
-              Gameweek scores could not be loaded. Run the gameweek details
-              migration in Supabase.
+              Gameweek details could not be loaded. Please try again.
             </p>
           ) : selectedGameweek ? (
             <div className="mt-6">
@@ -321,41 +418,84 @@ export function LeagueTable({
                 <button
                   aria-label="Previous gameweek"
                   className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-xl font-bold transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] disabled:cursor-not-allowed disabled:opacity-30"
-                  disabled={gameweekIndex === 0}
-                  onClick={() => setGameweekIndex((index) => index - 1)}
+                  disabled={isNavigating || gameweekIndex === 0}
+                  onClick={() => navigateGameweek(gameweekIndex - 1)}
                   type="button"
                 >
                   ←
                 </button>
-                <div className="min-w-0 text-center">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
+                <div aria-busy={isNavigating} className="min-w-0 text-center">
+                  <p className="truncate text-lg font-black text-[var(--pf-text)] sm:text-xl">
                     {selectedGameweek.round_order !== null
                       ? `Gameweek ${selectedGameweek.round_order}`
                       : "Gameweek"}
-                  </p>
-                  <p className="mt-1 truncate text-sm font-semibold text-[var(--pf-text)]">
-                    {selectedGameweek.gameweek_name}
                   </p>
                 </div>
                 <button
                   aria-label="Next gameweek"
                   className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-xl font-bold transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] disabled:cursor-not-allowed disabled:opacity-30"
-                  disabled={gameweekIndex === gameweekScores.length - 1}
-                  onClick={() => setGameweekIndex((index) => index + 1)}
+                  disabled={isNavigating || gameweekIndex === gameweekScores.length - 1}
+                  onClick={() => navigateGameweek(gameweekIndex + 1)}
                   type="button"
                 >
                   →
                 </button>
               </div>
 
-              <div className="mt-5 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-6 text-center">
-                <p className="text-4xl font-black text-[var(--pf-text)]">
-                  {formatPoints(selectedGameweek.points)}
+              {navigationErrorIndex !== null ? (
+                <div className="mt-3 text-center text-sm text-[var(--pf-coral-text)]" role="alert">
+                  <p>Gameweek could not be loaded.</p>
+                  <button
+                    className="mt-1 rounded-md border border-[var(--pf-brand-blue-border)] px-3 py-1 font-bold text-[var(--pf-text)] hover:bg-[var(--pf-brand-blue-soft)]"
+                    onClick={() => navigateGameweek(navigationErrorIndex)}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : null}
+
+              {selectedLineup?.[0]?.active_chip ? (
+                <p className="mt-3 text-center text-xs font-bold text-[var(--pf-fantasy-yellow)]">
+                  {CHIP_LABELS[selectedLineup[0].active_chip]} activated
                 </p>
-                <p className="mt-1 text-xs font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
-                  Points
-                </p>
+              ) : selectedLineup?.length ? (
+                <p className="mt-3 text-center text-xs text-[var(--pf-text-muted)]">No chip activated</p>
+              ) : null}
+
+              <div className="mt-4 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-3 text-center">
+                <p className="text-2xl font-black text-[var(--pf-fantasy-yellow)]">{formatPoints(selectedGameweek.points)} pts</p>
+                {selectedLineup?.[0]?.transfer_penalty_points ? (
+                  <p className="mt-1 text-xs text-[var(--pf-text-muted)]">Includes {selectedLineup[0].transfer_penalty_points} pts transfer cost</p>
+                ) : null}
               </div>
+
+              {isLoadingLineup ? (
+                <p className="mt-5 text-center text-sm text-[var(--pf-text-muted)]">Loading team…</p>
+              ) : lineupError ? (
+                <div className="mt-5 text-center text-sm text-[var(--pf-coral-text)]" role="alert">
+                  <p>Team snapshot could not be loaded.</p>
+                  <button
+                    className="mt-2 rounded-md border border-[var(--pf-brand-blue-border)] px-3 py-1.5 font-bold text-[var(--pf-text)] hover:bg-[var(--pf-brand-blue-soft)]"
+                    onClick={() => selectedTeam && void selectLineup(selectedTeam.user_id, gameweekScores, gameweekIndex)}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : selectedTeam && selectedLineup?.length ? (
+                <LeagueSquadPreview
+                  key={`${selectedTeam.user_id}:${selectedGameweek.gameweek_id}`}
+                  players={selectedLineup}
+                  userId={selectedTeam.user_id}
+                  gameweekId={selectedGameweek.gameweek_id}
+                  gameweekLabel={selectedGameweek.round_order !== null
+                    ? `Gameweek ${selectedGameweek.round_order}`
+                    : "Gameweek"}
+                />
+              ) : (
+                <p className="mt-5 text-center text-sm text-[var(--pf-text-muted)]">No team snapshot for this gameweek.</p>
+              )}
             </div>
           ) : (
             <p className="mt-6 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-6 text-center text-sm text-[var(--pf-text-muted)]">

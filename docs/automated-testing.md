@@ -46,12 +46,12 @@ Auth user, then remove only those records. They call the same save, snapshot,
 scoring, and completion functions as the app and results job. The browser suite
 uses the same fixture helper and checks sign-in, squad transfers and swaps,
 captain and chip actions, results, private league creation and joining, and
-navigation through a team's gameweek scores. No hosted Supabase project or STUPA
+navigation through a team's locked gameweek lineups, chip status and scores. No hosted Supabase project or STUPA
 request is used.
 The functional suite also completes two consecutive gameweeks for two managers,
 including a transfer between weeks, and checks player scores, per-week team
 scores, preserved first-week scores, and cumulative private league standings.
-The browser league journey checks both per-week scores and cumulative standings.
+The browser league journey checks per-week lineups, chip status, scores, player points breakdowns and cumulative standings.
 The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.
 
