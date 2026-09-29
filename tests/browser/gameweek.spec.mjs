@@ -5,7 +5,7 @@ let fixture;
 
 test.describe.serial("manager gameweek journey", () => {
   test.beforeAll(async () => {
-    fixture = await createFixture();
+    fixture = await createFixture({ gameweeks: 3 });
     checked(await save(fixture, squad([
       fixture.players[0], fixture.players[2], fixture.players[4], fixture.players[6],
       fixture.players[1], fixture.players[3],
@@ -96,5 +96,49 @@ test.describe.serial("manager gameweek journey", () => {
     const breakdown = page.getByRole("dialog", { name: "Functional Player2" });
     await expect(breakdown.getByText("Lost singles set-score")).toBeVisible();
     await expect(breakdown.getByText("1 set won, 3 sets lost")).toBeVisible();
+  });
+
+  test("result navigation preloads adjacent gameweeks and reuses cached results", async ({ page }) => {
+    const players = [fixture.players[0], fixture.players[2], fixture.players[4], fixture.players[6],
+      fixture.players[1], fixture.players[3]];
+    for (const week of fixture.weeks.slice(1)) {
+      checked(await save(fixture, squad(players), null, week), "Save next gameweek squad");
+      checked(await fixture.admin.from("fantasy_gameweeks").update({
+        first_match_starts_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+      }).eq("id", week.id), "Make gameweek result visible");
+      await lock(fixture, week);
+      const match = await addMatch(fixture, { week });
+      await addResult(fixture, match, { home: [fixture.players[0]], away: [fixture.players[2]] });
+      await complete(fixture, week);
+    }
+
+    const requestedWeeks = [];
+    await page.route(/\/api\/squad-results\?gameweek=/, async (route) => {
+      requestedWeeks.push(new URL(route.request().url()).searchParams.get("gameweek"));
+      await route.continue();
+    });
+    await login(page);
+    const secondWeekResponse = page.waitForResponse((response) =>
+      response.url().includes(`gameweek=${fixture.weeks[1].id}`) && response.ok());
+    await page.getByRole("button", { name: "Result mode" }).click();
+    const navigation = page.getByLabel("Result gameweeks");
+    await expect(navigation).toContainText("Gameweek 3");
+    await secondWeekResponse;
+    await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[1].id).length).toBe(1);
+
+    const firstWeekResponse = page.waitForResponse((response) =>
+      response.url().includes(`gameweek=${fixture.weeks[0].id}`) && response.ok());
+    await navigation.getByRole("button", { name: /View previous gameweek/ }).click();
+    await expect(navigation).toContainText("Gameweek 2");
+    await expect(navigation).not.toContainText("Loading gameweek…");
+    await firstWeekResponse;
+    await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[0].id).length).toBe(1);
+
+    await navigation.getByRole("button", { name: /View previous gameweek/ }).click();
+    await expect(navigation).toContainText("Gameweek 1");
+    await expect(navigation).not.toContainText("Loading gameweek…");
+    await navigation.getByRole("button", { name: /View next gameweek/ }).click();
+    await expect(navigation).toContainText("Gameweek 2");
+    await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[1].id).length).toBe(1);
   });
 });

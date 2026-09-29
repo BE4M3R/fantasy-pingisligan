@@ -48,13 +48,16 @@ test.describe.serial("private league journey", () => {
     guest = await createGuest(fixture);
     const players = [fixture.players[0], fixture.players[2], fixture.players[4], fixture.players[6],
       fixture.players[1], fixture.players[3]];
-    const ownerSquad = squad(players);
-    const guestSquad = squad(players, { captain: 1 });
+    const ownerSquad = squad([...players.slice(0, 5), fixture.players[9]]);
+    const guestSquads = [
+      squad(players, { captain: 1 }),
+      squad([...players.slice(0, 5), fixture.players[8]], { captain: 1 }),
+    ];
     const guestFixture = { ...fixture, user: guest.user, teamId: guest.teamId };
 
     for (const [index, week] of fixture.weeks.entries()) {
       checked(await save(fixture, ownerSquad, null, week), "Save league owner squad");
-      checked(await save(guestFixture, guestSquad, null, week), "Save league guest squad");
+      checked(await save(guestFixture, guestSquads[index], index === 1 ? "triple_captain" : null, week), "Save league guest squad");
       checked(await fixture.admin.from("fantasy_gameweeks").update({
         first_match_starts_at: new Date(Date.now() - 5 * 60_000).toISOString(),
       }).eq("id", week.id), "Make scored gameweek visible");
@@ -111,9 +114,22 @@ test.describe.serial("private league journey", () => {
     await expect(page.getByRole("table").getByRole("button", { name: `Functional ${fixture.id}` })).toBeVisible();
   });
 
-  test("pressing a team name shows its exact scores while navigating between gameweeks", async ({ page }) => {
+  test("pressing a team name shows its locked lineup, chip and scores across gameweeks", async ({ page }) => {
     await login(page, fixture);
     await page.goto(`/dashboard/leagues/${leagueId}`);
+    let previousLineupRequested = false;
+    let releasePreviousLineup;
+    const previousLineupResponse = new Promise((resolve) => {
+      releasePreviousLineup = resolve;
+    });
+    await page.route("**/rest/v1/rpc/get_leaderboard_team_gameweek_lineup", async (route) => {
+      const request = route.request().postDataJSON();
+      if (request.p_user_id === guest.userId && request.p_gameweek_id === fixture.weeks[0].id) {
+        previousLineupRequested = true;
+        await previousLineupResponse;
+      }
+      await route.continue();
+    });
     const table = page.getByRole("table");
     await expect(table.getByRole("row").filter({ hasText: guest.teamName })
       .getByRole("cell").last()).toHaveText("25");
@@ -123,12 +139,59 @@ test.describe.serial("private league journey", () => {
     const scores = page.getByRole("dialog", { name: guest.teamName });
     await expect(scores).toBeVisible();
     await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(scores.getByText("12", { exact: true })).toBeVisible();
+    await expect(scores.getByText("12 pts", { exact: true })).toBeVisible();
+    await expect(scores.getByText("Triple Captain activated")).toBeVisible();
+    const court = scores.getByRole("group", { name: "Table tennis starting lineup" });
+    await expect(court).toBeVisible();
+    await expect(scores.getByText("Bench", { exact: true })).toBeVisible();
+    await expect(court.getByText("F.Player4")).toBeVisible();
+    await expect(scores.getByRole("button", { name: "Open result details for Functional Player8" })).toBeVisible();
+    await expect(scores.getByRole("button", { name: "Open result details for Functional Player9" })).toHaveCount(0);
+    await expect.poll(() => previousLineupRequested).toBe(true);
     await scores.getByRole("button", { name: "Previous gameweek" }).click();
+    try {
+      await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
+      await expect(scores.getByRole("button", { name: "Open result details for Functional Player8" })).toBeVisible();
+      await expect(scores.getByText("Loading team…")).toHaveCount(0);
+    } finally {
+      releasePreviousLineup();
+    }
     await expect(scores.getByText("Gameweek 1", { exact: true })).toBeVisible();
-    await expect(scores.getByText("13", { exact: true })).toBeVisible();
+    await expect(scores.getByText("13 pts", { exact: true })).toBeVisible();
+    await expect(scores.getByText("No chip activated")).toBeVisible();
+    await expect(court.getByText("F.Player0")).toBeVisible();
+    await expect(court.getByText("F.Player2").locator("..").getByText("2 pts")).toBeVisible();
+    await expect(scores.getByRole("button", { name: "Open result details for Functional Player3" })).toBeVisible();
+    await expect(scores.getByRole("button", { name: "Open result details for Functional Player8" })).toHaveCount(0);
+    await scores.getByRole("button", { name: "Open result details for Functional Player0" }).click();
+    const playerDetails = page.getByRole("dialog", { name: "Functional Player0" });
+    await expect(playerDetails).toBeVisible();
+    const dialogBounds = await playerDetails.boundingBox();
+    const viewport = page.viewportSize();
+    assert.ok(dialogBounds && viewport);
+    assert.ok(Math.abs(dialogBounds.x + dialogBounds.width / 2 - viewport.width / 2) < 20);
+    assert.ok(Math.abs(dialogBounds.y + dialogBounds.height / 2 - viewport.height / 2) < 20);
+    await expect(playerDetails.getByText("Total points").locator("..").getByText("11", { exact: true })).toBeVisible();
+    for (const [label, points] of [
+      ["Singles won", "+4 pts"],
+      ["Won singles set-score", "+2 pts"],
+      ["Fixtures won", "+3 pts"],
+      ["Fixture clincher bonus", "+2 pts"],
+    ]) {
+      await expect(playerDetails.getByText(label, { exact: true }).locator("../..").getByText(points, { exact: true })).toBeVisible();
+    }
+    await playerDetails.getByRole("button", { name: "Close player details" }).click();
+    await expect(playerDetails).not.toBeVisible();
     await scores.getByRole("button", { name: "Next gameweek" }).click();
     await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(scores.getByText("12", { exact: true })).toBeVisible();
+    await expect(scores.getByText("Triple Captain activated")).toBeVisible();
+    await expect(scores.getByRole("button", { name: "Open result details for Functional Player8" })).toBeVisible();
+    await scores.getByRole("button", { name: "Close gameweek team" }).click();
+
+    await table.getByRole("button", { name: `Functional ${fixture.id}` }).click();
+    const ownerScores = page.getByRole("dialog", { name: `Functional ${fixture.id}` });
+    await expect(ownerScores).toBeVisible();
+    await expect(ownerScores.getByRole("button", { name: "Open result details for Functional Player9" })).toBeVisible();
+    await expect(ownerScores.getByRole("button", { name: "Open result details for Functional Player8" })).toHaveCount(0);
   });
 });

@@ -308,6 +308,12 @@ test("two completed gameweeks keep player scores, team scores and private league
     checked(await save(f, ownerSquad, null, week), `Save owner squad for week ${index + 1}`);
     checked(await save(guest, guestSquad, null, week), `Save guest squad for week ${index + 1}`);
     const snapshot = await lock(f, week);
+    assert.deepEqual(checked(await f.user.rpc("get_leaderboard_team_gameweek_lineup", {
+      p_user_id: guestUserId, p_gameweek_id: week.id,
+    }), `Keep week ${index + 1} guest lineup private before results`), []);
+    assert.deepEqual(checked(await f.user.rpc("get_league_player_score_breakdown", {
+      p_user_id: guestUserId, p_gameweek_id: week.id, p_player_id: initial[0].id,
+    }), `Keep week ${index + 1} guest breakdown private before results`), []);
     if (index === 1) {
       assert.equal(snapshot.transfer_count_at_lock, 1);
       assert.equal(snapshot.free_transfers_at_lock, 1);
@@ -321,6 +327,38 @@ test("two completed gameweeks keep player scores, team scores and private league
       first_match_starts_at: new Date(Date.now() - 60_000).toISOString(),
     }).eq("id", week.id), `Show week ${index + 1} results`);
     await complete(f, week);
+
+    for (const [userId, expectedSquad] of [[f.userId, ownerSquad], [guestUserId, guestSquad]]) {
+      const lineup = checked(await f.user.rpc("get_leaderboard_team_gameweek_lineup", {
+        p_user_id: userId, p_gameweek_id: week.id,
+      }), `Read week ${index + 1} league lineup`);
+      assert.deepEqual(lineup.map((row) => row.player_id), expectedSquad.map((row) => row.player_id));
+      assert.deepEqual(lineup.map((row) => row.is_captain), expectedSquad.map((row) => row.is_captain));
+      assert.deepEqual(lineup.map((row) => row.fantasy_points), expectedSquad.map((row) =>
+        expectedWeeks[index].playerPoints.find(([player]) => player.id === row.player_id)?.[1] ?? 0));
+      assert.equal(lineup.find((row) => row.player_id === expectedWeeks[index].playerPoints[0][0].id)?.has_played, true);
+      assert.equal(lineup[0].transfer_penalty_points, 0);
+    }
+    const selectedPlayer = expectedWeeks[index].playerPoints[0][0];
+    const leagueBreakdown = checked(await f.user.rpc("get_league_player_score_breakdown", {
+      p_user_id: guestUserId, p_gameweek_id: week.id, p_player_id: selectedPlayer.id,
+    }), `Read week ${index + 1} guest player breakdown`);
+    const ownBreakdown = checked(await guestUser.rpc("get_my_squad_score_breakdown", {
+      target_gameweek_id: week.id,
+    }), `Read week ${index + 1} own set breakdown`).find((row) => row.player_id === selectedPlayer.id);
+    const ownResult = checked(await guestUser.rpc("get_my_squad_result", {
+      target_gameweek_id: week.id,
+    }), `Read week ${index + 1} own result`).find((row) => row.player_id === selectedPlayer.id);
+    assert.equal(leagueBreakdown.length, 1);
+    for (const field of ["singles_wins", "singles_losses", "doubles_wins", "doubles_losses", "sweep_bonus_points"]) {
+      assert.equal(leagueBreakdown[0][field], ownResult[field], field);
+    }
+    for (const field of ["singles_sets_won", "singles_sets_lost", "singles_set_points", "fixture_win_points", "clinching_bonus_points"]) {
+      assert.equal(leagueBreakdown[0][field], ownBreakdown[field], field);
+    }
+    assert.deepEqual(checked(await f.user.rpc("get_league_player_score_breakdown", {
+      p_user_id: guestUserId, p_gameweek_id: week.id, p_player_id: replacement.id,
+    }), `Reject week ${index + 1} player outside guest snapshot`), []);
 
     const expected = expectedWeeks[index];
     const stats = checked(await f.admin.from("player_match_stats")

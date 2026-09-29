@@ -51,10 +51,10 @@ The catalogue preserves stored prices and permanent UUIDs. Player setup needs
 no upstream network access, and repeated imports never overwrite existing
 prices. Rankings are optional; active players with prices remain selectable.
 
-### Single-account scoring demo
+### Local scoring demo
 
-To rebuild local Supabase with one fixed six-player team that covers every
-scoring component across the synthetic gameweeks, run:
+To rebuild local Supabase with one fixed six-player scoring team, nine varied
+test teams, and four completed synthetic gameweeks, run:
 
 ```bash
 npm run dbsetup:scoring-demo
@@ -65,9 +65,12 @@ demo** with Truls Möregårdh, Tobias Rasmussen, Simon Berglund, Hampus Nordberg
 Damian Wederlich, and Ioannis Sgoropoulos. The fixed squad covers singles wins and
 set difference, lost-set points, doubles win and clincher, singles clincher,
 walkover, fixture-win and sweep bonuses. The verification also checks that an
-unplayed club teammate receives no fixture-win bonus.
+unplayed club teammate receives no fixture-win bonus. The nine additional teams
+use the generated `fantasy-squad-test-01@example.com` through
+`fantasy-squad-test-09@example.com` accounts with password `test12`.
 
-Run the complete local lifecycle and its point assertions with:
+To repeat the four-gameweek lifecycle and its point assertions after setting up
+fresh, unplayed synthetic gameweeks, run:
 
 ```bash
 npm run test:scoring-demo
