@@ -123,6 +123,7 @@ export default async function LeaguePage({
               currentUserId={userId}
               initialRowCount={isGlobalLeague ? 10 : undefined}
               rows={isGlobalLeague ? initialGlobalRows(leagueTable, userId) : leagueTable}
+              searchable={isGlobalLeague}
               totalRowCount={isGlobalLeague ? leagueTable.length : undefined}
             />
           )}

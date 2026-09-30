@@ -94,7 +94,7 @@ async function loadRoute(userId) {
       }) };
       if (name === "@/lib/leaderboard") return { getGlobalLeaderboard: async () => {
         reads++;
-        return { data: teams, error: null };
+        return { data: teams.map((row, index) => ({ ...row, rank: index + 1 })), error: null };
       } };
       throw new Error(`Unexpected import: ${name}`);
     },
@@ -110,7 +110,20 @@ test("leaderboard endpoint rejects anonymous and invalid requests before reading
   for (const offset of ["-1", "1.5", "invalid", "Infinity", "9007199254740992"]) {
     assert.equal((await signedIn.GET(new Request(`http://localhost/api/leaderboard?offset=${offset}`))).status, 400);
   }
+  assert.equal((await signedIn.GET(new Request(`http://localhost/api/leaderboard?search=${"x".repeat(81)}`))).status, 400);
   assert.equal(signedIn.reads(), 0);
+});
+
+test("leaderboard search finds distant teams by partial case-insensitive name and keeps their rank", async () => {
+  const route = await loadRoute("user-0");
+  const response = await route.GET(new Request("http://localhost/api/leaderboard?search=tEaM%201000"));
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.total, 1);
+  assert.equal(payload.rows[0].user_id, "user-1000");
+  assert.equal(payload.rows[0].rank, 1001);
+  const empty = await route.GET(new Request("http://localhost/api/leaderboard?search=missing"));
+  assert.equal((await empty.json()).total, 0);
 });
 
 test("leaderboard endpoint bounds responses and prevents shared HTTP caching", async () => {

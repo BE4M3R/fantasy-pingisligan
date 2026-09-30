@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, type MouseEvent, useRef, useState } from "react";
+import { Fragment, type MouseEvent, useEffect, useRef, useState } from "react";
+import { GameweekResultNavigation } from "@/app/dashboard/gameweek-result-navigation";
 import { LeagueSquadPreview, type LeagueSnapshotPlayer } from "@/app/dashboard/league-squad-preview";
 import { animatePopupOpen } from "@/app/dashboard/popup-animation";
 import { SquadLineupView } from "@/app/dashboard/squad-lineup-view";
@@ -66,13 +67,15 @@ function LeagueTeamLoading() {
   return (
     <div className="relative mt-6">
       <div aria-hidden="true" className="opacity-60">
-        <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3">
-          <div className="h-11 w-11 rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)]" />
-          <div className="mx-auto h-6 w-28 rounded bg-[var(--pf-navy-elevated)]" />
-          <div className="h-11 w-11 rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)]" />
-        </div>
+        <GameweekResultNavigation
+          ariaLabel="Gameweek navigation"
+          label=""
+          loading
+          placeholder
+          pointsText=""
+          transferPenalty={null}
+        />
         <div className="mx-auto mt-3 h-4 w-32 rounded bg-[var(--pf-navy-elevated)]" />
-        <div className="mt-4 h-[3.75rem] rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)]" />
         <SquadLineupView
           className="mt-4"
           idPrefix="league-loading"
@@ -95,19 +98,28 @@ export function LeagueTable({
   currentUserId,
   initialRowCount,
   rows,
+  searchable = false,
   totalRowCount,
 }: {
   currentUserId: string;
   initialRowCount?: number;
   rows: LeagueTableRow[];
+  searchable?: boolean;
   totalRowCount?: number;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const searchRequestRef = useRef(0);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [loadedRows, setLoadedRows] = useState<LeagueTableRow[]>([]);
   const [isLoadingRows, setIsLoadingRows] = useState(false);
   const [rowsError, setRowsError] = useState("");
   const [remainingTotal, setRemainingTotal] = useState(totalRowCount ?? rows.length);
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
+  const [searchRows, setSearchRows] = useState<LeagueTableRow[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
   const scoresRequestRef = useRef(0);
   const lineupRequestRef = useRef(0);
   const lineupCacheRef = useRef<Record<string, LeagueSnapshotPlayer[]>>({});
@@ -125,14 +137,20 @@ export function LeagueTable({
   const [navigationErrorIndex, setNavigationErrorIndex] = useState<number | null>(null);
   const [lineupError, setLineupError] = useState(false);
   const selectedGameweek = gameweekScores[gameweekIndex];
+  const selectedGameweekLabel = selectedGameweek
+    ? selectedGameweek.round_order !== null
+      ? `Gameweek ${selectedGameweek.round_order}`
+      : selectedGameweek.gameweek_name.replace(/^round\s*/i, "Gameweek ")
+    : "Gameweek";
   const selectedLineup = selectedGameweek ? lineupByGameweek[selectedGameweek.gameweek_id] : undefined;
-  const rankedRows = displayedRows.map((row, index) => ({ rank: row.rank ?? index + 1, row }));
+  const visibleSourceRows = activeSearch ? searchRows : displayedRows;
+  const rankedRows = visibleSourceRows.map((row, index) => ({ rank: row.rank ?? index + 1, row }));
   const currentUserRow = rankedRows.find(
     ({ row }) => row.user_id === currentUserId,
   );
   const hasCollapsedRows =
     initialRowCount !== undefined && (totalRowCount ?? rows.length) > initialRowCount;
-  const isCompact = hasCollapsedRows && !showAll;
+  const isCompact = !activeSearch && hasCollapsedRows && !showAll;
   const showCurrentUserSeparately = Boolean(
     isCompact && currentUserRow && currentUserRow.rank > initialRowCount,
   );
@@ -143,22 +161,72 @@ export function LeagueTable({
       ]
     : rankedRows;
 
+  useEffect(() => () => {
+    ++searchRequestRef.current;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchAbortRef.current?.abort();
+  }, []);
+
+  function updateSearch(value: string) {
+    setSearchInput(value);
+    const query = value.trim();
+    const requestId = ++searchRequestRef.current;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchAbortRef.current?.abort();
+    setRowsError("");
+    setActiveSearch(query);
+    setSearchRows([]);
+    setSearchTotal(0);
+    setIsLoadingRows(Boolean(query));
+    if (!query) return;
+
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ search: query, offset: "0" });
+        const response = await fetch(`/api/leaderboard?${params}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Search could not be loaded.");
+        const payload = await response.json() as { rows: LeagueTableRow[]; total: number };
+        if (requestId !== searchRequestRef.current) return;
+        setSearchRows(payload.rows);
+        setSearchTotal(payload.total);
+      } catch {
+        if (requestId === searchRequestRef.current) setRowsError("Team search could not be loaded. Please try again.");
+      } finally {
+        if (requestId === searchRequestRef.current) setIsLoadingRows(false);
+      }
+    }, 200);
+  }
+
   async function loadMoreRows() {
     if (isLoadingRows) return;
+    const requestId = searchRequestRef.current;
     setIsLoadingRows(true);
     setRowsError("");
     try {
-      const offset = showAll ? loadedRows.length : 0;
-      const response = await fetch(`/api/leaderboard?offset=${offset}`, { cache: "no-store" });
+      const offset = activeSearch ? searchRows.length : showAll ? loadedRows.length : 0;
+      const params = new URLSearchParams({ offset: String(offset) });
+      if (activeSearch) params.set("search", activeSearch);
+      const response = await fetch(`/api/leaderboard?${params}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Standings could not be loaded.");
       const payload = await response.json() as { rows: LeagueTableRow[]; total: number };
-      setRemainingTotal(payload.total);
-      setLoadedRows((previous) => offset ? [...previous, ...payload.rows] : payload.rows);
-      setShowAll(true);
+      if (requestId !== searchRequestRef.current) return;
+      if (activeSearch) {
+        setSearchTotal(payload.total);
+        setSearchRows((previous) => [...previous, ...payload.rows]);
+      } else {
+        setRemainingTotal(payload.total);
+        setLoadedRows((previous) => offset ? [...previous, ...payload.rows] : payload.rows);
+        setShowAll(true);
+      }
     } catch {
-      setRowsError("Standings could not be loaded. Please try again.");
+      if (requestId === searchRequestRef.current) setRowsError("Standings could not be loaded. Please try again.");
     } finally {
-      setIsLoadingRows(false);
+      if (requestId === searchRequestRef.current) setIsLoadingRows(false);
     }
   }
 
@@ -275,8 +343,25 @@ export function LeagueTable({
 
   return (
     <>
+      {searchable ? (
+        <div className="mt-5" role="search">
+          <label className="mb-1.5 block text-xs font-bold text-[var(--pf-text-muted)]" htmlFor="global-team-search">
+            Search team name
+          </label>
+          <input
+            className="w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 text-sm text-[var(--pf-text)] placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)] focus:outline-none focus:ring-2 focus:ring-[var(--pf-brand-blue)]/40"
+            id="global-team-search"
+            maxLength={80}
+            onChange={(event) => updateSearch(event.target.value)}
+            placeholder="Find a team…"
+            type="search"
+            value={searchInput}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-5 space-y-2 md:hidden">
-        {rows.length ? (
+        {visibleRows.length ? (
           visibleRows.map(({ rank, row }) => {
             const isCurrentUser = row.user_id === currentUserId;
 
@@ -329,7 +414,7 @@ export function LeagueTable({
           })
         ) : (
           <div className="rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-6 text-sm text-[var(--pf-text-muted)]">
-            No fantasy teams yet.
+            {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : "No fantasy teams yet."}
           </div>
         )}
       </div>
@@ -344,7 +429,7 @@ export function LeagueTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--pf-card-border)]">
-            {rows.length ? (
+            {visibleRows.length ? (
               visibleRows.map(({ rank, row }) => {
                 const isCurrentUser = row.user_id === currentUserId;
 
@@ -400,7 +485,7 @@ export function LeagueTable({
                   className="px-4 py-6 text-[var(--pf-text-muted)]"
                   colSpan={3}
                 >
-                  No fantasy teams yet.
+                  {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : "No fantasy teams yet."}
                 </td>
               </tr>
             )}
@@ -408,16 +493,16 @@ export function LeagueTable({
         </table>
       </div>
 
-      {hasCollapsedRows && (!paginated || !showAll || loadedRows.length < remainingTotal) ? (
+      {(activeSearch ? searchRows.length < searchTotal : hasCollapsedRows && (!paginated || !showAll || loadedRows.length < remainingTotal)) ? (
         <button
-          aria-expanded={showAll}
+          aria-expanded={activeSearch ? true : showAll}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] px-4 py-2.5 text-sm font-bold text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
           disabled={isLoadingRows}
           onClick={() => paginated ? void loadMoreRows() : setShowAll((isShowingAll) => !isShowingAll)}
           type="button"
         >
           {paginated ? (isLoadingRows ? "Loading…" : "Show more teams") : showAll ? `Show top ${initialRowCount}` : `Show all ${rows.length} teams`}
-          <span aria-hidden="true">{showAll ? "↑" : "↓"}</span>
+          <span aria-hidden="true">{activeSearch ? "↓" : showAll ? "↑" : "↓"}</span>
         </button>
       ) : null}
 
@@ -462,33 +547,25 @@ export function LeagueTable({
             </p>
           ) : selectedGameweek ? (
             <div className="mt-6">
-              <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3">
-                <button
-                  aria-label="Previous gameweek"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-xl font-bold transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] disabled:cursor-not-allowed disabled:opacity-30"
-                  disabled={isNavigating || gameweekIndex === 0}
-                  onClick={() => navigateGameweek(gameweekIndex - 1)}
-                  type="button"
-                >
-                  ←
-                </button>
-                <div aria-busy={isNavigating} className="min-w-0 text-center">
-                  <p className="truncate text-lg font-black text-[var(--pf-text)] sm:text-xl">
-                    {selectedGameweek.round_order !== null
-                      ? `Gameweek ${selectedGameweek.round_order}`
-                      : "Gameweek"}
-                  </p>
-                </div>
-                <button
-                  aria-label="Next gameweek"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-xl font-bold transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] disabled:cursor-not-allowed disabled:opacity-30"
-                  disabled={isNavigating || gameweekIndex === gameweekScores.length - 1}
-                  onClick={() => navigateGameweek(gameweekIndex + 1)}
-                  type="button"
-                >
-                  →
-                </button>
-              </div>
+              <GameweekResultNavigation
+                ariaLabel="Gameweek navigation"
+                label={selectedGameweekLabel}
+                loading={isNavigating || isLoadingLineup}
+                next={{
+                  label: "Next gameweek",
+                  onClick: gameweekIndex < gameweekScores.length - 1
+                    ? () => navigateGameweek(gameweekIndex + 1)
+                    : undefined,
+                }}
+                pointsText={formatPoints(selectedGameweek.points)}
+                previous={{
+                  label: "Previous gameweek",
+                  onClick: gameweekIndex > 0
+                    ? () => navigateGameweek(gameweekIndex - 1)
+                    : undefined,
+                }}
+                transferPenalty={selectedLineup?.[0]?.transfer_penalty_points ?? null}
+              />
 
               {navigationErrorIndex !== null ? (
                 <div className="mt-3 text-center text-sm text-[var(--pf-coral-text)]" role="alert">
@@ -511,13 +588,6 @@ export function LeagueTable({
                 <p className="mt-3 text-center text-xs text-[var(--pf-text-muted)]">No chip activated</p>
               ) : null}
 
-              <div className="mt-4 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-3 text-center">
-                <p className="text-2xl font-black text-[var(--pf-fantasy-yellow)]">{formatPoints(selectedGameweek.points)} pts</p>
-                {selectedLineup?.[0]?.transfer_penalty_points ? (
-                  <p className="mt-1 text-xs text-[var(--pf-text-muted)]">Includes {selectedLineup[0].transfer_penalty_points} pts transfer cost</p>
-                ) : null}
-              </div>
-
               {isLoadingLineup ? (
                 <p className="mt-5 text-center text-sm text-[var(--pf-text-muted)]">Loading team…</p>
               ) : lineupError ? (
@@ -537,9 +607,7 @@ export function LeagueTable({
                   players={selectedLineup}
                   userId={selectedTeam.user_id}
                   gameweekId={selectedGameweek.gameweek_id}
-                  gameweekLabel={selectedGameweek.round_order !== null
-                    ? `Gameweek ${selectedGameweek.round_order}`
-                    : "Gameweek"}
+                  gameweekLabel={selectedGameweekLabel}
                 />
               ) : (
                 <p className="mt-5 text-center text-sm text-[var(--pf-text-muted)]">No team snapshot for this gameweek.</p>

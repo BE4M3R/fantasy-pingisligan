@@ -87,6 +87,24 @@ test.describe.serial("private league journey", () => {
     await cleanupFixture(fixture);
   });
 
+  test("global league searches team names and opens a matching team", async ({ page }) => {
+    await login(page, fixture);
+    await page.goto("/dashboard/leagues/global");
+    const table = page.getByRole("table");
+    const search = page.getByRole("search");
+    await search.getByLabel("Search team name").fill("league rival");
+    await expect(table.getByRole("button", { name: guest.teamName })).toBeVisible();
+    await expect(table.getByRole("button", { name: `Functional ${fixture.id}` })).toHaveCount(0);
+    await table.getByRole("button", { name: guest.teamName }).click();
+    await expect(page.getByRole("dialog", { name: guest.teamName })).toBeVisible();
+    await page.getByRole("dialog", { name: guest.teamName })
+      .getByRole("button", { name: "Close gameweek team" }).click();
+    await search.getByLabel("Search team name").fill("not a real team");
+    await expect(table.getByText("No teams found.")).toBeVisible();
+    await search.getByLabel("Search team name").fill("");
+    await expect(table.getByRole("button", { name: `Functional ${fixture.id}` })).toBeVisible();
+  });
+
   test("owner creates a private league and receives an invitation code", async ({ page }) => {
     await login(page, fixture);
     await page.goto("/dashboard/leagues");
@@ -160,11 +178,20 @@ test.describe.serial("private league journey", () => {
     const loadedHeight = await scores.evaluate((dialog) => getComputedStyle(dialog).height);
     expect(Math.abs(parseFloat(loadedHeight) - parseFloat(loadingHeight))).toBeLessThan(32);
     expect(await scores.evaluate((dialog) => dialog.scrollHeight - dialog.clientHeight)).toBeLessThan(3);
-    await expect(scores.getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(scores.getByText("12 pts", { exact: true })).toBeVisible();
-    await expect(scores.getByText("Triple Captain activated")).toBeVisible();
+    const gameweekNavigation = scores.getByRole("navigation", { name: "Gameweek navigation" });
+    await expect(gameweekNavigation).toContainText("Gameweek 2");
+    await expect(gameweekNavigation).toContainText("12 pts");
+    await expect(gameweekNavigation).toContainText("No transfer cost");
+    const activeChip = scores.getByText("Triple Captain activated");
+    await expect(activeChip).toBeVisible();
     const court = scores.getByRole("group", { name: "Table tennis starting lineup" });
     await expect(court).toBeVisible();
+    const navigationBounds = await gameweekNavigation.boundingBox();
+    const chipBounds = await activeChip.boundingBox();
+    const courtBounds = await court.boundingBox();
+    assert.ok(navigationBounds && chipBounds && courtBounds);
+    assert.ok(navigationBounds.y + navigationBounds.height < chipBounds.y);
+    assert.ok(chipBounds.y + chipBounds.height < courtBounds.y);
     await expect(scores.getByText("Bench", { exact: true })).toBeVisible();
     await expect(court.getByText("F.Player4")).toBeVisible();
     await expect(scores.getByRole("button", { name: "Open result details for Functional Player8" })).toBeVisible();

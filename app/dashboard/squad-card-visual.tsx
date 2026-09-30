@@ -16,7 +16,7 @@ export function squadCardShellClass(player: DraftSquadPlayer, { isOpen = false, 
         : "border-[var(--pf-card-border)]";
 
   const size = compact
-    ? "w-[96%] max-w-[12.25rem] px-1.5 py-2 sm:px-3 sm:py-2.5"
+    ? "w-[96%] max-w-[12.25rem] px-1.5 py-1.5 sm:px-3 sm:py-2"
     : "w-full max-w-52 px-2 py-2.5 sm:px-4 sm:py-3";
 
   return `group relative min-w-0 overflow-hidden rounded-lg border bg-[var(--pf-navy)] text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 ${size} ${border}`;

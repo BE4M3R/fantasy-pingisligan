@@ -172,6 +172,7 @@ export default async function LeaguesPage({
               currentUserId={userId}
               initialRowCount={10}
               rows={initialGlobalRows(globalLeagueTable, userId)}
+              searchable
               totalRowCount={globalLeagueTable.length}
             />
           )}

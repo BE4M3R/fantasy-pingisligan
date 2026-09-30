@@ -98,15 +98,19 @@ test.describe.serial("manager gameweek journey", () => {
     await expect(breakdown.getByText("1 set won, 3 sets lost")).toBeVisible();
   });
 
-  test("result navigation preloads adjacent gameweeks and reuses cached results", async ({ page }) => {
-    const players = [fixture.players[0], fixture.players[2], fixture.players[4], fixture.players[6],
-      fixture.players[1], fixture.players[3]];
-    for (const week of fixture.weeks.slice(1)) {
+  test("result navigation reuses cached results and shows each team's gameweek transfer cost", async ({ page }) => {
+    const players = [fixture.players[0], fixture.players[4], fixture.players[5], fixture.players[7],
+      fixture.players[9], fixture.players[10]];
+    checked(await fixture.admin.from("fantasy_gameweeks").update({
+      first_match_starts_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+    }).eq("id", fixture.weeks[0].id), "Make first gameweek result visible in leagues");
+    for (const [index, week] of fixture.weeks.slice(1).entries()) {
       checked(await save(fixture, squad(players), null, week), "Save next gameweek squad");
       checked(await fixture.admin.from("fantasy_gameweeks").update({
         first_match_starts_at: new Date(Date.now() - 5 * 60_000).toISOString(),
       }).eq("id", week.id), "Make gameweek result visible");
-      await lock(fixture, week);
+      const snapshot = await lock(fixture, week);
+      expect(snapshot.transfer_penalty_points).toBe(index === 0 ? -12 : 0);
       const match = await addMatch(fixture, { week });
       await addResult(fixture, match, { home: [fixture.players[0]], away: [fixture.players[2]] });
       await complete(fixture, week);
@@ -123,6 +127,7 @@ test.describe.serial("manager gameweek journey", () => {
     await page.getByRole("button", { name: "Result mode" }).click();
     const navigation = page.getByLabel("Result gameweeks");
     await expect(navigation).toContainText("Gameweek 3");
+    await expect(navigation).toContainText("No transfer cost");
     await secondWeekResponse;
     await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[1].id).length).toBe(1);
 
@@ -131,14 +136,30 @@ test.describe.serial("manager gameweek journey", () => {
     await navigation.getByRole("button", { name: /View previous gameweek/ }).click();
     await expect(navigation).toContainText("Gameweek 2");
     await expect(navigation).not.toContainText("Loading gameweek…");
+    await expect(navigation).toContainText("Includes -12 pts transfer cost");
     await firstWeekResponse;
     await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[0].id).length).toBe(1);
 
     await navigation.getByRole("button", { name: /View previous gameweek/ }).click();
     await expect(navigation).toContainText("Gameweek 1");
     await expect(navigation).not.toContainText("Loading gameweek…");
+    await expect(navigation).toContainText("No transfer cost");
     await navigation.getByRole("button", { name: /View next gameweek/ }).click();
     await expect(navigation).toContainText("Gameweek 2");
+    await expect(navigation).toContainText("Includes -12 pts transfer cost");
     await expect.poll(() => requestedWeeks.filter((id) => id === fixture.weeks[1].id).length).toBe(1);
+
+    await page.goto("/dashboard/leagues");
+    await page.getByRole("table").getByRole("button", { name: `Functional ${fixture.id}` }).click();
+    const team = page.getByRole("dialog", { name: `Functional ${fixture.id}` });
+    const teamNavigation = team.getByRole("navigation", { name: "Gameweek navigation" });
+    await expect(teamNavigation).toContainText("Gameweek 3");
+    await expect(teamNavigation).toContainText("No transfer cost");
+    await teamNavigation.getByRole("button", { name: "Previous gameweek" }).click();
+    await expect(teamNavigation).toContainText("Gameweek 2");
+    await expect(teamNavigation).toContainText("Includes -12 pts transfer cost");
+    await teamNavigation.getByRole("button", { name: "Previous gameweek" }).click();
+    await expect(teamNavigation).toContainText("Gameweek 1");
+    await expect(teamNavigation).toContainText("No transfer cost");
   });
 });
