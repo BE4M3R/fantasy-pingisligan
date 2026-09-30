@@ -82,6 +82,7 @@ async function loadRoute(userId) {
   const source = await readFile(new URL("../../app/api/leaderboard/route.ts", import.meta.url), "utf8");
   const exports = {};
   let reads = 0;
+  let searches = 0;
   const code = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -91,15 +92,23 @@ async function loadRoute(userId) {
       if (name === "next/server") return { NextResponse: { json: Response.json } };
       if (name === "@/lib/supabase/server") return { createClient: async () => ({
         auth: { getClaims: async () => ({ data: { claims: { sub: userId } } }) },
+        rpc: async (functionName, { p_search, p_offset, p_limit }) => {
+          assert.equal(functionName, "search_global_leaderboard");
+          searches++;
+          const matching = teams.map((row, index) => ({ ...row, rank: index + 1 }))
+            .filter((row) => row.team_name.toLowerCase().includes(p_search.toLowerCase()));
+          return { data: matching.slice(p_offset, p_offset + p_limit)
+            .map((row) => ({ ...row, total_matches: matching.length })), error: null };
+        },
       }) };
       if (name === "@/lib/leaderboard") return { getGlobalLeaderboard: async () => {
         reads++;
-        return { data: teams, error: null };
+        return { data: teams.map((row, index) => ({ ...row, rank: index + 1 })), error: null };
       } };
       throw new Error(`Unexpected import: ${name}`);
     },
   });
-  return { GET: exports.GET, reads: () => reads };
+  return { GET: exports.GET, reads: () => reads, searches: () => searches };
 }
 
 test("leaderboard endpoint rejects anonymous and invalid requests before reading standings", async () => {
@@ -110,7 +119,25 @@ test("leaderboard endpoint rejects anonymous and invalid requests before reading
   for (const offset of ["-1", "1.5", "invalid", "Infinity", "9007199254740992"]) {
     assert.equal((await signedIn.GET(new Request(`http://localhost/api/leaderboard?offset=${offset}`))).status, 400);
   }
+  assert.equal((await signedIn.GET(new Request(`http://localhost/api/leaderboard?search=${"x".repeat(81)}`))).status, 400);
   assert.equal(signedIn.reads(), 0);
+  assert.equal(signedIn.searches(), 0);
+});
+
+test("leaderboard search finds distant teams by partial case-insensitive name and keeps their rank", async () => {
+  const route = await loadRoute("user-0");
+  const response = await route.GET(new Request("http://localhost/api/leaderboard?search=tEaM%201000"));
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.total, 1);
+  assert.equal(payload.rows[0].user_id, "user-1000");
+  assert.equal(payload.rows[0].rank, 1001);
+  assert.equal(payload.rows[0].total_points, 203);
+  assert.equal("total_matches" in payload.rows[0], false);
+  const empty = await route.GET(new Request("http://localhost/api/leaderboard?search=missing"));
+  assert.equal((await empty.json()).total, 0);
+  assert.equal(route.searches(), 2);
+  assert.equal(route.reads(), 0);
 });
 
 test("leaderboard endpoint bounds responses and prevents shared HTTP caching", async () => {

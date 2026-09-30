@@ -3,7 +3,10 @@ import { getClubLogo } from "@/app/dashboard/club-logos";
 import type { DraftSquadPlayer } from "@/app/dashboard/player-types";
 import { canonicalClubName } from "@/lib/clubs";
 
-export function squadCardShellClass(player: DraftSquadPlayer, isOpen = false) {
+export function squadCardShellClass(player: DraftSquadPlayer, { isOpen = false, compact = false }: {
+  isOpen?: boolean;
+  compact?: boolean;
+} = {}) {
   const border = isOpen
     ? "border-[var(--pf-brand-blue)] ring-2 ring-[var(--pf-brand-blue)]/35"
     : player.active === false
@@ -12,7 +15,11 @@ export function squadCardShellClass(player: DraftSquadPlayer, isOpen = false) {
         ? "border-[var(--pf-fantasy-yellow)]/70"
         : "border-[var(--pf-card-border)]";
 
-  return `group relative min-w-0 w-full max-w-52 overflow-hidden rounded-lg border bg-[var(--pf-navy)] px-2 py-2.5 text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 sm:px-4 sm:py-3 ${border}`;
+  const size = compact
+    ? "w-[96%] max-w-[12.25rem] px-1.5 py-1.5 sm:px-3 sm:py-2"
+    : "w-full max-w-52 px-2 py-2.5 sm:px-4 sm:py-3";
+
+  return `group relative min-w-0 overflow-hidden rounded-lg border bg-[var(--pf-navy)] text-center shadow-lg shadow-[var(--pf-navy-deep)]/30 ${size} ${border}`;
 }
 
 export function SquadCardVisual({

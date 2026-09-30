@@ -12,6 +12,7 @@ import {
   type Chip,
   type ChipSelection,
 } from "@/app/dashboard/chip-selector";
+import { GameweekResultNavigation } from "@/app/dashboard/gameweek-result-navigation";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
 import type {
   DashboardPlayer,
@@ -837,67 +838,26 @@ export function SquadEditor({
       </div>
 
       {viewMode === "results" && latestResult ? (
-        <nav
-          aria-label="Result gameweeks"
-          aria-busy={isResultLoading}
-          className="mx-auto mt-3 grid max-w-sm grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy)] p-2"
-        >
-          <button
-            aria-label={
-              previousResultGameweek
-                ? `View previous gameweek: ${previousResultGameweek.name}`
-                : "No previous gameweek"
-            }
-            className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:border-[var(--pf-card-border)] disabled:text-[var(--pf-text-muted)]/35 disabled:hover:bg-[var(--pf-navy-elevated)]"
-            disabled={!previousResultGameweek || isResultLoading}
-            onClick={() => {
-              if (previousResultGameweek) {
-                void selectResultGameweek(previousResultGameweek);
+        <GameweekResultNavigation
+          ariaLabel="Result gameweeks"
+          className="mt-3"
+          label={latestResultLabel ?? "Gameweek"}
+          loading={isResultLoading}
+          next={nextResultGameweek
+            ? {
+                label: `View next gameweek: ${nextResultGameweek.name}`,
+                onClick: () => void selectResultGameweek(nextResultGameweek),
               }
-            }}
-            type="button"
-          >
-            <span aria-hidden="true" className="text-2xl leading-none">
-              ‹
-            </span>
-          </button>
-
-          <div className="min-w-0 text-center">
-            <p className="truncate text-[0.65rem] font-black uppercase tracking-[0.14em] text-[var(--pf-text-muted)]">
-              {latestResultLabel}
-            </p>
-            <p className="mt-0.5 text-xl font-black text-[var(--pf-fantasy-yellow)]">
-              {latestResultTotalPoints} pts
-            </p>
-            <p className="mt-0.5 min-h-4 text-[0.65rem] leading-4 text-[var(--pf-text-muted)]">
-              {isResultLoading
-                ? "Loading gameweek…"
-                : resultTransferPenalty !== 0
-                  ? `Includes ${resultTransferPenalty} pts transfer cost`
-                  : "No transfer cost"}
-            </p>
-          </div>
-
-          <button
-            aria-label={
-              nextResultGameweek
-                ? `View next gameweek: ${nextResultGameweek.name}`
-                : "No next gameweek"
-            }
-            className="flex h-11 w-11 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:border-[var(--pf-card-border)] disabled:text-[var(--pf-text-muted)]/35 disabled:hover:bg-[var(--pf-navy-elevated)]"
-            disabled={!nextResultGameweek || isResultLoading}
-            onClick={() => {
-              if (nextResultGameweek) {
-                void selectResultGameweek(nextResultGameweek);
+            : undefined}
+          pointsText={String(latestResultTotalPoints)}
+          previous={previousResultGameweek
+            ? {
+                label: `View previous gameweek: ${previousResultGameweek.name}`,
+                onClick: () => void selectResultGameweek(previousResultGameweek),
               }
-            }}
-            type="button"
-          >
-            <span aria-hidden="true" className="text-2xl leading-none">
-              ›
-            </span>
-          </button>
-        </nav>
+            : undefined}
+          transferPenalty={resultTransferPenalty}
+        />
       ) : null}
 
       {viewMode === "results" && resultLoadError ? (
