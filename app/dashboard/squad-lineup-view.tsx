@@ -62,7 +62,7 @@ export function SquadLineupView({
               style={{
                 background: "var(--pf-table-blue)",
                 border: "2px solid rgba(242, 246, 248, 0.68)",
-                boxShadow: "0 4px 0 var(--pf-table-blue-deep), 0 18px 38px rgba(1, 23, 43, 0.3), inset 0 0 32px rgba(1, 33, 60, 0.16)",
+                boxShadow: "0 18px 38px rgba(1, 23, 43, 0.3), inset 0 0 32px rgba(1, 33, 60, 0.16)",
                 isolation: "isolate",
               }}
             >

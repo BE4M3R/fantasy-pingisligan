@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { type MouseEvent, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { animatePopupOpen, type PopupOrigin } from "@/app/dashboard/popup-animation";
 import { ClubLogo, ResultBreakdown, type ResultBreakdownData } from "@/app/dashboard/result-player-details";
 import { SquadCardVisual, squadCardShellClass } from "@/app/dashboard/squad-card-visual";
 import { SquadLineupView } from "@/app/dashboard/squad-lineup-view";
@@ -83,7 +85,7 @@ function toDraft(player: DisplayPlayer, onBench: boolean): DraftSquadPlayer {
 function SnapshotCard({ player, onBench, onSelect }: {
   player: DisplayPlayer;
   onBench: boolean;
-  onSelect: (trigger: HTMLButtonElement) => void;
+  onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const draft = toDraft(player, onBench);
   const multiplier = player.effectiveCaptain
@@ -96,8 +98,8 @@ function SnapshotCard({ player, onBench, onSelect }: {
   return (
     <button
       aria-label={`Open result details for ${player.first_name} ${player.last_name}`}
-      className={`${squadCardShellClass(draft)} touch-manipulation cursor-pointer transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)]`}
-      onClick={(event) => onSelect(event.currentTarget)}
+      className={`${squadCardShellClass(draft, { compact: true })} touch-manipulation cursor-pointer transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)]`}
+      onClick={onSelect}
       type="button"
     >
       <div className="flex min-w-0 flex-col items-center">
@@ -127,14 +129,18 @@ export function LeagueSquadPreview({ players, userId, gameweekId, gameweekLabel 
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function openDetails(player: DisplayPlayer, onBench: boolean, trigger: HTMLButtonElement) {
+  async function openDetails(player: DisplayPlayer, onBench: boolean, trigger: HTMLButtonElement, point: PopupOrigin | null) {
     triggerRef.current = trigger;
-    setSelected({ player, onBench });
-    setError(false);
     const cached = breakdownCache.current.get(player.player_id);
-    setBreakdown(cached ?? null);
-    setLoading(!cached);
-    dialogRef.current?.showModal();
+    flushSync(() => {
+      setSelected({ player, onBench });
+      setError(false);
+      setBreakdown(cached ?? null);
+      setLoading(!cached);
+    });
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    animatePopupOpen(dialog, trigger, point);
     if (cached) return;
 
     const { data, error: loadError } = await createClient().rpc(
@@ -183,15 +189,15 @@ export function LeagueSquadPreview({ players, userId, gameweekId, gameweekLabel 
         starterCount={lineup.starters.length}
         benchCount={lineup.bench.length}
         renderStarter={(index) => lineup.starters[index]
-          ? <SnapshotCard player={lineup.starters[index]} onBench={false} onSelect={(trigger) => void openDetails(lineup.starters[index], false, trigger)} />
+          ? <SnapshotCard player={lineup.starters[index]} onBench={false} onSelect={(event) => void openDetails(lineup.starters[index], false, event.currentTarget, event.detail ? { x: event.clientX, y: event.clientY } : null)} />
           : null}
         renderBench={(index) => lineup.bench[index]
-          ? <SnapshotCard player={lineup.bench[index]} onBench onSelect={(trigger) => void openDetails(lineup.bench[index], true, trigger)} />
+          ? <SnapshotCard player={lineup.bench[index]} onBench onSelect={(event) => void openDetails(lineup.bench[index], true, event.currentTarget, event.detail ? { x: event.clientX, y: event.clientY } : null)} />
           : null}
       />
       <dialog
         aria-labelledby="league-player-details-title"
-        className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/80 sm:p-6"
+        className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 text-[var(--pf-text)] shadow-2xl backdrop:bg-transparent sm:p-6"
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}
