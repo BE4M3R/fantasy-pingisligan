@@ -255,6 +255,30 @@ test("rescoring a completed gameweek updates every locked team and leaderboard",
       [f.userId]: 23,
       [guestAuth.user.id]: 13,
     });
+    const search = checked(await f.user.rpc("search_global_leaderboard", {
+      p_search: "RESCORE",
+      p_offset: 0,
+      p_limit: 50,
+    }), "Search ranked leaderboard");
+    assert.deepEqual(search.map((row) => ({
+      user_id: row.user_id,
+      rank: Number(row.rank),
+      total_points: Number(row.total_points),
+      total_matches: Number(row.total_matches),
+    })), [{ user_id: guestAuth.user.id, rank: 2, total_points: 13, total_matches: 1 }]);
+    const secondPage = checked(await f.user.rpc("search_global_leaderboard", {
+      p_search: "c",
+      p_offset: 1,
+      p_limit: 1,
+    }), "Page through ranked search hits");
+    assert.deepEqual(secondPage.map((row) => ({
+      user_id: row.user_id,
+      rank: Number(row.rank),
+      total_matches: Number(row.total_matches),
+    })), [{ user_id: guestAuth.user.id, rank: 2, total_matches: 2 }]);
+    assert.deepEqual(checked(await f.user.rpc("search_global_leaderboard", {
+      p_search: "%",
+    }), "Search literal wildcard"), []);
   } finally {
     checked(await f.admin.from("fantasy_teams").delete().eq("id", guestTeamId), "Remove second team");
     checked(await f.admin.auth.admin.deleteUser(guestAuth.user.id), "Remove second manager");

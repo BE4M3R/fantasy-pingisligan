@@ -92,8 +92,13 @@ test.describe.serial("private league journey", () => {
     await page.goto("/dashboard/leagues/global");
     const table = page.getByRole("table");
     const search = page.getByRole("search");
+    const guestRow = table.getByRole("row").filter({ hasText: guest.teamName });
+    const rank = await guestRow.getByRole("cell").first().innerText();
+    const points = await guestRow.getByRole("cell").last().innerText();
     await search.getByLabel("Search team name").fill("league rival");
     await expect(table.getByRole("button", { name: guest.teamName })).toBeVisible();
+    await expect(guestRow.getByRole("cell").first()).toHaveText(rank);
+    await expect(guestRow.getByRole("cell").last()).toHaveText(points);
     await expect(table.getByRole("button", { name: `Functional ${fixture.id}` })).toHaveCount(0);
     await table.getByRole("button", { name: guest.teamName }).click();
     await expect(page.getByRole("dialog", { name: guest.teamName })).toBeVisible();

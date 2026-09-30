@@ -17,6 +17,7 @@ below describe code paths, not measured latency or throughput.
 | Global standings | Aggregate all teams for every overview/leagues visit | Fresh server read of the existing public global RPC. Live result imports happen outside Next.js, so standings intentionally bypass the application data cache and match private-league freshness on the next page load. |
 | Standings transport | Every team serialized to the browser even in top-ten mode | Initially top ten plus own team (maximum 11); authenticated endpoint returns subsequent batches of 50. Rows retain absolute rank. |
 | Standings row cap | Default PostgREST row cap could omit teams and their ranks | Server reads 500-row batches until exhausted; errors reject the entire refresh rather than publishing partial standings. |
+| Global team-name search | Each typed query reloaded the complete leaderboard in 500-row batches before filtering in Next.js | An authenticated database function ranks the live standings once, filters matching names, and returns at most 50 complete rows with their absolute ranks and points. The same standings row and team dialog handle search hits. |
 | Standings details | Reopening the same team's dialog repeated its RPC | Component-local 60-second cache, bounded to 20 teams. Request sequence guards stop older responses replacing the selected team's scores. |
 | Squad results | Adjacent gameweeks fetched automatically, each making three database calls | Removed speculative prefetch. Only requested gameweeks are loaded; existing component-local result reuse remains. Avoids up to six database reads on initial mount. |
 | Historical squad page | Latest result + set breakdown loaded, then discarded when an older round was requested | Determine selected round from snapshots and load only its two result RPCs. Teams without snapshots skip both. Compatibility fallback remains on error. |
@@ -69,10 +70,11 @@ These are explicitly not solved by the application cache, and should inform a
 larger database change when realistic local/staging measurements are available:
 
 1. **Leaderboard refresh work still scales with all teams and gameweeks.** Each
-   500-row RPC batch repeats the underlying aggregate/sort. The whole cached
-   value and its deserialization also grow with team count; hosting cache-entry
-   size limits eventually matter. For large leagues, maintain totals/ranks during
-   scoring and expose SQL pagination plus a single-user rank lookup. This needs a
+   500-row RPC batch used by unfiltered pages repeats the underlying aggregate/sort.
+   Search now aggregates and ranks once per query, but it still processes all
+   teams to preserve absolute rank before filtering. The full-page value and its
+   deserialization also grow with team count. For large leagues, maintain
+   totals/ranks during scoring and expose SQL pagination plus a single-user rank lookup. This needs a
    new migration, tie-order tests, scoring/deletion consistency tests and staging
    validation. Cold concurrent requests and multiple deployment regions can each
    cause refresh work; the cache is not a distributed rate limiter.

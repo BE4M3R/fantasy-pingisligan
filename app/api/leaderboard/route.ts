@@ -15,12 +15,33 @@ export async function GET(request: Request) {
   if (search.length > 80) {
     return NextResponse.json({ error: "Search is too long" }, { status: 400 });
   }
+  if (search) {
+    const { data: matches, error } = await supabase.rpc("search_global_leaderboard", {
+      p_search: search,
+      p_offset: offset,
+      p_limit: 50,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 503 });
+    const rows = (matches ?? []) as {
+      user_id: string;
+      team_name: string;
+      total_points: number | string;
+      rank: number;
+      total_matches: number | string;
+    }[];
+    return NextResponse.json({
+      rows: rows.map((row) => ({
+        user_id: row.user_id,
+        team_name: row.team_name,
+        total_points: row.total_points,
+        rank: row.rank,
+      })),
+      total: Number(rows[0]?.total_matches ?? 0),
+    }, { headers: { "Cache-Control": "private, no-store" } });
+  }
   const result = await getGlobalLeaderboard();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 503 });
-  const matching = search
-    ? result.data.filter((row) => row.team_name.toLowerCase().includes(search.toLowerCase()))
-    : result.data;
-  return NextResponse.json({ rows: matching.slice(offset, offset + 50), total: matching.length }, {
+  return NextResponse.json({ rows: result.data.slice(offset, offset + 50), total: result.data.length }, {
     headers: { "Cache-Control": "private, no-store" },
   });
 }
