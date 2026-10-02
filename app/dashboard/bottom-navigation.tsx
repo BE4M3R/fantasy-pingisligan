@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type DashboardTab = "overview" | "squad" | "leagues" | "fixtures" | "rules";
 
@@ -70,11 +71,70 @@ function isActiveTab(pathname: string, tab: DashboardTab) {
 
 export function DashboardBottomNavigation() {
   const pathname = usePathname();
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    let fullViewportHeight = Math.max(
+      window.innerHeight,
+      document.documentElement.clientHeight,
+      viewport.height * viewport.scale,
+    );
+    let viewportWidth = window.innerWidth;
+    let keyboardOpen = false;
+    let animationFrame = 0;
+
+    function updateKeyboardVisibility() {
+      if (!viewport) return;
+      // Account for pinch zoom, and keep Safari's focus scrolling out of the calculation.
+      const viewportHeight = viewport.height * viewport.scale;
+      const layoutHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
+      if (window.innerWidth !== viewportWidth) {
+        viewportWidth = window.innerWidth;
+        fullViewportHeight = Math.max(layoutHeight, viewportHeight);
+      }
+
+      const focusedElement = document.activeElement;
+      const isEditing =
+        focusedElement instanceof HTMLInputElement ||
+        focusedElement instanceof HTMLTextAreaElement ||
+        (focusedElement instanceof HTMLElement && focusedElement.isContentEditable);
+
+      // Ignore browser controls. Keep the bar covered during the keyboard's closing animation.
+      keyboardOpen = fullViewportHeight - viewportHeight > 120 && (isEditing || keyboardOpen);
+      if (!keyboardOpen) fullViewportHeight = Math.max(layoutHeight, viewportHeight);
+      setIsKeyboardOpen(keyboardOpen);
+    }
+
+    function scheduleUpdate() {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updateKeyboardVisibility);
+    }
+
+    scheduleUpdate();
+    viewport.addEventListener("resize", scheduleUpdate);
+    viewport.addEventListener("scroll", scheduleUpdate);
+    window.addEventListener("resize", scheduleUpdate);
+    document.addEventListener("focusin", scheduleUpdate);
+    document.addEventListener("focusout", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      viewport.removeEventListener("resize", scheduleUpdate);
+      viewport.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      document.removeEventListener("focusin", scheduleUpdate);
+      document.removeEventListener("focusout", scheduleUpdate);
+    };
+  }, []);
 
   return (
     <nav
       aria-label="Dashboard"
       className="fixed inset-x-0 bottom-0 z-[9999] border-t border-[var(--pf-card-border)] bg-[var(--pf-navy)]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,23,43,0.24)] backdrop-blur-md sm:px-4"
+      // Safari moves fixed footers above the keyboard; conceal the covered bar without moving it.
+      style={{ visibility: isKeyboardOpen ? "hidden" : undefined }}
     >
       <div className="mx-auto grid max-w-6xl grid-cols-5 gap-0.5 py-1 sm:gap-1 sm:py-1.5">
         {tabs.map((tab) => {
