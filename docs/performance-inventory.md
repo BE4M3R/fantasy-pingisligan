@@ -14,6 +14,7 @@ below describe code paths, not measured latency or throughput.
 | Player catalogue | Each picker instance fetched the same list and kept it indefinitely | One shared in-flight browser request and 60-second catalogue lifetime, checked whenever a picker opens. Failed requests are retryable. |
 | Player database reads | Authenticated API queried public players on each request | Anonymous, cookie-free Supabase GET cached by Next for 60 seconds; API still authenticates each network request and returns `private, no-store`. |
 | Fixtures | Two database reads for every visitor | Cache public gameweeks/matches for 60 seconds, with the same anonymous client. Group fixtures once by gameweek instead of filtering all fixtures for each round. |
+| Home matches | No match summary on Home | One indexed score-summary RPC for the selected gameweek, shared through the 60-second public-data cache. The card checks for updates each minute while visible, skips network reads until five minutes before a fixture, and stops after all fixtures finish. |
 | Global standings | Aggregate all teams for every overview/leagues visit | Fresh server read of the existing public global RPC. Live result imports happen outside Next.js, so standings intentionally bypass the application data cache and match private-league freshness on the next page load. |
 | Standings transport | Every team serialized to the browser even in top-ten mode | Initially top ten plus own team (maximum 11); authenticated endpoint returns subsequent batches of 50. Rows retain absolute rank. |
 | Standings row cap | Default PostgREST row cap could omit teams and their ranks | Server reads 500-row batches until exhausted; errors reject the entire refresh rather than publishing partial standings. |
@@ -32,6 +33,10 @@ below describe code paths, not measured latency or throughput.
 - `lib/supabase/public.ts` must only read tables whose RLS permits anonymous
   reads. Current callers read players/clubs, matches and fantasy gameweeks;
   the baseline explicitly permits these reads for `anon` and `authenticated`.
+- The public `get_gameweek_matches` RPC exposes only fixture metadata and
+  aggregated club wins. It can read private submatches to count results, but
+  never returns their raw payloads or player information. Only these public
+  summaries enter the shared cache.
 - The baseline global leaderboard is a `security definer` function with default
   PUBLIC execute privileges, an explicit authenticated grant and no user filter.
   The server loader uses that existing access; no service-role credential or new

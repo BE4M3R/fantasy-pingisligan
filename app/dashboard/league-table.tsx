@@ -108,6 +108,7 @@ export function LeagueTable({
   totalRowCount?: number;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
   const searchRequestRef = useRef(0);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
@@ -120,6 +121,7 @@ export function LeagueTable({
   const [activeSearch, setActiveSearch] = useState("");
   const [searchRows, setSearchRows] = useState<LeagueTableRow[]>([]);
   const [searchTotal, setSearchTotal] = useState(0);
+  const [tableMinHeight, setTableMinHeight] = useState<number>();
   const scoresRequestRef = useRef(0);
   const lineupRequestRef = useRef(0);
   const lineupCacheRef = useRef<Record<string, LeagueSnapshotPlayer[]>>({});
@@ -168,6 +170,10 @@ export function LeagueTable({
   }, []);
 
   function updateSearch(value: string) {
+    // Reserve the current results height before clearing rows so the browser
+    // never clamps the scroll position when loading or showing fewer matches.
+    const tableHeight = tableRef.current?.getBoundingClientRect().height ?? 0;
+    setTableMinHeight((previous) => Math.max(previous ?? 0, Math.ceil(tableHeight)));
     setSearchInput(value);
     const query = value.trim();
     const requestId = ++searchRequestRef.current;
@@ -342,21 +348,40 @@ export function LeagueTable({
   }
 
   return (
-    <>
+    <div
+      aria-busy={isLoadingRows}
+      className="flow-root"
+      ref={tableRef}
+      style={{ minHeight: tableMinHeight, overflowAnchor: searchable ? "none" : undefined }}
+    >
       {searchable ? (
         <div className="mt-5" role="search">
           <label className="mb-1.5 block text-xs font-bold text-[var(--pf-text-muted)]" htmlFor="global-team-search">
             Search team name
           </label>
-          <input
-            className="w-full rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 text-sm text-[var(--pf-text)] placeholder:text-[var(--pf-text-muted)] focus:border-[var(--pf-brand-blue)] focus:outline-none focus:ring-2 focus:ring-[var(--pf-brand-blue)]/40"
-            id="global-team-search"
-            maxLength={80}
-            onChange={(event) => updateSearch(event.target.value)}
-            placeholder="Find a team…"
-            type="search"
-            value={searchInput}
-          />
+          <div className="flex w-full items-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] focus-within:border-[var(--pf-brand-blue)] focus-within:ring-2 focus-within:ring-[var(--pf-brand-blue)]/40">
+            <input
+              className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--pf-text)] placeholder:text-[var(--pf-text-muted)] focus:outline-none"
+              id="global-team-search"
+              inputMode="search"
+              maxLength={80}
+              onChange={(event) => updateSearch(event.target.value)}
+              placeholder="Find a team…"
+              role="searchbox"
+              type="text"
+              value={searchInput}
+            />
+            {searchInput ? (
+              <button
+                aria-label="Clear team search"
+                className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xl leading-none text-[var(--pf-text-muted)] transition hover:text-[var(--pf-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                onClick={() => updateSearch("")}
+                type="button"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -377,12 +402,12 @@ export function LeagueTable({
                   </div>
                 ) : null}
                 <button
-                  className="flex w-full items-center gap-3 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] p-4 text-left transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                  className="flex w-full items-center gap-3 rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-2.5 text-left transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
                   onClick={(event) => void openGameweekScores(row, event)}
                   type="button"
                 >
                   <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black ${getRankClass(
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black ${getRankClass(
                       rank,
                     )}`}
                   >
@@ -404,7 +429,7 @@ export function LeagueTable({
                     <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
                       Total
                     </p>
-                    <p className="mt-0.5 text-lg font-black text-[var(--pf-text)]">
+                    <p className="mt-0.5 text-base font-black text-[var(--pf-text)]">
                       {formatPoints(row.total_points)}
                     </p>
                   </div>
@@ -620,6 +645,6 @@ export function LeagueTable({
           )}
         </div>
       </dialog>
-    </>
+    </div>
   );
 }

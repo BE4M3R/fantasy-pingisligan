@@ -336,6 +336,17 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
   return payload.length;
 }
 
+export async function persistSchedule(
+  supabase,
+  matches,
+  stageId,
+  gameweeks = buildGameweeks(matches, stageId),
+) {
+  const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks);
+  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId);
+  return { gameweeks, importedMatches };
+}
+
 async function main() {
   await loadEnvFile(path.join(projectRoot, ".env.local"));
   await loadEnvFile(path.join(projectRoot, ".env"));
@@ -372,8 +383,7 @@ async function main() {
     },
   });
 
-  const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks);
-  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId);
+  const { importedMatches } = await persistSchedule(supabase, matches, stageId, gameweeks);
 
   console.log(`Imported ${gameweeks.length} gameweeks and ${importedMatches} matches.`);
 }

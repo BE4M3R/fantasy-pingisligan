@@ -62,6 +62,15 @@ function stupaRows(detail, licensePlayer, rolePlayer) {
   );
 }
 
+test("Stupa refreshes a live fixture before its first completed singles without scoring an empty gameweek", () => {
+  const parent = { ...stupaParent(stupaDetail()), status: "IN_PROGRESS", winner: null, sub_matches: [] };
+  const rows = buildImportRows([parent], new Map([[100, { fantasy_gameweek_id: "week", id: "match" }]]), new Map(), new Map());
+  assert.equal(rows.matchUpdates[0].status, "in_progress");
+  assert.equal(rows.matchUpdates[0].winning_team_stupa_participant_id, null);
+  assert.deepEqual(rows.gameweekIds, []);
+  assert.deepEqual(rows.submatches, []);
+});
+
 test("Stupa resolves a player through a historical license alias", () => {
   const rows = stupaRows(stupaDetail(), { id: "player" }, null);
 

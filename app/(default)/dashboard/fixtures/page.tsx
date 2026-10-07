@@ -94,13 +94,15 @@ function FixtureTeam({
       }`}
     >
       {side === "away" && logo ? (
-        <Image
-          alt=""
-          className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7"
-          height={28}
-          src={logo.src}
-          width={28}
-        />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-[var(--pf-text)] p-0.5 sm:h-8 sm:w-8">
+          <Image
+            alt=""
+            className="h-6 w-6 object-contain sm:h-7 sm:w-7"
+            height={28}
+            src={logo.src}
+            width={28}
+          />
+        </span>
       ) : null}
       <span
         className={`min-w-0 text-[11px] font-semibold leading-tight text-sky-50 min-[380px]:text-xs sm:text-sm ${
@@ -110,13 +112,15 @@ function FixtureTeam({
         {displayName}
       </span>
       {side === "home" && logo ? (
-        <Image
-          alt=""
-          className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7"
-          height={28}
-          src={logo.src}
-          width={28}
-        />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-[var(--pf-text)] p-0.5 sm:h-8 sm:w-8">
+          <Image
+            alt=""
+            className="h-6 w-6 object-contain sm:h-7 sm:w-7"
+            height={28}
+            src={logo.src}
+            width={28}
+          />
+        </span>
       ) : null}
     </span>
   );

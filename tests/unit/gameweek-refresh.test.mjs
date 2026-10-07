@@ -236,13 +236,15 @@ test("completion needs a captured import start time and detects concurrent compl
   await assert.rejects(completeOldestUnlockedGameweek(concurrent.client, options.refreshStartedAt), /another process/);
 });
 
-function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailure = false } = {}) {
+function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailure = false, fixtureOffsets = [0] } = {}) {
   const state = [
     { id: "older-real-round", name: "Real round", stupa_round_id: 1, unlock_at: "2020-01-01T00:00:00Z", data_refreshed_at: null },
     { id: "test-gw", name: "Test GW", stupa_round_id: -901001, unlock_at: unlocked ? "2020-01-02T00:00:00Z" : "2999-01-01T00:00:00Z", data_refreshed_at: refreshed ? "2020-01-03T00:00:00Z" : null },
   ];
   const events = [];
-  const matches = [{ id: "test-match", stupa_match_id: -902001, fantasy_gameweek_id: "test-gw" }];
+  const matches = fixtureOffsets.map((_, index) => ({
+    id: `test-match-${index}`, stupa_match_id: -902001 - index, fantasy_gameweek_id: "test-gw",
+  }));
   const chipSelections = [];
   const client = {
     async rpc(name, args) {
@@ -297,7 +299,7 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
       };
     },
   };
-  return { client, state, events };
+  return { client, state, events, matches };
 }
 
 const testDefinition = { key: "gw1", roundId: -901001 };
@@ -370,4 +372,50 @@ test("unlock leaves completion pending if synthetic result verification fails", 
   await assert.rejects(unlock(db.client, {}, definition, async () => { throw new Error("results failed"); }), /results failed/);
   assert.equal(db.state[1].data_refreshed_at, null);
   assert.equal(db.events.some(([event]) => event === "complete"), false);
+});
+
+
+test("scoring fixtures use two Stockholm dates per round, including midnight and DST changes", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { configuredTimes, gameweekWindowTimes } = await import("../../scripts/staging-gameweek-test.mjs");
+  const scenario = JSON.parse(await readFile(new URL("../../test-data/staging-gameweeks.json", import.meta.url), "utf8"));
+  const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" });
+  const timeFormat = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit",
+  });
+  for (const baseDate of ["2026-10-04T09:00:00Z", "2026-10-24T18:55:00Z", "2026-03-28T19:55:00Z"]) {
+    let previousUnlock;
+    for (const gameweek of scenario.gameweeks) {
+      const setup = configuredTimes(gameweek, new Date(baseDate));
+      if (previousUnlock) assert.ok(Date.parse(setup.lockAt) > Date.parse(previousUnlock));
+      previousUnlock = setup.unlockAt;
+      const lock = gameweekWindowTimes(gameweek, setup.lockAt);
+      for (const times of [setup, lock]) {
+        const dates = times.fixtures.map(({ startsAt }) => dateFormat.format(new Date(startsAt)));
+        assert.equal(dates[0], dates[1]);
+        assert.notEqual(dates[0], dates[2]);
+        assert.equal(new Set(dates).size, 2);
+        assert.equal(timeFormat.format(new Date(times.fixtures[0].startsAt)),
+          timeFormat.format(new Date(times.fixtures[2].startsAt)));
+        assert.ok(Date.parse(times.unlockAt) > Date.parse(times.lastMatchEndsAt));
+        assert.equal(timeFormat.format(new Date(times.unlockAt)), "00:00");
+      }
+    }
+  }
+});
+
+test("unlock moves every fixture of a two-day round into the past before verifying results", async () => {
+  const { unlock } = await import("../../scripts/staging-gameweek-test.mjs");
+  const fixtureOffsets = [0, 0, 1440];
+  const db = localRefreshDatabase({ unlocked: false, fixtureOffsets });
+  const definition = { ...testDefinition, fixtures: fixtureOffsets.map((startsAfterMinutes, index) => ({
+    matchId: -902001 - index, startsAfterMinutes, durationMinutes: 120,
+  })) };
+  await unlock(db.client, {}, definition, async () => {
+    for (const match of db.matches) assert.ok(Date.parse(match.ends_at) < Date.now());
+    assert.ok(Date.parse(db.state[1].last_match_ends_at) < Date.parse(db.state[1].unlock_at));
+    assert.equal(db.state[1].data_refreshed_at, null);
+  });
+  assert.ok(db.state[1].data_refreshed_at);
+  assert.deepEqual(db.events.slice(-2).map(([event]) => event), ["score", "complete"]);
 });

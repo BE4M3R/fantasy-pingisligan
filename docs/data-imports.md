@@ -136,7 +136,7 @@ for the existing catalogue wholesale and never push or edit hosted data manually
 | `npm run import:players` | Committed catalogue | Local clubs, missing players, roster metadata and missing identity aliases; existing prices unchanged |
 | `npm run generate:player-migration -- --player-id <uuid>` | Selected committed catalogue rows | One reviewed SQL migration file; no database connection |
 | `npm run import:schedule` | STUPA stage matches | Clubs, gameweeks, matches |
-| `npm run import:results` | STUPA completed submatches | Raw results, player stats, snapshot points, team totals |
+| `npm run import:results` | STUPA fixture statuses and completed submatches | Match statuses, raw results, player stats, snapshot points, team totals |
 | `npm run import:results -- --complete-gameweek-refresh` | Same STUPA import | Above, then pending gameweek scoring and completion marker |
 
 Schedule and results have `:dry` variants. `STUPA_STAGE_ID` overrides the
@@ -148,6 +148,11 @@ the scheduled parent fixture: the golden-match response identifies that fixture
 through `meta.source_match_id` and contains the scored 2-v-2 child match. The
 importer attaches that child to the scheduled fixture before persisting and
 scoring it. Local dry runs and the production workflow use this same path.
+
+Results polls also persist each known parent fixture's status before its first
+completed submatch. Only gameweeks with completed results enter scoring. Home
+reads compact club-score summaries and automatically refreshes during play;
+see [Home matches and stream links](home-matches.md) to configure Watch links.
 
 The daily and manual schedule imports recalculate a future gameweek's deadline
 from its earliest fixture. Once the existing deadline has passed, imports keep
