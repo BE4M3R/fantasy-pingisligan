@@ -230,8 +230,8 @@ function buildImportRows(
       if (!allowMissingParents) continue;
     }
 
-    if (databaseMatch && completedSubmatches.length > 0) {
-      if (databaseMatch.fantasy_gameweek_id) {
+    if (databaseMatch) {
+      if (completedSubmatches.length > 0 && databaseMatch.fantasy_gameweek_id) {
         gameweekIds.add(databaseMatch.fantasy_gameweek_id);
       }
       matchUpdates.push({
@@ -245,7 +245,7 @@ function buildImportRows(
           null,
         ),
         winning_team_stupa_participant_id: integer(parent.winner, null),
-        status: String(parent.status ?? "scored").toLowerCase(),
+        status: String(parent.status ?? "scheduled").toLowerCase(),
         source_updated_at: now,
       });
     }

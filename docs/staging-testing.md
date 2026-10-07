@@ -53,7 +53,11 @@ the tested `develop` commit is promoted to `main`.
 The gameweek lifecycle harness reads its schedule and results from
 [`test-data/staging-gameweeks.json`](../test-data/staging-gameweeks.json). The
 default file contains four synthetic gameweeks covering all seven Pingisligan
-clubs. Each round has three fixtures and one club with a bye. It uses reserved
+clubs. Each round has two fixtures on its first Stockholm date and one on
+the following date, with one club on a bye. The first two fixtures kick off
+together; the third starts at the same local time the next day, including
+daylight-saving changes. Gameweeks start three days apart so their transfer-lock windows do not overlap,
+even when fixtures finish after midnight. It uses reserved
 negative Stupa identifiers and never changes imported current-season matches.
 
 The harness requires at least two completed fantasy teams with valid six-player
@@ -235,10 +239,23 @@ initial start time, and one or more club fixtures:
 }
 ```
 
+To update existing local scoring gameweeks without resetting accounts or squads:
+
+```bash
+npm run test:local -- reschedule
+```
+
+This applies the current fixture schedule only when every installed scoring
+round is still scheduled, without snapshots or completed refreshes. It keeps
+the first round's start, updates later round dates, and moves each unlock to
+Stockholm midnight after that round's final fixture. Setup uses the same
+schedule automatically. Whole days in `startsAfterMinutes` follow the Stockholm
+calendar; `1440` means the same local time the following date.
+
 `setup` creates every configured gameweek. `startsAfterHours` is relative to
 the setup time and must leave at least two hours before play. Later lifecycle
 `lock` and `unlock` move only the selected gameweek through their lifecycle.
-The `unlock` command moves past the scheduled unlock time, imports available
+The `unlock` command moves all fixtures into the past, then moves past the scheduled unlock time, imports available
 synthetic results, checks player/team totals and repeated scoring, then marks
 only the selected gameweek refreshed—all in one command. It preserves prices,
 budgets and fixture times during scoring and makes no STUPA request. Failures
@@ -433,8 +450,9 @@ gameweeks.
 
 `score gw2` also moves GW2's first fixture into the past, so GW2 immediately
 appears in league gameweek history, its imported points are included in league
-totals, and the home-page gameweek card shows **GW Live**. Before `score gw2`,
-the locked round shows **GW Locked**; while transfers are available it shows
+totals. The home-page gameweek card shows **GW Live** as soon as the squad locks,
+including before `score gw2`, and keeps that label until transfers reopen after
+results and scoring complete. While transfers are available it shows
 **GW Open**. A configured future gameweek remains absent from league history
 and contributes no leaderboard points until its first fixture starts.
 

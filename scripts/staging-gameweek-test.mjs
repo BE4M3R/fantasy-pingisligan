@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
-import { nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
+import { localDateTimeToUtcIso, nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
 const MATCH_ID_BASE = -902001;
@@ -97,6 +97,20 @@ function addMinutes(date, minutes) {
   const timestamp = date instanceof Date ? date.getTime() : Date.parse(date);
   if (Number.isNaN(timestamp)) throw new Error(`Invalid date: ${date}`);
   return new Date(timestamp + minutes * 60 * 1000).toISOString();
+}
+
+// Whole fixture days follow the Stockholm calendar, including DST changes.
+function addFixtureMinutes(date, minutes) {
+  const days = Math.floor(minutes / 1440);
+  if (!days) return addMinutes(date, minutes);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(date)).map(({ type, value }) => [type, value]));
+  const nextDate = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1,
+    Number(parts.day) + days)).toISOString().slice(0, 10);
+  const shifted = localDateTimeToUtcIso(`${nextDate}T${parts.hour}:${parts.minute}:${parts.second}`);
+  return addMinutes(shifted, minutes % 1440);
 }
 
 function addHours(date, hours) {
@@ -539,10 +553,10 @@ async function getDatabaseMatches(supabase, gameweekId) {
   return data ?? [];
 }
 
-function configuredTimes(gameweek, baseDate = new Date()) {
+export function configuredTimes(gameweek, baseDate = new Date()) {
   const nominalStart = addHours(baseDate, gameweek.startsAfterHours);
   const fixtures = gameweek.fixtures.map((fixture) => {
-    const startsAt = addMinutes(nominalStart, fixture.startsAfterMinutes);
+    const startsAt = addFixtureMinutes(nominalStart, fixture.startsAfterMinutes);
     return {
       definition: fixture,
       endsAt: addMinutes(startsAt, fixture.durationMinutes),
@@ -636,17 +650,62 @@ async function setup(supabase, scenario, minimumTeamCount = 2) {
   console.log("Choose a gameweek key when running lock, score, or unlock.");
 }
 
+async function reschedule(supabase, scenario) {
+  const planned = [];
+  let baseDate;
+  // Check all installed rounds before changing any dates.
+  for (const definition of scenario.gameweeks) {
+    const gameweek = await getDatabaseGameweek(supabase, definition);
+    assert(gameweek.stupa_stage_id === scenario.stageId,
+      `${definition.key} does not belong to the synthetic test stage.`);
+    const [{ count: snapshots, error }, matches] = await Promise.all([
+      supabase.from("fantasy_team_gameweek_snapshots")
+        .select("*", { count: "exact", head: true }).eq("fantasy_gameweek_id", gameweek.id),
+      getDatabaseMatches(supabase, gameweek.id),
+    ]);
+    ensureNoError(error, `Could not check ${definition.key} snapshots`);
+    assert(!snapshots && !gameweek.data_refreshed_at &&
+      matches.length === definition.fixtures.length && matches.every((match) => match.status === "scheduled"),
+    `${definition.key} has started or has incomplete fixtures; its schedule cannot be replaced.`);
+    assert(definition.fixtures.every((fixture) => matches.some((match) => match.stupa_match_id === fixture.matchId)),
+      `${definition.key} is missing a configured fixture.`);
+    baseDate ??= addHours(gameweek.first_match_starts_at, -definition.startsAfterHours);
+    planned.push({ definition, gameweek, matches, times: configuredTimes(definition, baseDate) });
+  }
+  for (const { definition, gameweek, matches, times } of planned) {
+    // Extend the lock window first so later fixtures cannot cause early reopening.
+    const { error } = await supabase.from("fantasy_gameweeks").update({
+      first_match_starts_at: times.firstMatchStartsAt,
+      last_match_ends_at: times.lastMatchEndsAt,
+      lock_at: times.lockAt, unlock_at: times.unlockAt, updated_at: new Date().toISOString(),
+    }).eq("id", gameweek.id);
+    ensureNoError(error, `Could not reschedule ${definition.key}`);
+    await updateFixtureTimes(supabase, matches, times.fixtures);
+    const savedMatches = await getDatabaseMatches(supabase, gameweek.id);
+    assert(times.fixtures.every((fixtureTime) => savedMatches.some((match) =>
+      match.stupa_match_id === fixtureTime.definition.matchId &&
+      Date.parse(match.starts_at) === Date.parse(fixtureTime.startsAt) &&
+      Date.parse(match.ends_at) === Date.parse(fixtureTime.endsAt))),
+    `Could not verify saved dates for ${definition.key}.`);
+  }
+  console.log("Updated all scoring gameweeks: two fixtures on day one, one on day two.");
+  console.table(planned.map(({ definition, times }) => ({
+    gameweek: definition.key, first_match: times.firstMatchStartsAt,
+    last_match_end: times.lastMatchEndsAt, unlock_at: times.unlockAt,
+  })));
+}
+
 function lockWindowTimes(definition, now = new Date()) {
   return gameweekWindowTimes(definition, now);
 }
 
-function gameweekWindowTimes(definition, lockAt) {
+export function gameweekWindowTimes(definition, lockAt) {
   const firstMatchStartsAt = addHours(lockAt, 2);
   const minimumOffset = Math.min(
     ...definition.fixtures.map((fixture) => fixture.startsAfterMinutes),
   );
   const fixtures = definition.fixtures.map((fixture) => {
-    const startsAt = addMinutes(
+    const startsAt = addFixtureMinutes(
       firstMatchStartsAt,
       fixture.startsAfterMinutes - minimumOffset,
     );
@@ -1157,7 +1216,7 @@ async function seedAndScore(
     const fixture = fixtureRow.fixture;
     const databaseMatch = matchesByStupaId.get(fixture.matchId);
     if (!databaseMatch) throw new Error(`Missing database fixture: ${fixture.key}.`);
-    const startsAt = addMinutes(
+    const startsAt = addFixtureMinutes(
       firstMatchStartsAt,
       fixture.startsAfterMinutes - minimumOffset,
     );
@@ -1396,16 +1455,19 @@ export async function unlock(supabase, scenario, definition, scoreResults = scor
     databaseMatches.map((match) => [match.stupa_match_id, match]),
   );
   const now = new Date();
-  const firstMatchStartsAt = addHours(now, -4);
   const minimumOffset = Math.min(
     ...definition.fixtures.map((fixture) => fixture.startsAfterMinutes),
   );
+  const maximumEndOffset = Math.max(...definition.fixtures.map((fixture) =>
+    fixture.startsAfterMinutes - minimumOffset + fixture.durationMinutes));
+  // Move the entire fixture span into the past before simulating unlock.
+  const firstMatchStartsAt = addMinutes(now, -maximumEndOffset - 120);
   let lastMatchEndsAt = firstMatchStartsAt;
 
   for (const fixture of definition.fixtures) {
     const databaseMatch = matchesByStupaId.get(fixture.matchId);
     if (!databaseMatch) throw new Error(`Missing database fixture: ${fixture.key}.`);
-    const startsAt = addMinutes(
+    const startsAt = addFixtureMinutes(
       firstMatchStartsAt,
       fixture.startsAfterMinutes - minimumOffset,
     );
@@ -1699,6 +1761,7 @@ async function main() {
     "run",
     "setup",
     "setup-demo",
+    "reschedule",
     "prepare",
     "lock",
     "lock-cron",
@@ -1715,10 +1778,10 @@ async function main() {
   }
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, run, setup, setup-demo, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
+      "Choose an action: validate, run, setup, setup-demo, reschedule, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
     );
   }
-  if ((action === "setup" || action === "setup-demo" || action === "run") && key) {
+  if ((action === "setup" || action === "setup-demo" || action === "run" || action === "reschedule") && key) {
     throw new Error(action + " does not accept a gameweek key.");
   }
 
@@ -1752,6 +1815,10 @@ async function main() {
       throw new Error("The scoring-demo setup is available only for local Supabase.");
     }
     await setup(supabase, resolvedScenario, 1);
+  }
+  if (action === "reschedule") {
+    if (target !== "local") throw new Error("Rescheduling scoring-demo fixtures is available only for local Supabase.");
+    await reschedule(supabase, resolvedScenario);
   }
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);

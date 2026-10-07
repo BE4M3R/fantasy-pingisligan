@@ -158,10 +158,11 @@ A player wins 3-1 and the player's club wins the fixture:
 
 A gameweek appears in league history when its first team fixture starts. Its
 score updates as completed results are imported and scored. The home-page
-gameweek card shows **GW Open** while transfers are available, **GW Locked**
-between the deadline and first fixture, then **GW Live** with a pulsing
-indicator while the gameweek is in progress. Future gameweeks do not contribute
-to league totals or rankings.
+gameweek card shows **GW Open** while transfers are available, then **GW Live**
+with a pulsing indicator from the moment squads lock until transfers reopen
+after results and scoring complete. Each home match shows **LIVE** once its
+start time passes and until it finishes. Future gameweeks do not contribute to
+league totals or rankings.
 
 ## Transfers
 

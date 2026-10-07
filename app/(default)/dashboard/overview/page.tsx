@@ -2,6 +2,8 @@ import { getGlobalLeaderboard } from "@/lib/leaderboard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
+import { HomeMatches } from "@/app/dashboard/home-matches";
+import { getHomeMatches } from "@/lib/home-matches";
 import type { LeagueTableRow } from "@/app/dashboard/league-table";
 import { createClient, getClaims, getMyTeam } from "@/lib/supabase/server";
 
@@ -27,12 +29,14 @@ type SquadRow = {
 };
 
 type TransferLock = {
+  gameweek_id: string | null;
   is_locked: boolean;
   is_refreshing: boolean;
   unlock_at: string | null;
 };
 
 type ProgressRow = {
+  gameweek_id: string;
   gameweek_name: string;
   round_order: number | null;
   lock_at: string;
@@ -44,8 +48,19 @@ function formatPoints(value: number | string) {
   return new Intl.NumberFormat("sv-SE").format(Number(value));
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTime(value: string | null, compact = false) {
   if (!value) return "";
+
+  if (compact) {
+    const date = new Date(value);
+    const day = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric", month: "short", timeZone: "Europe/Stockholm",
+    }).format(date);
+    const time = new Intl.DateTimeFormat("sv-SE", {
+      hour: "2-digit", minute: "2-digit", timeZone: "Europe/Stockholm",
+    }).format(date);
+    return `${day} · ${time}`;
+  }
 
   return new Intl.DateTimeFormat("sv-SE", {
     dateStyle: "medium",
@@ -129,15 +144,17 @@ export default async function OverviewPage() {
     [...progress].reverse().find((row) => row.status === "Complete");
   const upcomingGameweek = progress.find((row) => row.status === "Upcoming");
   const activeGameweek =
+    progress.find((row) => row.gameweek_id === transferLock?.gameweek_id) ??
     progress.find((row) => row.status === "In progress") ??
     upcomingGameweek ??
     [...progress].reverse().find((row) => row.status === "Complete");
-  const gameweekState =
-    activeGameweek?.status === "In progress" || waitingForDataRefresh
-      ? "live"
-      : transfersLocked
-        ? "locked"
-        : "open";
+  const gameweekLabel = activeGameweek?.round_order
+    ? `Gameweek ${activeGameweek.round_order}`
+    : activeGameweek?.gameweek_name ?? "Gameweek —";
+  const gameweekState = transfersLocked ? "live" : "open";
+  const homeMatches = activeGameweek
+    ? await getHomeMatches(activeGameweek.gameweek_id)
+    : null;
   const rankIndex = leagueTable.findIndex((row) => row.user_id === userId);
   const rank = rankIndex >= 0 ? rankIndex + 1 : null;
   const isSquadReady = squad.length === SQUAD_SIZE;
@@ -150,7 +167,7 @@ export default async function OverviewPage() {
   const deadlineLabel = waitingForDataRefresh
     ? "Gameweek data"
     : transfersLocked
-      ? "Earliest reopening"
+      ? "Squad unlocks from"
       : "Transfer window closes";
   const deadline = waitingForDataRefresh
     ? "Updating results and scores..."
@@ -158,6 +175,7 @@ export default async function OverviewPage() {
         transfersLocked
           ? transferLock?.unlock_at ?? null
           : upcomingGameweek?.lock_at ?? null,
+        transfersLocked,
       );
 
   return (
@@ -176,9 +194,7 @@ export default async function OverviewPage() {
                   className={`inline-flex shrink-0 items-center gap-2 rounded-full border bg-[var(--pf-navy-elevated)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] sm:text-xs ${
                     gameweekState === "live"
                       ? "border-[var(--pf-fantasy-yellow)]/45 text-[var(--pf-fantasy-yellow)]"
-                      : gameweekState === "open"
-                        ? "border-[var(--pf-brand-blue-border)] text-[var(--pf-brand-blue-hover)]"
-                        : "border-[var(--pf-card-border)] text-[var(--pf-text-muted)]"
+                      : "border-[var(--pf-brand-blue-border)] text-[var(--pf-brand-blue-hover)]"
                   }`}
                 >
                   <span className="relative flex h-2 w-2" aria-hidden="true">
@@ -189,17 +205,11 @@ export default async function OverviewPage() {
                       className={`relative inline-flex h-2 w-2 rounded-full ${
                         gameweekState === "live"
                           ? "bg-[var(--pf-fantasy-yellow)] shadow-[0_0_8px_var(--pf-fantasy-yellow)]"
-                          : gameweekState === "open"
-                            ? "bg-[var(--pf-brand-blue)]"
-                            : "bg-[var(--pf-text-muted)]"
+                          : "bg-[var(--pf-brand-blue)]"
                       }`}
                     />
                   </span>
-                  {gameweekState === "live"
-                    ? "GW Live"
-                    : gameweekState === "open"
-                      ? "GW Open"
-                      : "GW Locked"}
+                  {gameweekState === "live" ? "GW Live" : "GW Open"}
                 </span>
               </div>
               <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
@@ -210,9 +220,7 @@ export default async function OverviewPage() {
                 className="mx-auto mt-3 h-px w-12 bg-sky-100/20"
               />
               <p className="mt-2 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-sky-100/65 sm:text-xs">
-                {activeGameweek?.round_order
-                  ? `Gameweek ${activeGameweek.round_order}`
-                  : activeGameweek?.gameweek_name ?? "Gameweek —"}
+                {gameweekLabel}
               </p>
               <div className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-xs">
                 <p className="font-semibold text-sky-100/55">
@@ -265,6 +273,14 @@ export default async function OverviewPage() {
                 </dd>
               </div>
             </dl>
+
+            <HomeMatches
+              key={activeGameweek?.gameweek_id ?? "no-gameweek"}
+              gameweekId={activeGameweek?.gameweek_id ?? null}
+              initialMatches={homeMatches?.matches ?? []}
+              initialError={homeMatches?.error ?? false}
+              initialNow={homeMatches?.checkedAt ?? 0}
+            />
 
             <section
               className={`overflow-hidden rounded-lg border bg-[var(--pf-navy)] p-3.5 sm:p-5 ${
