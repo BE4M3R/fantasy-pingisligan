@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
+import { persistStupaResults } from "./persist-stupa-results.mjs";
 import roster from "../data/sbtf-rosters.json" with { type: "json" };
 import { canonicalClubName, normalizeClubName } from "../lib/clubs.ts";
 
@@ -527,19 +528,10 @@ async function persistRows(supabase, rows) {
     if (error) throw new Error(`Could not update parent matches: ${error.message}`);
   }
 
-  if (rows.submatches.length > 0) {
-    const { error } = await supabase
-      .from("stupa_submatches")
-      .upsert(rows.submatches, { onConflict: "stupa_submatch_id" });
-    if (error) throw new Error(`Could not upsert submatches: ${error.message}`);
-  }
+  const removed = await persistStupaResults(supabase, rows.submatches, rows.playerResults);
+  if (removed) console.log(`Replaced ${removed} superseded Stupa submatches and their player results.`);
 
   if (rows.playerResults.length > 0) {
-    const { error } = await supabase
-      .from("player_submatch_results")
-      .upsert(rows.playerResults, { onConflict: "stupa_submatch_id,stupa_user_role_id" });
-    if (error) throw new Error(`Could not upsert player results: ${error.message}`);
-
     const identityRows = rows.playerResults
       .filter((result) => result.player_id)
       .map((result) => ({ id: result.player_id, stupa_user_role_id: result.stupa_user_role_id }));

@@ -64,7 +64,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Refresh match statuses, import results, score and complete the pending gameweek
+      # The shared importer atomically reconciles republished child IDs before
+      # scoring. Deploy its database migration before running the new importer.
+      - name: Refresh match statuses, reconcile results, score and complete the pending gameweek
         if: steps.cadence.outputs.should_run == 'true'
         run: |
           if npm run import:results -- --complete-gameweek-refresh; then

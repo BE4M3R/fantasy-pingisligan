@@ -90,6 +90,13 @@ importer stores source results and recalculates `player_match_stats` and
 fantasy-team gameweek totals. Player eligibility depends on active status and
 an explicit configured price; optional legacy rankings do not affect it.
 
+Result persistence uses the service-role-only `persist_stupa_results` RPC, also
+used by the synthetic lifecycle harness. It locks affected fixtures and
+atomically replaces superseded STUPA IDs by fixture, singles/golden kind and
+match order, together with their player results. Unobserved positions remain
+intact; ambiguous incoming positions abort the transaction. Scoring and refresh
+completion run only after successful persistence.
+
 ## Trust boundaries
 
 Public Supabase URL and anonymous keys may be used by the web app. The service

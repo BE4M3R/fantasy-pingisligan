@@ -149,6 +149,25 @@ through `meta.source_match_id` and contains the scored 2-v-2 child match. The
 importer attaches that child to the scheduled fixture before persisting and
 scoring it. Local dry runs and the production workflow use this same path.
 
+STUPA can republish completed individual matches with new IDs. The shared
+`persist_stupa_results` service-role RPC reconciles each observed position by
+parent fixture, singles/golden kind, and match order. It removes superseded
+IDs and their player results, writes the current results, and replaces corrected
+participant lists in one transaction before scoring. Singles order 1 and golden
+doubles order 1 are separate positions. Missing positions or fixtures are
+preserved so a partial live response cannot clear unrelated results. Duplicate
+incoming IDs or positions fail the import instead of guessing which is current.
+The synthetic local/staging lifecycle harness uses the same persistence RPC.
+
+Deploy migration `20261009000000_reconcile_replaced_stupa_results.sql` before
+running the updated importer. There is no append-only fallback if the RPC is
+missing or fails. After staging validation and promotion to production, run the
+**Import Pingisligan results** workflow with `kind=full` on `main`. Its normal
+stage import removes existing duplicates at observed positions and recalculates
+affected player and locked-team points, including previously completed rounds.
+No manual hosted SQL cleanup, snapshot changes, repricing or budget changes are
+needed. The import log reports how many superseded submatches were replaced.
+
 Results polls also persist each known parent fixture's status before its first
 completed submatch. Only gameweeks with completed results enter scoring. Home
 reads compact club-score summaries and automatically refreshes during play;
