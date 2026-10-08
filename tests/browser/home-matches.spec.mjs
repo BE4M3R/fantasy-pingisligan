@@ -210,6 +210,8 @@ test("home fixtures refresh from the selected gameweek and change state at kicko
     });
 
     // A refreshed schedule moves kickoff and both clubs while the tab stays open.
+    // Flush due hydration callbacks so the refresh timer exists before jumping.
+    await page.clock.runFor(0);
     await page.clock.fastForward(6 * 60_000);
     await expect(card.getByRole("heading", { level: 3 })).toHaveText(stockholmDate(revisedStart));
     await expect(card.locator("time")).toHaveText(stockholmTime(revisedStart));
