@@ -51,6 +51,18 @@ request is used.
 The functional suite also completes two consecutive gameweeks for two managers,
 including a transfer between weeks, and checks player scores, per-week team
 scores, preserved first-week scores, and cumulative private league standings.
+
+`tests/functional/security.test.mjs` exercises ordinary authenticated requests:
+budget updates and invalid starting budgets are rejected, including during a
+lock; default team creation, renaming, onboarding, and trusted budget adjustments
+still work. Invalid captaincy preserves the previous squad and chip state, and
+private save functions remain inaccessible. Run it with the functional suite:
+`npm run test:functional`. Existing scoring cases cover historical snapshots
+and automatic captain substitution.
+The security suite also denies anonymous and authenticated calls to
+administrative RPCs, including a player merge that would otherwise replace an
+affordable owned player with an unaffordable one. Trusted merges remain usable.
+
 The browser league journey checks per-week lineups, chip status, scores, player points breakdowns and cumulative standings.
 The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.

@@ -25,6 +25,13 @@ flowchart LR
 - Squad changes use Server Actions. Every mutation rechecks authentication,
   transfer locks, ownership, squad rules and budget on the server.
 - Supabase Row Level Security remains the database-level authorization boundary.
+- Team owners can update only `name`, `onboarding_completed`, and `updated_at`.
+  New teams must start with a 100m budget; only trusted server operations can
+  adjust existing budgets. The complete-squad save RPC requires exactly one
+  captain among the four starters before invoking the atomic save.
+- Player merges, squad snapshots, chip maintenance, and scoring RPCs require
+  `service_role` or a privileged database operator. API users cannot invoke
+  these administrative paths to bypass squad validation or rewrite history.
 
 ## Data pipeline
 
