@@ -159,6 +159,110 @@ local database, run the player import first and create the test teams locally.
 `test:staging` remains a staging-only shortcut. For scripts or automation, use
 the explicit command: `npm run test:gameweek -- --env local|staging <action> [gameweek]`.
 
+## Local state controls
+
+Use this section when asking Codex to put the local app in a scenario. First
+confirm the app uses the local Supabase URL from `.env.local`, then inspect
+`npm run test:local -- status`. The harness reads `.env.local` directly; never
+substitute staging commands for a local scenario. `npm run test:local -- help`
+lists the controls without loading credentials or connecting to a database.
+
+The fixture's clubs/players and at least two complete teams must already exist
+for the normal lifecycle. Follow the setup section above when missing. Preserve
+existing accounts and squads; `dbsetup:*` resets the entire populated local
+database and requires explicit authorization. `setup` refuses to overwrite
+installed synthetic rounds. These controls move forward; to revisit a snapshotted
+pre-deadline state, choose a fresh round or explicitly clean up/reinstall only
+the synthetic test stage after agreeing to discard its history.
+
+All commands below use `npm run test:local -- <action> [gameweek]`:
+
+| Desired state / task | Action | Effect / prerequisite |
+| --- | --- | --- |
+| Discover commands | `help` | Offline command list. |
+| Inspect current state | `status` or `status gw1` | Transfer lock, timestamps, snapshots, result counts, next singles/doubles match and whether a failed step needs retry. |
+| Validate scenario | `validate` | Check JSON, local clubs/players and memberships without writes. |
+| Install fixture rounds | `setup` | Install configured synthetic rounds after local catalogue/accounts exist. |
+| Install a one-team demo | `setup-demo` | Demo setup; see the README scoring demo. |
+| Update unstarted fixture dates | `reschedule` | Only before snapshots, results or refresh completion; keeps squads/accounts. |
+| Open a test transfer window | `prepare gw1` | Make an unsnapshotted round next, with a 30-minute transfer window. Reload before selecting chips/saving. |
+| Lock and snapshot immediately | `lock gw1` | Close transfers and call the production snapshot function. |
+| Test Cron snapshot scheduling | `lock-cron gw1` | Close transfers; wait for the real five-minute local Cron job and inspect status before proceeding. |
+| Reach first fixture kickoff | `kickoff gw1` | Requires a locked synthetic round with snapshots and no results; move its first start to now without scoring. Local only. |
+| Complete one singles/doubles match | `next-match gw1` | After kickoff, advance to the next available individual result and verify cumulative scores. Local only. |
+| Score all available results | `score gw1` | Bulk import all results available through this round and verify points/idempotency; use when intermediate states are unnecessary. |
+| Complete and reopen transfers | `unlock gw1` | Pass unlock time, import available synthetic results, verify scoring, then complete refresh. Other locked rounds can still block transfers. |
+| Run the full scoring demo | `run` | Complete and verify all configured rounds; may require fresh demo setup. |
+| Remove synthetic test history | `cleanup gw1` or `cleanup` | Delete the chosen synthetic round or stage; keeps users, live squads, imported players and real fixtures. |
+
+`refresh-prices` remains a separate budget-trigger regression command, described
+below; it is not a normal lifecycle step. Never use it to reopen transfers.
+
+### Step through individual results
+
+Once your squad and chip selection are ready:
+
+```bash
+npm run test:local -- lock gw1
+npm run test:local -- kickoff gw1
+npm run test:local -- status gw1
+npm run test:local -- next-match gw1
+npm run test:local -- status gw1
+```
+
+Repeat `next-match gw1` for each singles or doubles result you want to reveal,
+reloading the app between steps. Stop at any intermediate state. When finished,
+use `unlock gw1` to run the normal results/scoring/completion flow. You can also
+switch to `score gw1` to import all currently available results at once.
+Do not run `lock` again to rewind a round that already has results.
+
+Each step upserts exactly one individual result and its player rows, then uses
+the same database scoring function and independent point/idempotency checks as
+bulk scoring. A club fixture remains in progress with no declared winner until
+its final configured individual match; club-win and clincher bonuses therefore
+appear when that fixture finishes. Live points, sweep bonuses and automatic
+substitutions reflect the current production calculation on the available
+results and may change as later players appear. Golden doubles retain STUPA's
+reset match order while being stepped last within their fixture.
+
+The JSON has fixture kickoff times and durations, but no individual match times.
+For this simulation, individual completions are spaced evenly over each
+fixture's duration. The command shifts the selected round's stored timeline
+backward so the next event has just occurred; it does not change the machine
+clock or add an application clock override. It keeps fixture durations and
+elapsed gaps between playing days, recalculates unlock at Stockholm midnight
+after the final fixture, and leaves other gameweeks, locked squad selections, player prices
+and budgets alone. This timing is local test data, not a new production rule.
+
+Simultaneous fixtures start together. Their individual events are interleaved by
+simulated completion time; ties use fixture order in the JSON. Each invocation
+still reveals only one singles/doubles result. Events on later playing days
+are reached automatically without waiting through the gap. Use `status` to see
+which individual match will be processed next.
+
+The default GW1 fixture intentionally withholds one club fixture until GW2 via
+`resultAvailableFromGameweek`. `next-match gw1` skips those results; the existing
+`score gw2` flow imports them later against the original GW1 snapshots. Once all
+available matches are scored, another `next-match` does nothing and reports any
+deferred results. Use a reviewed custom fixture file without a delayed-result
+field if the scenario requires every match to be available in GW1.
+
+A failed write or scoring check leaves transfers closed. The individual result
+keeps a private test-payload pending marker until verification succeeds; retry
+`next-match` to finish that same result before revealing another. Do not run
+state-changing harness commands concurrently against the same round. `kickoff`
+is harmless to repeat before results exist; it refuses to restart a round with
+results. Completed/refreshed rounds cannot be stepped again.
+
+Example requests for Codex:
+
+```text
+Put local GW1 at kickoff with no results. Preserve my users and squads.
+Advance local GW1 by one singles or doubles result, verify points, and stop.
+Show local GW1's next individual match and whether transfers remain locked.
+Finish local GW1 through unlock, then prepare GW2 so I can test transfers.
+```
+
 ## Check automatic results timing locally
 
 The production cadence is a daily 00:07 check plus checks every 15
