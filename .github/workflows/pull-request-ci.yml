@@ -24,9 +24,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - name: Run named rule and import tests
-        run: npm run test:unit
+      - name: Lint, typecheck and run named rule and import tests
+        run: npm run check
       - name: Summarize tests
         if: always()
         run: node scripts/test-summary.mjs test-results/unit/results.xml

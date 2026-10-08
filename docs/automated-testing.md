@@ -16,20 +16,23 @@ Open `test-results/browser/report/index.html` for the browser report.
 ## Choose checks by change
 
 Use the affected behavior to select checks; `package.json` defines the commands.
-For code changes, start with `npm run lint` and `npm run test:unit`, then add
-the relevant checks below. Focused commands speed up iteration; they do not
-replace the full suites when several areas are affected.
+For code changes, use `npm run check` by default and select additional coverage
+from the table. When comprehensive coverage is needed, run `npm run check:all`
+instead: it includes `check`. Focused commands speed up iteration; they do not
+replace the full suites when several areas are affected. Reuse successful checks
+for unchanged code; rerun when new changes, failures or unresolved concerns justify it.
 
 | Change | Additional validation |
 | --- | --- |
-| Docs / instruction-only skills | Check links, paths, commands and final diff; validate skill frontmatter with the skill-creator validator when available. App build/database/browser execution is unnecessary unless behavior or executable helpers change. |
+| Docs / instruction-only skills | Check links, paths, commands and final diff; validate skill frontmatter with the skill-creator validator when available. Skip `check`, `check:all` and app build/database/browser execution unless executable code or behavior also changes. |
+| Validation scripts/config, CI workflows | `npm run check` for lint/typecheck/unit configuration; `npm run check:all` when the disposable runner, build, functional/browser setup or CI integration pipeline changes. |
 | Components, styling, responsive layout | Render affected routes using the [UI inspection procedure](#rendered-ui-inspection) and `$verify-ui`; run `npm run build` for code changes. |
-| Routes, Server Actions, auth, API responses | `npm run build` and `npm run test:all`; inspect `tests/functional/security.test.mjs` for authorization regressions. |
+| Routes, Server Actions, auth, API responses | `npm run check:all`; inspect `tests/functional/security.test.mjs` for authorization regressions. |
 | Squad eligibility, club limits | `npm run test:squad`, then `npm run test:functional`; include browser journeys if editing/saving behavior changes. |
-| Scoring, snapshots, chips, transfer lock/unlock | `npm run test:scoring`, `npm run test:gameweek-refresh`, then `npm run test:all`; use [local state controls](staging-testing.md#local-state-controls) for timing/UI inspection. |
+| Scoring, snapshots, chips, transfer lock/unlock | `npm run test:scoring`, `npm run test:gameweek-refresh` during iteration, then `npm run check:all`; use [local state controls](staging-testing.md#local-state-controls) for timing/UI inspection. |
 | STUPA schedule, polling cadence, Stockholm dates | `npm run test:results-schedule`, `npm run test:gameweek-refresh`; `npm run test:functional` for SQL/lifecycle integration. Use synthetic fixtures; dry imports can still contact upstream services. |
 | Player catalogue, identity, price or migration generator | `npm run test:imports`; new data migrations also need the migration procedure below. |
-| Database schema, RLS, SQL functions/triggers | Follow [database migrations](database-migrations.md): new forward migration, local apply/rebuild and `npm run db:lint`; `npm run test:all` for affected database and browser behavior. |
+| Database schema, RLS, SQL functions/triggers | Follow [database migrations](database-migrations.md): new forward migration and local apply; `npm run check:all` rebuilds/lints a disposable stack and checks affected database and browser behavior. Never reset a populated stack without authorization. |
 | Query size, caching, leaderboard performance | `npm run test:performance`, `npm run build`; affected functional/browser journeys plus the [performance inventory](performance-inventory.md). |
 | Home fixtures/streams | Unit suite includes match-summary tests; `npm run test:functional` and the `home-matches.spec.mjs` browser journey; inspect loading, refresh-failure and live states. |
 
@@ -37,15 +40,50 @@ Add regression coverage when behavior changes. Do not add tests that only check
 documentation wording or repeat implementation details. Report the commands
 actually run, their results, and any coverage that remains unverified.
 
+Codex follows these defaults through `AGENTS.md` during development and
+`prepare-pr` selects coverage from this table for the intended PR diff. Commands
+are run by the agent or developer, not by a file watcher or commit hook. PR CI
+runs automatically as described [below](#ci-and-reports); its current workflow
+runs both jobs even for documentation-only PRs.
+
 ## Local suites and isolation
 
-Run the fast rules and importer tests after any code change:
+Run fast validation after any code change (no Docker or database needed):
 
 ```bash
-npm run test:unit
+npm run check
 ```
 
-Run the full local check with one command:
+`check` runs ESLint, TypeScript and the unit suite once, stopping on the first
+failure. `npm run lint`, `npm run typecheck` and `npm run test:unit` remain
+available for focused iteration. ESLint ignores only generated Next output
+(`.next/` and `.next-test-*/`) in addition to its existing build ignores; app,
+script and test sources remain checked.
+
+`typecheck` uses `tsconfig.typecheck.json`, inheriting the app's compiler options
+and checking source without a build or generated output. It supplies Next's
+ambient types directly, so it works on a clean checkout and ignores a stale
+`next-env.d.ts` left by a browser run. Next's generated route/entrypoint checks
+still run during the production build in `check:all` and CI.
+
+Run comprehensive local validation before handing off changes spanning app,
+auth, database or lifecycle behavior:
+
+```bash
+npm run check:all
+```
+
+`check:all` runs `check`, starts **one** disposable Supabase stack, lints that
+database with `--local`, builds the production application against its local
+credentials, then runs functional and browser tests using that same stack.
+It uses the existing runner and cleanup, without rerunning unit tests or
+starting a second test database. The build and browser server use temporary
+Next output and TypeScript configuration; the usual `.next/` and `tsconfig.json`
+are untouched. The runner restores `next-env.d.ts` when it still points at its
+temporary output. Browser journeys continue to use the existing dev server;
+the production build is a separate compile/type validation step.
+
+For the backwards-compatible unit/functional/browser pipeline:
 
 ```bash
 npm run test:all
@@ -60,12 +98,22 @@ Supabase stack and `.env.local` are left untouched. The browser run uses a
 separate temporary Next build directory, so an existing `npm run dev` session
 can keep running.
 
-`test:all` does not run ESLint, a production build or database lint; run
-`npm run lint`, `npm run build` and `npm run db:lint` separately when selected
-above. The database lint command targets your usual local stack, so apply the
-new migrations there first according to the migration guide. A populated local
+`test:all` does not run ESLint, standalone typechecking, a production build or
+database lint; prefer `check:all` when all of these are needed. Do not run both
+full commands for the same change. The standalone `npm run db:lint` command
+targets your usual local stack, so apply new migrations there first according
+to the migration guide. A populated local
 reset is destructive and needs authorization; use disposable tests for ordinary
 regression checks.
+
+The aggregate validation commands never use hosted credentials: fast checks
+do not query a database; disposable runners replace inherited Supabase URLs
+and keys with values from their own stack and verify its exact loopback API
+URL before building or testing. They reject target override flags and never
+link a project or run hosted resets/pushes. Next.js may load `.env.production`
+during its build, but the runner's explicit local URLs and keys take precedence
+over env files. `.env.local` is not changed. Use `check:all` for a safe validation build;
+standalone `npm run build` still uses your current Next.js environment.
 
 `npm run test:functional` starts and removes its own clean disposable Supabase
 stack, without changing your usual local database. CI uses
@@ -232,13 +280,28 @@ offline; report missing tools or failed checks without claiming readiness.
 ## CI and reports
 
 On every pull request to `develop` and `main`, GitHub runs two checks in
-parallel: `code-and-unit` and `functional-and-browser`. The latter starts a
+parallel: `code-and-unit` runs `npm run check`; `functional-and-browser` starts a
 fresh local Supabase stack from migrations, lints the database, builds the app,
 and runs the functional and browser suites. Both checks must pass before merge
 when configured as required branch-protection checks. The Actions log prints
 each named case; the job summary lists pass/fail counts and every case. Download
 the JUnit results and Playwright HTML report from the job artifacts to inspect
 failures and traces.
+
+`check:all` covers both jobs locally. Keep the CI jobs split so fast feedback
+arrives independently and the existing CI stack is reused: do not add
+`check:all` or `test:all` to `functional-and-browser`, since either would start
+another database and repeat unit tests. CI uses the host Chromium installation;
+the local runner uses the matching Playwright container. Both use Node 24, the
+same suites, migration history, database lint flags and production build.
+
+The path-filtered `database-migrations-ci.yml` also rebuilds and lints a database.
+Its transaction-wrapped `results-refresh-dispatch.local.sql` cadence check and
+local migration listing are additional coverage. If consolidating CI later,
+move those checks into `functional-and-browser` before retiring the overlapping
+migration job; retain required-check names/branch protection deliberately.
+Hosted deployment, migration-status and results-import workflows serve separate
+explicit staging/production operations and are not local validation gates.
 
 For manual local scenarios use the
 [local state controls](staging-testing.md#local-state-controls), including kickoff
