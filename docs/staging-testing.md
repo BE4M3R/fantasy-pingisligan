@@ -39,6 +39,14 @@ round. `test:staging -- status` reports synthetic rounds only. Check login,
 squads, points, and standings in the staging app as well.
 Production still uses its scheduled GitHub Actions job.
 
+After deploying the STUPA result-reconciliation migration, `refresh:staging`
+uses the same atomic position replacement as production. Republished STUPA
+IDs replace earlier IDs at the same singles/golden position before scoring;
+repeating the refresh must leave match scores and fantasy points unchanged.
+The disposable functional suite reproduces a 5–4 fixture becoming 10–8 under
+the old importer, repairs it through the normal import path, and checks scores,
+locked squads, partial responses, rollback and denied ordinary-user writes.
+
 When the revised scoring migrations reach staging, the backfill migration
 rescores every player result and locked team in previously scored gameweeks,
 including GW1. Check a completed GW1 in the staging app: the result breakdown

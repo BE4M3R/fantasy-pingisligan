@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
+import { persistStupaResults } from "./persist-stupa-results.mjs";
 import { localDateTimeToUtcIso, nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
@@ -665,16 +666,10 @@ export async function nextIndividualMatch(supabase, scenario, definition) {
   await advanceRoundTime(supabase, context, event.at);
   const fixtureRows = buildResultRows({ ...definition, fixtures: [event.fixture] }, scenario.roleIds)[0];
   const submatch = fixtureRows.submatches.find((row) => row.stupa_submatch_id === event.match.submatchId);
-  const { error: matchError } = await supabase.from("stupa_submatches").upsert({
+  await persistStupaResults(supabase, [{
     ...submatch, match_id: event.parent.id,
     raw_payload: { ...submatch.raw_payload, local_scoring_pending: true },
-  }, { onConflict: "stupa_submatch_id" });
-  ensureNoError(matchError, "Could not persist the next individual match");
-  const { error: resultError } = await supabase.from("player_submatch_results").upsert(
-    fixtureRows.results.filter((row) => row.stupa_submatch_id === event.match.submatchId),
-    { onConflict: "stupa_submatch_id,stupa_user_role_id" },
-  );
-  ensureNoError(resultError, "Could not persist the next individual result");
+  }], fixtureRows.results.filter((row) => row.stupa_submatch_id === event.match.submatchId));
   const isFinal = event.matchIndex === event.fixture.matches.length - 1;
   const { error: parentError } = await supabase.from("matches").update({
     status: isFinal ? "scored" : "in_progress",
@@ -1407,22 +1402,12 @@ async function seedAndScore(
     ensureNoError(gameweekError, `Could not start ${definition.key}`);
   }
 
-  const databaseMatchIds = databaseMatches.map((match) => match.id);
-  const { error: deleteError } = await supabase
-    .from("stupa_submatches")
-    .delete()
-    .in("match_id", databaseMatchIds);
-  ensureNoError(deleteError, "Could not replace existing test submatches");
-
   const submatches = fixtureRows.flatMap((fixtureRow) => {
     const databaseMatch = matchesByStupaId.get(fixtureRow.fixture.matchId);
     return fixtureRow.submatches.map((row) => ({ ...row, match_id: databaseMatch.id }));
   });
   const results = fixtureRows.flatMap((fixtureRow) => fixtureRow.results);
-  const { error: submatchError } = await supabase.from("stupa_submatches").insert(submatches);
-  ensureNoError(submatchError, "Could not write test submatches");
-  const { error: resultError } = await supabase.from("player_submatch_results").insert(results);
-  ensureNoError(resultError, "Could not write test player results");
+  await persistStupaResults(supabase, submatches, results);
 
   await scoreAndVerify(supabase, definition, activePlayers, {
     gameweek, databaseMatches, rowsByTeam, teams,

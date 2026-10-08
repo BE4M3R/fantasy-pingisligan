@@ -139,7 +139,9 @@ test("a failed individual scoring step retries the same result before advancing"
   const failing = {
     supabaseUrl: f.admin.supabaseUrl,
     from: (...args) => f.admin.from(...args),
-    rpc: async () => ({ error: { message: "Injected scoring failure" } }),
+    rpc: async (name, args) => name === "calculate_fantasy_gameweek_points"
+      ? { error: { message: "Injected scoring failure" } }
+      : f.admin.rpc(name, args),
   };
   await assert.rejects(nextIndividualMatch(failing, scenario, definition), /Injected scoring failure/);
   let current = await state(f);
