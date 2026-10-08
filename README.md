@@ -260,6 +260,21 @@ results, verifies scoring, and clears that gameweek's refresh lock in the same
 command. Reload the app afterward. Prices and budgets remain unchanged; failed
 scoring leaves transfers closed. No separate refresh command is needed.
 
+To inspect a locked round before play and reveal results one singles/doubles
+match at a time, use these local-only controls after `lock gw1`:
+
+```bash
+npm run test:local -- kickoff gw1
+npm run test:local -- next-match gw1
+npm run test:local -- status gw1
+```
+
+Repeat `next-match` to reveal one more individual result and recalculate points;
+use `unlock` to finish the normal lifecycle. See
+[local state controls](docs/staging-testing.md#local-state-controls) for all
+states, simultaneous fixtures, delayed results and retry behavior. An offline
+command list is available with `npm run test:local -- help`.
+
 Clean up when finished:
 
 ```bash
