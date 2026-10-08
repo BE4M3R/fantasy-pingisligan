@@ -8,18 +8,17 @@ description: Inspect rendered Pingisligan Fantasy UI with the repository's Playw
 Work from the repository root. Read [AGENTS.md](../../../AGENTS.md), the
 [design system](../../../docs/design-system.md), and the
 [rendered UI inspection procedure](../../../docs/automated-testing.md#rendered-ui-inspection).
-The testing guide owns setup, isolation, capture examples and artifact paths.
+The testing guide owns test selection, setup, isolation, capture examples and
+artifact paths; this skill adds rendered inspection.
 
 1. Identify the affected routes, components and interactions from the request
    and diff. Define the mobile/desktop viewports and relevant ready, loading,
    empty, error and dialog states before running. Inspect neighboring components
    and `app/globals.css` for existing patterns and `--pf-*` token roles.
 2. Inspect `playwright.config.ts` and relevant `tests/browser/*.spec.mjs`.
-   Reuse the installed Playwright setup and local fixture helpers. Prefer
-   `npm run test:all` for authenticated fixture-backed checks: snapshots process
-   all teams, so these tests require a clean disposable database and one worker.
-   For direct browser runs, verify both the app and tests target the same local
-   Supabase stack, including shell overrides and any reused server. Never use
+   Reuse the installed Playwright setup and local fixture helpers. Follow the
+   testing guide's local-target procedure for disposable runners, target safety
+   and server reuse; do not start duplicate servers or databases. Never use
    hosted targets or reset a populated local database just to inspect UI.
 3. Adapt the closest journey or create a temporary focused spec discovered by
    the existing config. Follow the testing guide's capture procedure; preserve

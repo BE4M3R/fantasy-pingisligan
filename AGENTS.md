@@ -100,12 +100,19 @@ Never expose in logs, screenshots, reports or commits:
   importer offline or safe for a hosted target.
 
 ## Validation and repository skills
-- Choose checks from [the test-selection table](docs/automated-testing.md#choose-checks-by-change).
-  Run `npm run lint` for relevant code changes and `npm run test:unit` for code
-  changes. Auth, database and lifecycle changes need local functional coverage.
-- Use `npm run test:all` for isolated local database/browser validation; do not
-  reset your populated stack to make tests pass. Start `npm run dev` only when
-  needed for rendered verification; Playwright can manage its own server.
+- [Automated testing](docs/automated-testing.md) is the authoritative guide for
+  test selection, commands, isolation and rendered inspection. Run `npm run check`
+  by default before handing off code changes; use `npm run check:all` when its
+  [test-selection table](docs/automated-testing.md#choose-checks-by-change) calls
+  for comprehensive coverage. `check:all` includes `check`; avoid repeating it.
+  Focused commands remain available during iteration.
+- For documentation/instruction-only changes, check references, commands, skill
+  frontmatter and the final diff; skip application validation unless executable
+  code or behavior also changes.
+- Keep validation local and use the guide's disposable runners for database
+  tests. Never substitute staging/production or reset populated local data to
+  make checks pass. Start `npm run dev` only when needed for rendered verification;
+  Playwright can manage its own server.
 - For local scenario requests, inspect `npm run test:local -- status` first.
   Use the [state controls](docs/staging-testing.md#local-state-controls) to
   prepare, lock, reach kickoff, step singles/doubles, score or unlock. Preserve

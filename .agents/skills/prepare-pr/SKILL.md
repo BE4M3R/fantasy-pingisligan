@@ -33,11 +33,13 @@ instead of inventing a separate checklist of test commands.
    and test/app URLs remain local. Do not print suspected secret values; report
    the file/location. Ignored files can still be accidentally staged, and
    `.gitignore` does not protect tracked source.
-5. Select and run the relevant local checks from the table. Use isolated
-   functional/browser wrappers and `$verify-ui` (or its linked procedure) when
-   rendered UI changes need inspection. Record exact commands/results and why
-   checks were skipped. Documentation-only changes need links/commands/skill
-   validation, not a database rebuild. Hosted checks are outside preparation.
+5. Select local validation from the table based on the changed files and affected
+   behavior: `npm run check` by default for code, or `npm run check:all` where
+   comprehensive coverage is required (it already includes `check`). Follow the
+   documentation-only row for instruction-only changes. Reuse passing checks for
+   unchanged code and the guide's isolated runners. Use `$verify-ui` (or its linked
+   procedure) when rendered UI changes need inspection. Record commands/results
+   and why checks were skipped. Hosted checks are outside preparation.
 6. Inspect the complete final diff again, including new files, and run
    `git diff --check` and `git diff --cached --check`. Summarize unresolved
    findings before claiming the changes are ready.
