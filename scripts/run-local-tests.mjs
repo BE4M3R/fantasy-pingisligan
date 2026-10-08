@@ -9,20 +9,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const functionalOnly = process.argv[2] === "functional";
-if (process.argv[2] && !functionalOnly) throw new Error("Use 'functional' or no argument.");
 const supabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
 const playwrightVersion = createRequire(import.meta.url)("@playwright/test/package.json").version;
 const image = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 let activeChild;
 let interrupted = false;
-
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => {
-    interrupted = true;
-    activeChild?.kill(signal);
-  });
-}
 
 function run(command, args, { cwd = projectRoot, env = process.env, capture = false, allowInterrupted = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -85,12 +76,12 @@ async function prepareProject(tempRoot, portBase) {
   await writeFile(path.join(target, "config.toml"), config);
 }
 
-function localEnvironment(values, portBase) {
+export function localEnvironment(values, portBase, inherited = process.env) {
   const url = `http://127.0.0.1:${portBase + 1}`;
   assert.equal(values.API_URL, url, "Temporary Supabase started on an unexpected API URL.");
   assert.ok(values.ANON_KEY && values.SERVICE_ROLE_KEY, "Temporary Supabase keys are missing.");
   return {
-    ...process.env,
+    ...inherited,
     FUNCTIONAL_TEST_SUPABASE_URL: url,
     FUNCTIONAL_TEST_ANON_KEY: values.ANON_KEY,
     FUNCTIONAL_TEST_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
@@ -125,15 +116,29 @@ function browserArgs(environment) {
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  const functionalOnly = args[0] === "functional";
+  const comprehensive = args[0] === "check";
+  if (args.length > 1 || (args.length && !functionalOnly && !comprehensive)) {
+    throw new Error("Use 'check', 'functional' or no argument. Test targets cannot be overridden.");
+  }
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => {
+      interrupted = true;
+      activeChild?.kill(signal);
+    });
+  }
   let tempRoot;
   let testDistDir;
   let testTsconfig;
+  let originalNextEnv;
+  const nextEnvPath = path.join(projectRoot, "next-env.d.ts");
   let startAttempted = false;
   let stopSucceeded = false;
   const cliEnv = { ...process.env };
   for (const key of ["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_ID"]) delete cliEnv[key];
   try {
-    if (!functionalOnly) await run("npm", ["run", "test:unit"]);
+    if (!functionalOnly) await run("npm", ["run", comprehensive ? "check" : "test:unit"]);
     const portBase = await choosePortBase();
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "fpl-tests-"));
     await prepareProject(tempRoot, portBase);
@@ -144,13 +149,33 @@ async function main() {
       cwd: tempRoot, env: cliEnv, capture: true,
     }));
     const environment = localEnvironment(values, portBase);
-    console.log("Running database scenarios against the disposable stack...");
-    await run("npm", ["run", "test:functional:db"], { env: environment });
     if (!functionalOnly) {
       testDistDir = environment.TEST_APP_DIST_DIR;
       testTsconfig = environment.TEST_APP_TSCONFIG;
+      originalNextEnv = await readFile(nextEnvPath, "utf8").catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+        return undefined;
+      });
+      await writeFile(path.join(projectRoot, testTsconfig), JSON.stringify({
+        extends: "./tsconfig.json",
+        compilerOptions: { incremental: false },
+        include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts",
+          `${testDistDir}/types/**/*.ts`, `${testDistDir}/dev/types/**/*.ts`],
+        exclude: ["node_modules", ".next"],
+      }));
+    }
+    if (comprehensive) {
+      console.log("Linting the disposable database...");
+      await run(supabaseCli, ["db", "lint", "--local", "--level", "error", "--fail-on", "error"], {
+        cwd: tempRoot, env: cliEnv,
+      });
+      console.log("Building the production application against the disposable stack...");
+      await run("npm", ["run", "build"], { env: environment });
+    }
+    console.log("Running database scenarios against the disposable stack...");
+    await run("npm", ["run", "test:functional:db"], { env: environment });
+    if (!functionalOnly) {
       console.log("Running Chromium smoke tests in the matching Playwright container...");
-      await writeFile(path.join(projectRoot, testTsconfig), '{"extends":"./tsconfig.json"}\n');
       await run("docker", browserArgs(environment), { env: environment });
     }
     console.log(functionalOnly ? "Functional tests passed." : "All local tests passed.");
@@ -163,15 +188,24 @@ async function main() {
       } catch (error) {
         console.error(`Could not stop the temporary test stack. Configuration remains at ${tempRoot}.`);
         console.error(error.message);
+        process.exitCode = 1;
       }
     }
     if (tempRoot && (!startAttempted || stopSucceeded)) await rm(tempRoot, { recursive: true, force: true });
     if (testDistDir) await rm(path.join(projectRoot, testDistDir), { recursive: true, force: true });
     if (testTsconfig) await rm(path.join(projectRoot, testTsconfig), { force: true });
+    // Next writes this shared file even when distDir/tsconfigPath are isolated.
+    // Preserve a concurrent dev server's update if it has already replaced ours.
+    if (testDistDir && (await readFile(nextEnvPath, "utf8").catch(() => "")).includes(`./${testDistDir}/`)) {
+      if (originalNextEnv === undefined) await rm(nextEnvPath, { force: true });
+      else await writeFile(nextEnvPath, originalNextEnv);
+    }
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = interrupted ? 130 : 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = interrupted ? 130 : 1;
+  });
+}

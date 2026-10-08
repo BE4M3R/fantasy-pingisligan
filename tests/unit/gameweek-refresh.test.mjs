@@ -40,6 +40,7 @@ function createSupabase({
   completed = null,
   completionError = null,
   scoringError = null,
+  persistenceError = null,
 }) {
   const calls = [];
   let fromCount = 0;
@@ -49,6 +50,7 @@ function createSupabase({
     client: {
       async rpc(name, args) {
         calls.push(["rpc", name, args]);
+        if (name === "persist_stupa_results") return { data: 0, error: persistenceError };
         if (name === "calculate_fantasy_gameweek_points") {
           return { error: scoringError };
         }
@@ -176,6 +178,14 @@ test("failed pending-gameweek scoring leaves its marker null", async () => {
   assert.equal(calls.filter(([, name]) => name === "complete_gameweek_refresh").length, 0);
 });
 
+test("failed atomic reconciliation stops before scoring or transfer reopening", async () => {
+  const { client, calls } = createSupabase({ persistenceError: { message: "replacement rejected" } });
+  await assert.rejects(persistScoreAndComplete(client, {
+    ...rows, submatches: [{ stupa_submatch_id: 1 }],
+  }, options), /replacement rejected/);
+  assert.deepEqual(calls.map(([, name]) => name), ["persist_stupa_results"]);
+});
+
 test("missing schedules and identity conflicts block completion before writes", async () => {
   for (const invalid of [{ missingParentMatches: [1] }, { identityConflicts: [{}] }]) {
     const { client, calls } = createSupabase({});
@@ -194,7 +204,12 @@ test("unmatched players are stored unlinked while known players score and the ga
   const pending = createSupabase({ gameweek: { id: "gw", name: "GW" }, completed: { id: "gw" } });
   const writes = [];
   const client = {
-    rpc: pending.client.rpc,
+    async rpc(name, args) {
+      if (name === "persist_stupa_results") {
+        writes.push({ table: "player_submatch_results", payload: args.p_player_results });
+      }
+      return pending.client.rpc(name, args);
+    },
     from(table) {
       if (table === "fantasy_gameweeks") return pending.client.from(table);
       return {
@@ -224,7 +239,7 @@ test("unmatched players are stored unlinked while known players score and the ga
   const identities = writes.find((write) => write.table === "player_external_identities" && Array.isArray(write.payload)).payload;
   assert.ok(identities.every((identity) => identity.player_id === "known-player"));
   assert.equal(identities.some((identity) => identity.external_id === "unknown" || identity.external_id === "5678"), false);
-  assert.equal(pending.calls.filter(([operation]) => operation === "rpc").length, 3);
+  assert.equal(pending.calls.filter(([operation]) => operation === "rpc").length, 4);
   assert.ok(pending.calls.some(([, name]) => name === "complete_gameweek_refresh"));
 });
 

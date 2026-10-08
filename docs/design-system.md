@@ -68,6 +68,40 @@ public landing page, while content sits on navy cards.
 Framework colors such as Tailwind's emerald and amber may be used for familiar
 success and warning messages. They are semantic feedback, not brand colors.
 
+## Responsive layout and interaction
+
+Reuse layout and component patterns from `app/dashboard/` and routed pages in
+`app/(default)/dashboard/` before adding new variants. The court surface and navy
+cards establish the hierarchy; preserve existing spacing, type sizes, radii and
+button treatments in the surrounding view. This guide does not introduce a
+second component library or spacing scale.
+
+- Check narrow phones (320px), a typical phone (390px), tablet (768px), desktop
+  (1440px), and widths just around any breakpoint changed. These are review
+  sizes, not a requirement to change the application's breakpoints.
+- Long player/club/team names, points and prices must wrap or truncate
+  deliberately without hiding essential actions. Keep overflow within intended
+  scrollable tables/lists; the document itself should not scroll horizontally.
+- The dashboard reserves space for fixed bottom navigation and safe-area insets
+  in `app/globals.css`. Verify the last row and dialog actions remain reachable
+  at short viewport heights. Dialogs should scroll internally when needed,
+  restore body scrolling on close, and retain usable focus/keyboard behavior.
+- Keep touch actions comfortably tappable and separated. Mobile form controls
+  use at least 16px text to avoid iOS focus zoom; preserve the existing global
+  rule. Check focus visibility, labels and readable foreground/background pairs;
+  do not rely on color alone for status.
+- Loading, empty, error, disabled, selected and success states belong to the
+  same component design. Check them explicitly where affected; keep loading
+  feedback visible without allowing duplicate submissions. Preserve useful
+  content during refresh failures where the existing flow does so.
+- Respect reduced-motion preferences; live indicators already provide an
+  example in `app/globals.css`. Review animation as well as a still image.
+
+Use the [rendered UI inspection procedure](automated-testing.md#rendered-ui-inspection)
+and `$verify-ui` to capture **and open** mobile/desktop screenshots. Inspect
+normal and interactive states against the token roles above and neighboring
+components. Keep review evidence under ignored `test-results/browser/`.
+
 ## Rules for contributors and AI
 
 1. Reuse an existing `--pf-*` token whenever its meaning matches the UI role.

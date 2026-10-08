@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
+import { persistStupaResults } from "./persist-stupa-results.mjs";
 import { localDateTimeToUtcIso, nextStockholmMidnightUtcIso } from "./stockholm-time.mjs";
 
 const ROUND_ID_BASE = -901001;
@@ -553,6 +554,151 @@ async function getDatabaseMatches(supabase, gameweekId) {
   return data ?? [];
 }
 
+// Individual results have no real kickoff times in the fixture JSON. Spread
+// their completion events evenly over each club fixture's configured duration.
+export function individualMatchEvents(definition, databaseMatches) {
+  const byId = new Map(databaseMatches.map((match) => [match.stupa_match_id, match]));
+  const events = definition.fixtures.flatMap((fixture, fixtureIndex) => {
+    const parent = byId.get(fixture.matchId);
+    assert(parent, `Missing database fixture: ${fixture.key}.`);
+    const start = Date.parse(parent.starts_at);
+    const end = Date.parse(parent.ends_at);
+    assert(Number.isFinite(start) && end > start, `Invalid fixture times: ${fixture.key}.`);
+    return fixture.matches.map((match, matchIndex) => ({
+      fixture, fixtureIndex, match, matchIndex, parent,
+      at: start + (end - start) * (matchIndex + 1) / fixture.matches.length,
+      available: !fixture.resultAvailableFromGameweek || fixture.resultAvailableFromGameweek === definition.key,
+    }));
+  });
+  assert(new Set(events.map((event) => event.match.submatchId)).size === events.length,
+    "Individual test match IDs must be unique.");
+  return events.sort((a, b) => a.at - b.at || a.fixtureIndex - b.fixtureIndex || a.matchIndex - b.matchIndex);
+}
+
+async function individualProgress(supabase, definition, databaseMatches) {
+  const events = individualMatchEvents(definition, databaseMatches);
+  const { data, error } = await supabase.from("stupa_submatches")
+    .select("stupa_submatch_id, match_id, status, raw_payload")
+    .in("match_id", databaseMatches.map((match) => match.id));
+  ensureNoError(error, "Could not read individual match progress");
+  const byId = new Map((data ?? []).map((row) => [row.stupa_submatch_id, row]));
+  assert((data ?? []).every((row) => events.some((event) =>
+    event.match.submatchId === row.stupa_submatch_id && event.parent.id === row.match_id && row.status === "SCORED")),
+  "Unexpected test results; check the fixture file before advancing.");
+  for (const fixture of definition.fixtures) {
+    const completed = fixture.matches.map((match) => byId.has(match.submatchId));
+    const firstMissing = completed.indexOf(false);
+    assert(firstMissing < 0 || completed.slice(firstMissing).every((value) => !value),
+      `Results for ${fixture.key} are not in match order; inspect status before advancing.`);
+  }
+  const pending = events.filter((event) => byId.get(event.match.submatchId)?.raw_payload?.local_scoring_pending);
+  assert(pending.length <= 1, "Multiple unfinished scoring steps; inspect test results before advancing.");
+  return {
+    events, byId,
+    next: pending[0] ?? events.find((event) => event.available && !byId.has(event.match.submatchId)),
+  };
+}
+
+async function lockedLocalRound(supabase, scenario, definition) {
+  const url = new URL(supabase.supabaseUrl);
+  assert(url.protocol === "http:" && url.hostname === "127.0.0.1",
+    "Individual match controls require local Supabase.");
+  const gameweek = await getDatabaseGameweek(supabase, definition);
+  assert(scenario.stageId <= -900000 && gameweek.stupa_stage_id === scenario.stageId,
+    "Individual match controls require the configured synthetic test stage.");
+  assert(gameweek.data_refreshed_at === null, `${definition.key} is already refreshed; use the next gameweek.`);
+  assert(Date.parse(gameweek.lock_at) <= Date.now(), `Run lock ${definition.key} before advancing.`);
+  const [databaseMatches, { count, error }] = await Promise.all([
+    getDatabaseMatches(supabase, gameweek.id),
+    supabase.from("fantasy_team_gameweek_snapshots").select("*", { count: "exact", head: true })
+      .eq("fantasy_gameweek_id", gameweek.id),
+  ]);
+  ensureNoError(error, "Could not check locked snapshots");
+  assert(count > 0, `No locked snapshots; run lock ${definition.key} before advancing.`);
+  assert(databaseMatches.length === definition.fixtures.length && databaseMatches.every((match) =>
+    match.stupa_stage_id === scenario.stageId && definition.fixtures.some((fixture) => fixture.matchId === match.stupa_match_id)),
+  "The installed synthetic fixtures do not match the fixture file.");
+  const progress = await individualProgress(supabase, definition, databaseMatches);
+  return { gameweek, databaseMatches, ...progress };
+}
+
+async function advanceRoundTime(supabase, context, eventTime) {
+  const now = Date.now();
+  const shift = Math.max(0, eventTime - now + 1000);
+  if (!shift) return;
+  const earlier = (value) => new Date(Date.parse(value) - shift).toISOString();
+  const fixtureTimes = context.databaseMatches.map((match) => ({
+    definition: { matchId: match.stupa_match_id },
+    startsAt: earlier(match.starts_at), endsAt: earlier(match.ends_at),
+  }));
+  const lastMatchEndsAt = fixtureTimes.reduce((last, fixture) =>
+    Date.parse(fixture.endsAt) > Date.parse(last) ? fixture.endsAt : last, fixtureTimes[0].endsAt);
+  const { error } = await supabase.from("fantasy_gameweeks").update({
+    first_match_starts_at: earlier(context.gameweek.first_match_starts_at),
+    last_match_ends_at: lastMatchEndsAt,
+    lock_at: earlier(context.gameweek.lock_at),
+    unlock_at: nextStockholmMidnightUtcIso(lastMatchEndsAt),
+    updated_at: new Date(now).toISOString(),
+  }).eq("id", context.gameweek.id);
+  ensureNoError(error, "Could not advance the local gameweek clock");
+  await updateFixtureTimes(supabase, context.databaseMatches, fixtureTimes);
+}
+
+export async function kickoff(supabase, scenario, definition) {
+  const context = await lockedLocalRound(supabase, scenario, definition);
+  assert(context.byId.size === 0, `${definition.key} already has results; use next-match instead of restarting kickoff.`);
+  await advanceRoundTime(supabase, context, Date.parse(context.gameweek.first_match_starts_at));
+  console.log(`${definition.key} is at first kickoff, with no individual results. Reload the app; simultaneous fixtures start together.`);
+}
+
+export async function nextIndividualMatch(supabase, scenario, definition) {
+  const context = await lockedLocalRound(supabase, scenario, definition);
+  assert(Date.parse(context.gameweek.first_match_starts_at) <= Date.now(),
+    `Run kickoff ${definition.key} before next-match.`);
+  const event = context.next;
+  if (!event) {
+    const deferred = context.events.filter((item) => !item.available && !context.byId.has(item.match.submatchId)).length;
+    console.log(`No more available individual matches for ${definition.key}; ${deferred} deferred. Use unlock to finish the refresh.`);
+    return;
+  }
+  // Preflight the same locked squads used by the existing full-score harness.
+  const squads = await loadTeamsAndSquads(supabase, context.gameweek.id, 1);
+  await advanceRoundTime(supabase, context, event.at);
+  const fixtureRows = buildResultRows({ ...definition, fixtures: [event.fixture] }, scenario.roleIds)[0];
+  const submatch = fixtureRows.submatches.find((row) => row.stupa_submatch_id === event.match.submatchId);
+  await persistStupaResults(supabase, [{
+    ...submatch, match_id: event.parent.id,
+    raw_payload: { ...submatch.raw_payload, local_scoring_pending: true },
+  }], fixtureRows.results.filter((row) => row.stupa_submatch_id === event.match.submatchId));
+  const isFinal = event.matchIndex === event.fixture.matches.length - 1;
+  const { error: parentError } = await supabase.from("matches").update({
+    status: isFinal ? "scored" : "in_progress",
+    winning_team_stupa_participant_id: isFinal
+      ? event.fixture.winner === "home" ? event.fixture.homeParticipantId
+        : event.fixture.winner === "away" ? event.fixture.awayParticipantId : null
+      : null,
+    source_updated_at: new Date().toISOString(),
+  }).eq("id", event.parent.id);
+  ensureNoError(parentError, "Could not update the parent fixture");
+
+  const completedIds = new Set([...context.byId.keys(), event.match.submatchId]);
+  const partialDefinition = {
+    ...definition,
+    fixtures: definition.fixtures.flatMap((fixture) => {
+      const matches = fixture.matches.filter((match) => completedIds.has(match.submatchId));
+      return matches.length ? [{ ...fixture, matches,
+        winner: matches.length === fixture.matches.length ? fixture.winner : null,
+      }] : [];
+    }),
+  };
+  await scoreAndVerify(supabase, partialDefinition, scenario.activePlayers, { ...context, ...squads });
+  // If persistence or verification fails, retry this result before advancing.
+  const { error: verifiedError } = await supabase.from("stupa_submatches")
+    .update({ raw_payload: submatch.raw_payload }).eq("stupa_submatch_id", event.match.submatchId);
+  ensureNoError(verifiedError, "Could not mark the individual scoring step verified");
+  console.log(`Completed ${event.fixture.key}: ${event.match.type} ${event.matchIndex + 1}/${event.fixture.matches.length}. Transfers remain locked; reload the app.`);
+}
+
 export function configuredTimes(gameweek, baseDate = new Date()) {
   const nominalStart = addHours(baseDate, gameweek.startsAfterHours);
   const fixtures = gameweek.fixtures.map((fixture) => {
@@ -647,7 +793,7 @@ async function setup(supabase, scenario, minimumTeamCount = 2) {
 
   console.log(`Created ${inserted.length} configured test gameweeks.`);
   console.table(inserted);
-  console.log("Choose a gameweek key when running lock, score, or unlock.");
+  console.log("Choose a gameweek key when running lock, kickoff, next-match, score, or unlock.");
 }
 
 async function reschedule(supabase, scenario) {
@@ -1256,23 +1402,22 @@ async function seedAndScore(
     ensureNoError(gameweekError, `Could not start ${definition.key}`);
   }
 
-  const databaseMatchIds = databaseMatches.map((match) => match.id);
-  const { error: deleteError } = await supabase
-    .from("stupa_submatches")
-    .delete()
-    .in("match_id", databaseMatchIds);
-  ensureNoError(deleteError, "Could not replace existing test submatches");
-
   const submatches = fixtureRows.flatMap((fixtureRow) => {
     const databaseMatch = matchesByStupaId.get(fixtureRow.fixture.matchId);
     return fixtureRow.submatches.map((row) => ({ ...row, match_id: databaseMatch.id }));
   });
   const results = fixtureRows.flatMap((fixtureRow) => fixtureRow.results);
-  const { error: submatchError } = await supabase.from("stupa_submatches").insert(submatches);
-  ensureNoError(submatchError, "Could not write test submatches");
-  const { error: resultError } = await supabase.from("player_submatch_results").insert(results);
-  ensureNoError(resultError, "Could not write test player results");
+  await persistStupaResults(supabase, submatches, results);
 
+  await scoreAndVerify(supabase, definition, activePlayers, {
+    gameweek, databaseMatches, rowsByTeam, teams,
+  }, updateTimes);
+}
+
+async function scoreAndVerify(supabase, definition, activePlayers, {
+  gameweek, databaseMatches, rowsByTeam, teams,
+}, updateTimes = false) {
+  const databaseMatchIds = databaseMatches.map((match) => match.id);
   const { error: firstScoreError } = await supabase.rpc(
     "calculate_fantasy_gameweek_points",
     { target_gameweek_id: gameweek.id },
@@ -1643,7 +1788,7 @@ async function statusRow(supabase, definition) {
   const submatchIds = definition.fixtures.flatMap((fixture) =>
     fixture.matches.map((match) => match.submatchId),
   );
-  const [{ count: snapshots, error: snapshotError }, { count: results, error: resultError }, { count: totals, error: totalError }] =
+  const [{ count: snapshots, error: snapshotError }, { count: results, error: resultError }, { count: totals, error: totalError }, databaseMatches] =
     await Promise.all([
       supabase
         .from("fantasy_team_gameweek_snapshots")
@@ -1657,15 +1802,23 @@ async function statusRow(supabase, definition) {
         .from("fantasy_team_gameweek_points")
         .select("*", { count: "exact", head: true })
         .eq("fantasy_gameweek_id", gameweek.id),
+      getDatabaseMatches(supabase, gameweek.id),
     ]);
   ensureNoError(snapshotError, `Could not count snapshots for ${definition.key}`);
   ensureNoError(resultError, `Could not count results for ${definition.key}`);
   ensureNoError(totalError, `Could not count totals for ${definition.key}`);
+  const progress = await individualProgress(supabase, definition, databaseMatches);
   return {
     gameweek: definition.key,
     installed: true,
     data_refreshed_at: gameweek.data_refreshed_at,
     lock_at: gameweek.lock_at,
+    first_match_starts_at: gameweek.first_match_starts_at,
+    individual_matches: `${progress.byId.size}/${progress.events.length}`,
+    next_match: progress.next
+      ? `${progress.next.fixture.key}: ${progress.next.match.type} ${progress.next.matchIndex + 1}`
+      : "None available",
+    retry_pending: Boolean(progress.next && progress.byId.has(progress.next.match.submatchId)),
     result_rows: results ?? 0,
     scored_teams: totals ?? 0,
     snapshots: snapshots ?? 0,
@@ -1757,6 +1910,7 @@ async function runLocalScoringDemo(supabase, scenario) {
 async function main() {
   const [, , flag, target, action, key] = process.argv;
   const actions = new Set([
+    "help",
     "validate",
     "run",
     "setup",
@@ -1765,6 +1919,8 @@ async function main() {
     "prepare",
     "lock",
     "lock-cron",
+    "kickoff",
+    "next-match",
     "score",
     "unlock",
     "refresh-prices",
@@ -1778,11 +1934,29 @@ async function main() {
   }
   if (!actions.has(action)) {
     throw new Error(
-      "Choose an action: validate, run, setup, setup-demo, reschedule, prepare, lock, lock-cron, score, unlock, refresh-prices, status, or cleanup.",
+      `Choose an action: ${[...actions].join(", ")}. Use help for local gameweek controls.`,
     );
   }
   if ((action === "setup" || action === "setup-demo" || action === "run" || action === "reschedule") && key) {
     throw new Error(action + " does not accept a gameweek key.");
+  }
+  if (["kickoff", "next-match"].includes(action) && target !== "local") {
+    throw new Error(`${action} is available only for local Supabase.`);
+  }
+  if (action === "help") {
+    console.log("Local synthetic gameweek controls (npm run test:local -- <action> [gw1]):");
+    console.log("validate / setup / setup-demo / reschedule: inspect or install fixture definitions");
+    console.log("status [gw1]: inspect the transfer lock, results and next individual match");
+    console.log("prepare gw1: open a 30-minute test transfer window before locking");
+    console.log("lock gw1 / lock-cron gw1: close transfers and snapshot directly / wait for Cron");
+    console.log("kickoff gw1: advance a locked round to first kickoff, without results (local only)");
+    console.log("next-match gw1: complete one singles/doubles result and verify scores (local only)");
+    console.log("score gw1: import all results available through this gameweek and verify scores");
+    console.log("unlock gw1: pass unlock time, persist results, verify scores and complete refresh");
+    console.log("run: complete the scoring-demo lifecycle; cleanup [gw1]: remove synthetic fixture data");
+    console.log("refresh-prices gw1: separate budget-trigger regression; not part of the lifecycle");
+    console.log("See docs/staging-testing.md#local-state-controls before changing local scenarios.");
+    return;
   }
 
   const environment = await loadEnvironment(target);
@@ -1822,11 +1996,13 @@ async function main() {
   }
   if (action === "status") await status(supabase, scenario, key);
   if (action === "cleanup") await cleanup(supabase, scenario, key);
-  if (["prepare", "lock", "lock-cron", "score", "unlock", "refresh-prices"].includes(action)) {
+  if (["prepare", "lock", "lock-cron", "kickoff", "next-match", "score", "unlock", "refresh-prices"].includes(action)) {
     const definition = selectDefinition(resolvedScenario, key);
     if (action === "prepare") await prepare(supabase, definition);
     if (action === "lock") await lock(supabase, definition);
     if (action === "lock-cron") await lock(supabase, definition, true);
+    if (action === "kickoff") await kickoff(supabase, resolvedScenario, definition);
+    if (action === "next-match") await nextIndividualMatch(supabase, resolvedScenario, definition);
     if (action === "score") {
       await scoreAvailableGameweeks(supabase, resolvedScenario, definition);
     }

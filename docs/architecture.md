@@ -25,6 +25,13 @@ flowchart LR
 - Squad changes use Server Actions. Every mutation rechecks authentication,
   transfer locks, ownership, squad rules and budget on the server.
 - Supabase Row Level Security remains the database-level authorization boundary.
+- Team owners can update only `name`, `onboarding_completed`, and `updated_at`.
+  New teams must start with a 100m budget; only trusted server operations can
+  adjust existing budgets. The complete-squad save RPC requires exactly one
+  captain among the four starters before invoking the atomic save.
+- Player merges, squad snapshots, chip maintenance, and scoring RPCs require
+  `service_role` or a privileged database operator. API users cannot invoke
+  these administrative paths to bypass squad validation or rewrite history.
 
 ## Data pipeline
 
@@ -82,6 +89,13 @@ per-player set/point details to those existing fixtures. The current results
 importer stores source results and recalculates `player_match_stats` and
 fantasy-team gameweek totals. Player eligibility depends on active status and
 an explicit configured price; optional legacy rankings do not affect it.
+
+Result persistence uses the service-role-only `persist_stupa_results` RPC, also
+used by the synthetic lifecycle harness. It locks affected fixtures and
+atomically replaces superseded STUPA IDs by fixture, singles/golden kind and
+match order, together with their player results. Unobserved positions remain
+intact; ambiguous incoming positions abort the transaction. Scoring and refresh
+completion run only after successful persistence.
 
 ## Trust boundaries
 
