@@ -316,6 +316,11 @@ deployments and when checking new real results.
 
 ### Enable production match-window dispatch
 
+Before deploying changes to the results workflow, follow the
+[production results security and cutover procedure](production-results-security.md).
+Its `production-results` GitHub environment must be configured manually; local
+workflow validation does not verify hosted protection rules or secret scopes.
+
 The migration `20260924164500_dispatch_results_refresh_from_supabase_cron.sql`
 creates the database rule, the `dispatch-results-refresh` Cron job, and the
 `pg_net` network extension. It queues GitHub dispatches only when the
