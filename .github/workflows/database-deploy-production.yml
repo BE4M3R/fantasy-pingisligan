@@ -17,7 +17,13 @@ concurrency:
 
 jobs:
   migrate:
-    if: vars.DATABASE_MIGRATIONS_ENABLED == 'true'
+    # Environment restrictions and secret cleanup are also required; see
+    # docs/privileged-workflows-security.md. Branch code can edit this guard.
+    if: >-
+      github.repository == 'BE4M3R/fantasy-pingisligan' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.DATABASE_MIGRATIONS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
