@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { DAILY_RESULTS_CRON, checkResultsRefresh, parseRefreshCheckTime, resultsRefreshDecision, resultsRefreshReport, stockholmDayWindow } from "../../scripts/results-refresh-schedule.mjs";
 import { verifyStagingImportTarget } from "../../scripts/verify-staging-import-target.mjs";
 
@@ -154,6 +155,27 @@ test("GitHub schedules one nightly run and accepts a gated match-window dispatch
   assert.match(steps[gate].env.RESULTS_DISPATCH_KIND, /inputs\.kind/);
   assert.match(steps[gate].env.RESULTS_SLOT_AT, /inputs\.slot_at/);
   assert.deepEqual(Object.keys(workflow.jobs), ["import-results"]);
+});
+
+test("production results credentials are bound to the environment and trusted main events", async () => {
+  const { load } = await import("js-yaml");
+  const workflow = load(await readFile(new URL("../../.github/workflows/import-results.yml", import.meta.url), "utf8"));
+  const job = workflow.jobs["import-results"];
+  assert.equal(job.environment, "production-results");
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  assert.equal(typeof job.if, "string");
+  // The guard uses equality and boolean operators shared by JS and Actions.
+  // This checks its event/ref decisions, not GitHub's external environment rules.
+  for (const repository of ["BE4M3R/fantasy-pingisligan", "contributor/fantasy-pingisligan"]) {
+    for (const ref of ["refs/heads/main", "refs/heads/develop", "refs/heads/feature/example", "refs/tags/main", "refs/tags/v1", "refs/pull/1/merge"]) {
+      for (const event_name of ["schedule", "workflow_dispatch", "push", "pull_request", "repository_dispatch", "workflow_run"]) {
+        const expected = repository === "BE4M3R/fantasy-pingisligan" && ref === "refs/heads/main" &&
+          ["schedule", "workflow_dispatch"].includes(event_name);
+        assert.equal(runInNewContext(job.if, { github: { repository, ref, event_name } }, { timeout: 1000 }),
+          expected, `${repository} ${ref} ${event_name}`);
+      }
+    }
+  }
 });
 
 test("staging import rejects absent credentials and a production or malformed URL", () => {
