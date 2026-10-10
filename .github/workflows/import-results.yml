@@ -27,6 +27,13 @@ concurrency:
 
 jobs:
   import-results:
+    # Configure the environment and migrate secrets before cutover; see
+    # docs/production-results-security.md. The YAML guard alone is insufficient.
+    if: >-
+      github.repository == 'BE4M3R/fantasy-pingisligan' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    environment: production-results
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
