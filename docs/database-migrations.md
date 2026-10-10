@@ -79,6 +79,13 @@ during normal development.
 
 ## Promote a tested migration
 
+Before enabling hosted database workflows, verify the environment restrictions,
+credential scopes and branch protections in the
+[Phase A2 configuration and cutover guide](privileged-workflows-security.md).
+Production deploy/status runs use `main` and the existing **Production**
+environment; staging deploy/status runs use `develop` and **staging**. Results
+processing remains separately bound to **production-results** and unattended.
+
 Commit the new migration and open a pull request into `develop`. Pull requests
 first rebuild and lint a clean local database in CI. After the PR is merged,
 GitHub Actions applies the pending migration to staging.
