@@ -87,13 +87,33 @@ The name `SUPABASE_ACCESS_TOKEN` does not reveal its type or authority. A classi
 Supabase PAT inherits the owner's account privileges across projects, potentially
 including project management and API key retrieval. Moving it into a GitHub
 environment restricts delivery, not its management authority. Scoped PATs can
-limit project and permissions. The existing `supabase link` needs **Project
-Settings**, **API Keys** and **API Key Secrets**, each **Read**. The supplied
-database password still permits database commands independently of PAT scopes.
+limit project and permissions. The mandatory `supabase link` calls need
+**Project Settings**, **API Keys** and **API Key Secrets**, each **Read**.
+IPv4 pooler discovery additionally needs **Connection Pooling**, **Read**.
+For these GitHub workflows, provision all four Read scopes on each project's
+PAT. The supplied database password still permits database commands independently
+of PAT scopes; Database/Migrations write scopes are not needed for those commands.
 Use different single-project PATs for production and staging, and verify their
 compatibility with pinned CLI 2.116.0 before retiring the old token. These are
 documented capabilities, not findings about this repository's actual token.
 See [Supabase PAT permissions and CLI usage](https://supabase.com/docs/guides/platform/personal-access-tokens#use-a-scoped-personal-access-token-with-the-supabase-cli).
+
+CLI 2.116.0's link step attempts to retrieve pooler configuration and save
+`supabase/.temp/pooler-url`, but ignores that lookup's failure. A PAT with only
+the first three scopes can therefore complete linking without preparing an
+IPv4 connection. When the direct endpoint is unreachable and no valid pooler
+URL was saved, the following linked database command emits the IPv6 error and
+suggests linking again. Missing Connection Pooling Read is a likely cause of
+that sequence; the error alone does not exclude API/network or pooler
+configuration problems. See the [pinned pooler-link implementation](https://github.com/supabase/cli/blob/v2.116.0/apps/cli/src/legacy/shared/legacy-link-services-core.ts)
+and [linked connection resolver](https://github.com/supabase/cli/blob/v2.116.0/apps/cli/src/legacy/shared/legacy-db-config.layer.ts).
+
+Validate the corrected staging PAT first using a new trusted develop/staging
+status run after separate authorization. Keep the workflow commands and stdout
+capture unchanged, and retain old tokens/repository secrets during verification.
+If the same error persists, check only whether the pooler URL file exists and
+is nonempty; do not print its contents, database credentials or debug output.
+Investigate pooler discovery and connectivity before granting additional scopes.
 
 Separate classic PATs owned by the same broadly privileged account do not
 isolate projects. If scoped tokens are unavailable, document an
@@ -196,8 +216,9 @@ and [path-filtered required checks](https://docs.github.com/en/pull-requests/how
    expiry and project permissions without values. Keep the temporary overlap
    controlled: broad credentials still allow branch code to bypass the boundary.
 2. Provision the database credentials in **staging** and **Production** under
-   their unchanged names. Prefer new project-scoped PATs using only the three
-   Read scopes needed for link. This audit does not generate or handle tokens.
+   their unchanged names. Prefer new project-scoped PATs using the four Read
+   scopes listed above, including Connection Pooling for IPv4 discovery.
+   This audit does not generate or handle tokens.
    Confirm staging cannot manage production. Database passwords remain privileged.
 3. After separate authorization, verify replacements with **Check database
    migration status**: select branch **develop** with input **staging**, then
