@@ -39,7 +39,8 @@ end;
 $$;
 
 create temporary table expected_schema as select pg_temp.schema_state() as state,
-  'public.snapshot_locked_squads()'::regprocedure::oid as snapshot_oid;
+  'public.snapshot_locked_squads()'::regprocedure::oid as snapshot_oid,
+  'public.save_my_fantasy_team_without_lineup_order(uuid,jsonb,text)'::regprocedure::oid as save_oid;
 
 create function pg_temp.assert_canonical_schema() returns void language plpgsql as $$
 begin
@@ -49,6 +50,10 @@ begin
   if 'public.snapshot_locked_squads()'::regprocedure::oid <>
     (select snapshot_oid from expected_schema) then
     raise exception 'Snapshot RPC identity changed';
+  end if;
+  if 'public.save_my_fantasy_team_without_lineup_order(uuid,jsonb,text)'::regprocedure::oid <>
+    (select save_oid from expected_schema) then
+    raise exception 'Squad-save helper identity changed';
   end if;
 end;
 $$;

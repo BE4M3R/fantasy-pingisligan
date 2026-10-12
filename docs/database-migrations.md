@@ -172,6 +172,27 @@ The old `--output schema-diff.sql` invocation did not write a file in normal dif
 mode, so its green result was not evidence of schema parity. A dry-run showing
 "up to date" checks registered migration versions, not actual schema equality.
 
+The subsequent staging check exposed one substantive difference that formatting
+normalization deliberately retained: the internal
+`save_my_fantasy_team_without_lineup_order(uuid,jsonb,text)` still accepted draft
+squads of up to six players. The baseline requires exactly six players: four
+starters and two bench players. The public complete-save wrapper already enforced
+that rule, so its existing API tests alone did not detect the older helper body.
+
+Forward migration `20261012180000_reconcile_complete_squad_save_helper.sql`
+changes only those two size checks and their error messages, preserving the
+function's identity, signature, security settings and grants. It accepts only the
+reviewed legacy or canonical function bodies; an unreviewed implementation aborts
+for inspection. It never invokes the helper or updates stored data. The deployed
+first reconciliation migration is unchanged.
+
+The upgrade fixtures now include the exact permissive helper from the staging
+report, both before and after the first reconciliation. They exercise incomplete
+and incorrectly allocated squads through both save layers, verify rejection
+preserves all data, and check that a valid four-starter/two-bench squad still saves.
+Apply this follow-up through `develop` and repeat the staging status/application
+checks above before promoting either reconciliation migration to production.
+
 ## Reconcile staging player and club UUIDs
 
 If a hosted environment already has the same players under different UUIDs,
