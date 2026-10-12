@@ -13,17 +13,24 @@ assert.ok(/^fpl-test-[a-f0-9]{10}$/.test(projectId ?? "") ||
   (process.env.CI === "true" && projectId === "fantasy-pingisligan"),
 "Upgrade checks require a disposable test stack or the isolated CI runner.");
 
-const migration = await readFile(path.join(root,
-  "supabase/migrations/20261011120000_reconcile_legacy_snapshot_schema.sql"), "utf8");
 // Test the exact migration statements inside a larger rollback-only transaction.
 // Production keeps its own transaction boundaries, including SET LOCAL limits.
-assert.equal((migration.match(/^begin;$/gm) ?? []).length, 1);
-assert.equal((migration.match(/^commit;$/gm) ?? []).length, 1);
-const statements = migration.replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const migrations = await Promise.all([
+  "20261011120000_reconcile_legacy_snapshot_schema.sql",
+  "20261012180000_reconcile_complete_squad_save_helper.sql",
+].map(async (filename) => {
+  const migration = await readFile(path.join(root, "supabase/migrations", filename), "utf8");
+  assert.equal((migration.match(/^begin;$/gm) ?? []).length, 1);
+  assert.equal((migration.match(/^commit;$/gm) ?? []).length, 1);
+  return migration.replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+}));
+const statements = migrations.join("\n");
 const legacy = await readFile(path.join(root, "tests/fixtures/schema-upgrade/legacy-snapshots.sql"), "utf8");
+const legacySave = await readFile(path.join(root, "tests/fixtures/schema-upgrade/legacy-squad-save.sql"), "utf8");
 const formatting = await readFile(path.join(root, "tests/fixtures/schema-upgrade/editor-formatting.sql"), "utf8");
 const fixture = await readFile(path.join(root, "tests/fixtures/schema-upgrade/data.sql"), "utf8");
 const assertions = await readFile(path.join(root, "tests/fixtures/schema-upgrade/assertions.sql"), "utf8");
+const saveAssertions = await readFile(path.join(root, "tests/fixtures/schema-upgrade/squad-save-assertions.sql"), "utf8");
 const productionIndexes = `
 alter table public.players drop constraint players_profixio_id_key;
 alter table public.players drop constraint players_stupa_user_role_id_key;
@@ -32,13 +39,14 @@ create unique index players_stupa_user_role_id_key on public.players (stupa_user
   where stupa_user_role_id is not null;
 `;
 
-for (const [label, schema, failure] of [
+for (const [label, schema, failure, followupOnly] of [
   ["fresh rebuild", "", null],
-  ["staging legacy snapshots and editor formatting", legacy + formatting + `
+  ["staging legacy snapshots, permissive save helper and editor formatting", legacy + legacySave + formatting + `
     drop index public.fantasy_gameweeks_stupa_stage_id_idx;
     drop index public.matches_stupa_stage_id_idx;
   `, null],
-  ["production legacy snapshots, editor formatting and identity indexes", legacy + formatting + productionIndexes, null],
+  ["production legacy snapshots, permissive save helper, formatting and identity indexes", legacy + legacySave + formatting + productionIndexes, null],
+  ["staging after the first reconciliation still has the permissive save helper", legacySave, null, true],
   ["unexpected helper caller aborts without changes", legacy + `
     create function public.unexpected_snapshot_caller() returns void language plpgsql as $$
     begin perform public.snapshot_locked_squads_without_player_roster(); end; $$;
@@ -55,25 +63,35 @@ for (const [label, schema, failure] of [
         'Leaderboard name cannot be empty.', E'Leaderboard name\r\ncannot be empty.'));
     end; $$;
   `, "Unexpected literal"],
+  ["unreviewed save implementation aborts and rolls back both migrations", legacy + legacySave + `
+    do $$ declare body text; definition text; begin
+      select prosrc, pg_get_functiondef(oid) into body, definition
+      from pg_proc where oid = 'public.save_my_fantasy_team_without_lineup_order(uuid,jsonb,text)'::regprocedure;
+      execute replace(definition, body, replace(body,
+        'if squad_cost > current_team_budget then', 'if squad_cost > current_team_budget / 2 then'));
+    end; $$;
+  `, "Unexpected squad-save helper definition"],
 ]) {
   // No linked database, API credentials, reset, or persisted fixture changes.
   // All cases use one connection; errors/disconnects also roll back the fixture.
+  const caseStatements = followupOnly ? migrations[1] : statements;
   const sql = `begin;
     ${fixture}
     ${schema}
     select pg_temp.remember_state();
     ${failure ? `do $test$ begin
       begin
-        execute $migration$${statements}$migration$;
+        execute $migration$${caseStatements}$migration$;
         raise exception 'Expected migration rejection';
       exception when others then
         if position('${failure}' in sqlerrm) = 0 then raise; end if;
       end;
       perform pg_temp.assert_unchanged(true);
-    end; $test$;` : `${statements}
+    end; $test$;` : `${caseStatements}
       select pg_temp.assert_unchanged(false);
+      ${saveAssertions}
       ${assertions}
-      ${statements}
+      ${caseStatements}
       select pg_temp.assert_canonical_schema();`}
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
