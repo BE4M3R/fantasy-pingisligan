@@ -54,6 +54,8 @@ jobs:
         run: supabase start > /dev/null
       - name: Prepare local-only credentials
         run: node scripts/prepare-ci-test-env.mjs
+      - name: Verify populated legacy schema upgrades
+        run: node scripts/check-schema-upgrade.mjs
       - name: Lint migrated database
         run: npm run db:lint
       - name: Build application against local configuration

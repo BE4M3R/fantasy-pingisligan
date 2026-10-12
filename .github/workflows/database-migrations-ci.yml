@@ -37,6 +37,9 @@ jobs:
           (printf 'begin;\n'; cat scripts/results-refresh-dispatch.local.sql; printf '\nrollback;\n') |
             docker exec -i supabase_db_fantasy-pingisligan psql -v ON_ERROR_STOP=1 -U postgres -d postgres
 
+      - name: Verify populated legacy schema upgrades
+        run: node scripts/check-schema-upgrade.mjs
+
       - name: Lint database functions
         run: supabase db lint --local --level error --fail-on error
 

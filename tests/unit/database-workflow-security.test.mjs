@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { load } from "js-yaml";
@@ -15,6 +18,33 @@ const events = [
   "push", "workflow_dispatch", "pull_request", "pull_request_target",
   "schedule", "repository_dispatch", "workflow_run", "workflow_call",
 ];
+
+test("schema status fails on SQL drift and CLI errors and reports success only for an empty diff", async () => {
+  const workflow = await readWorkflow("database-status.yml");
+  const steps = workflow.jobs.status.steps;
+  const compare = steps.findIndex((step) => step.name === "Compare tracked and remote schemas");
+  assert.ok(steps.findIndex((step) => step.run === "supabase migration list") < compare);
+  assert.ok(steps.findIndex((step) => step.run === "supabase db push --dry-run") < compare);
+  const directory = await mkdtemp(path.join(os.tmpdir(), "fpl-schema-status-"));
+  try {
+    const stub = path.join(directory, "supabase");
+    await writeFile(stub, '#!/bin/bash\nprintf "%s" "$DIFF_SQL"\nexit "$DIFF_EXIT"\n');
+    await chmod(stub, 0o700);
+    for (const [sql, code, succeeds] of [
+      ["", 0, true], ["create index synthetic_drift;\n", 0, false], ["", 1, false],
+    ]) {
+      const result = spawnSync("bash", ["-e", "-o", "pipefail", "-c", steps[compare].run], {
+        cwd: directory, encoding: "utf8",
+        env: { PATH: `${directory}:${process.env.PATH}`, DIFF_SQL: sql, DIFF_EXIT: String(code) },
+      });
+      assert.equal(result.status === 0, succeeds, result.stderr);
+      assert.equal(result.stdout.includes("Remote public schema matches"), succeeds);
+      if (sql) assert.ok(result.stdout.includes(sql.trim()), "Diagnostic must include the actual drift");
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 async function readWorkflow(filename) {
   return load(await readFile(new URL(filename, workflowDirectory), "utf8"));

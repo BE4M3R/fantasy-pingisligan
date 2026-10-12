@@ -112,6 +112,66 @@ schema forward. Keep player, fixture and result imports in their existing
 server-side jobs; migrations are for schema objects, policies, functions,
 triggers, and small controlled reference-data changes.
 
+## Reconcile the pre-baseline hosted schema
+
+Migration `20261011120000_reconcile_legacy_snapshot_schema.sql` addresses the
+legacy snapshot wrapper/helpers found in both hosted status reports. It restores
+the baseline snapshot RPC in place, retaining its identity and the later
+transfer-bank and lineup-order triggers. It removes only the redundant legacy
+snapshot triggers/helpers, including the old administrative function callable
+by API roles. The public Cron command remains `public.snapshot_locked_squads()`.
+It does not invoke a snapshot/score/refresh job or change stored application
+rows, prices, budgets, chips, squads, points, player identities, or Auth users.
+
+The migration keeps the production stage indexes and adds them to other
+environments. It adopts production's standalone license index as the baseline
+UNIQUE constraint, and builds full role-ID uniqueness before replacing the old
+partial index. Multiple NULL identifiers remain allowed. It normalizes CRLF and
+outer whitespace on the baseline functions reported in the diffs while retaining
+their live SQL bodies, signatures, security settings and grants. Unexpected
+multiline/dollar/escape literals stop normalization for review.
+
+All changes use one transaction, a five-second lock timeout and a thirty-second
+statement timeout. Index/constraint work can briefly block table access; the
+timeouts bound waits and statements, not total migration duration. Unexpected
+index definitions, helper callers or dependent objects abort and roll back.
+No `CASCADE`, migration-history repair, reset, old migration replay, or historical
+rescoring is part of this correction. A timeout or dependency error needs review;
+do not remove the safeguards to force a hosted deployment through.
+
+`npm run check:all` also runs rollback-only upgrade tests on its disposable
+stack. These cover a fresh rebuild and populated staging/production legacy
+fixtures, schema convergence, preserved data and RPC identity, actual trusted
+snapshot execution, incomplete squads, chips, lineup order, transfer history,
+repeat calls and rejection/rollback paths. PR CI runs the same upgrade checks.
+These fixtures model the reported objects; they are not copies of hosted data
+and cannot rule out additional unreported dependencies.
+
+Promote this correction only after these staging checks:
+
+1. Merge the reviewed feature change into `develop`; let the normal staging
+   deployment apply the new migration successfully.
+2. Run **Check database migration status** on `develop` targeting staging.
+   The check must show matching migration history, no pending migrations, and
+   an empty public-schema diff. A replacement function still appearing after
+   normalization may represent a substantive difference; review it instead of
+   suppressing the check or overwriting its body blindly.
+3. Verify staging sign-in, saved squads/captains, chips, private leagues and
+   existing gameweek results. Confirm the normal snapshot job and results/scoring
+   lifecycle succeed for staging before approving production promotion.
+4. Confirm a recoverable production backup/restore point, then promote the exact
+   tested `develop` commit to `main`. The production deployment applies the same
+   migration, with conditional handling of production's identity indexes.
+5. Run the corrected status check on `main` targeting production and verify the
+   application. Stop promotion if staging has unexplained drift or failing checks.
+
+The status workflow prints migration history and the dry-run plan before the
+schema comparison, so drift does not hide those diagnostics. It explicitly
+captures text SQL from CLI stdout; a nonempty diff or CLI failure fails the job.
+The old `--output schema-diff.sql` invocation did not write a file in normal diff
+mode, so its green result was not evidence of schema parity. A dry-run showing
+"up to date" checks registered migration versions, not actual schema equality.
+
 ## Reconcile staging player and club UUIDs
 
 If a hosted environment already has the same players under different UUIDs,
