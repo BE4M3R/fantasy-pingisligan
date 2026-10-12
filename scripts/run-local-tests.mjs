@@ -149,6 +149,8 @@ async function main() {
       cwd: tempRoot, env: cliEnv, capture: true,
     }));
     const environment = localEnvironment(values, portBase);
+    console.log("Checking populated legacy schema upgrades on the disposable stack...");
+    await run(process.execPath, ["scripts/check-schema-upgrade.mjs", tempRoot]);
     if (!functionalOnly) {
       testDistDir = environment.TEST_APP_DIST_DIR;
       testTsconfig = environment.TEST_APP_TSCONFIG;

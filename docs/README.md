@@ -30,6 +30,7 @@ Start with the root [README](../README.md) to install and run the application.
 8. [Automated testing](automated-testing.md)
 9. [Performance inventory](performance-inventory.md)
 10. [Home matches and stream links](home-matches.md)
+11. [Privileged GitHub Actions security (Phase A2)](privileged-workflows-security.md)
 
 ## Task shortcuts
 

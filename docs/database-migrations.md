@@ -79,6 +79,13 @@ during normal development.
 
 ## Promote a tested migration
 
+Before enabling hosted database workflows, verify the environment restrictions,
+credential scopes and branch protections in the
+[Phase A2 configuration and cutover guide](privileged-workflows-security.md).
+Production deploy/status runs use `main` and the existing **Production**
+environment; staging deploy/status runs use `develop` and **staging**. Results
+processing remains separately bound to **production-results** and unattended.
+
 Commit the new migration and open a pull request into `develop`. Pull requests
 first rebuild and lint a clean local database in CI. After the PR is merged,
 GitHub Actions applies the pending migration to staging.
@@ -104,6 +111,87 @@ Never edit an already deployed migration. Add a new migration that moves the
 schema forward. Keep player, fixture and result imports in their existing
 server-side jobs; migrations are for schema objects, policies, functions,
 triggers, and small controlled reference-data changes.
+
+## Reconcile the pre-baseline hosted schema
+
+Migration `20261011120000_reconcile_legacy_snapshot_schema.sql` addresses the
+legacy snapshot wrapper/helpers found in both hosted status reports. It restores
+the baseline snapshot RPC in place, retaining its identity and the later
+transfer-bank and lineup-order triggers. It removes only the redundant legacy
+snapshot triggers/helpers, including the old administrative function callable
+by API roles. The public Cron command remains `public.snapshot_locked_squads()`.
+It does not invoke a snapshot/score/refresh job or change stored application
+rows, prices, budgets, chips, squads, points, player identities, or Auth users.
+
+The migration keeps the production stage indexes and adds them to other
+environments. It adopts production's standalone license index as the baseline
+UNIQUE constraint, and builds full role-ID uniqueness before replacing the old
+partial index. Multiple NULL identifiers remain allowed. It normalizes CRLF and
+outer whitespace on the baseline functions reported in the diffs while retaining
+their live SQL bodies, signatures, security settings and grants. Unexpected
+multiline/dollar/escape literals stop normalization for review.
+
+All changes use one transaction, a five-second lock timeout and a thirty-second
+statement timeout. Index/constraint work can briefly block table access; the
+timeouts bound waits and statements, not total migration duration. Unexpected
+index definitions, helper callers or dependent objects abort and roll back.
+No `CASCADE`, migration-history repair, reset, old migration replay, or historical
+rescoring is part of this correction. A timeout or dependency error needs review;
+do not remove the safeguards to force a hosted deployment through.
+
+`npm run check:all` also runs rollback-only upgrade tests on its disposable
+stack. These cover a fresh rebuild and populated staging/production legacy
+fixtures, schema convergence, preserved data and RPC identity, actual trusted
+snapshot execution, incomplete squads, chips, lineup order, transfer history,
+repeat calls and rejection/rollback paths. PR CI runs the same upgrade checks.
+These fixtures model the reported objects; they are not copies of hosted data
+and cannot rule out additional unreported dependencies.
+
+Promote this correction only after these staging checks:
+
+1. Merge the reviewed feature change into `develop`; let the normal staging
+   deployment apply the new migration successfully.
+2. Run **Check database migration status** on `develop` targeting staging.
+   The check must show matching migration history, no pending migrations, and
+   an empty public-schema diff. A replacement function still appearing after
+   normalization may represent a substantive difference; review it instead of
+   suppressing the check or overwriting its body blindly.
+3. Verify staging sign-in, saved squads/captains, chips, private leagues and
+   existing gameweek results. Confirm the normal snapshot job and results/scoring
+   lifecycle succeed for staging before approving production promotion.
+4. Confirm a recoverable production backup/restore point, then promote the exact
+   tested `develop` commit to `main`. The production deployment applies the same
+   migration, with conditional handling of production's identity indexes.
+5. Run the corrected status check on `main` targeting production and verify the
+   application. Stop promotion if staging has unexplained drift or failing checks.
+
+The status workflow prints migration history and the dry-run plan before the
+schema comparison, so drift does not hide those diagnostics. It explicitly
+captures text SQL from CLI stdout; a nonempty diff or CLI failure fails the job.
+The old `--output schema-diff.sql` invocation did not write a file in normal diff
+mode, so its green result was not evidence of schema parity. A dry-run showing
+"up to date" checks registered migration versions, not actual schema equality.
+
+The subsequent staging check exposed one substantive difference that formatting
+normalization deliberately retained: the internal
+`save_my_fantasy_team_without_lineup_order(uuid,jsonb,text)` still accepted draft
+squads of up to six players. The baseline requires exactly six players: four
+starters and two bench players. The public complete-save wrapper already enforced
+that rule, so its existing API tests alone did not detect the older helper body.
+
+Forward migration `20261012180000_reconcile_complete_squad_save_helper.sql`
+changes only those two size checks and their error messages, preserving the
+function's identity, signature, security settings and grants. It accepts only the
+reviewed legacy or canonical function bodies; an unreviewed implementation aborts
+for inspection. It never invokes the helper or updates stored data. The deployed
+first reconciliation migration is unchanged.
+
+The upgrade fixtures now include the exact permissive helper from the staging
+report, both before and after the first reconciliation. They exercise incomplete
+and incorrectly allocated squads through both save layers, verify rejection
+preserves all data, and check that a valid four-starter/two-bench squad still saves.
+Apply this follow-up through `develop` and repeat the staging status/application
+checks above before promoting either reconciliation migration to production.
 
 ## Reconcile staging player and club UUIDs
 

@@ -83,6 +83,14 @@ are untouched. The runner restores `next-env.d.ts` when it still points at its
 temporary output. Browser journeys continue to use the existing dev server;
 the production build is a separate compile/type validation step.
 
+Before lint/build and functional scenarios, the runner also executes
+`scripts/check-schema-upgrade.mjs` against that disposable stack. Its populated
+legacy fixtures test reconciliation from the reported staging and production
+schemas, data preservation and failure rollback. Every case rolls back its
+fixtures and schema changes. The command accepts only the runner's temporary
+project ID or the isolated CI project with `CI=true`; it refuses the ordinary
+local project outside CI. Both database and application PR jobs run these checks.
+
 For the backwards-compatible unit/functional/browser pipeline:
 
 ```bash
