@@ -206,6 +206,11 @@ All commands below use `npm run test:local -- <action> [gameweek]`:
 `refresh-prices` remains a separate budget-trigger regression command, described
 below; it is not a normal lifecycle step. Never use it to reopen transfers.
 
+Player statistics and transfer summaries publish a gameweek only after the
+successful `unlock` flow records refresh completion. Kickoff, individual results,
+scoring or passing the scheduled unlock time alone do not publish those stats;
+the same completion marker controls this in production.
+
 ### Step through individual results
 
 Once your squad and chip selection are ready:

@@ -10,7 +10,14 @@ export type DashboardPlayer = {
 
 export type SquadPosition = "starter" | "bench";
 
-export type TransferPlayer = DashboardPlayer & { active: boolean };
+export type TransferPlayer = DashboardPlayer & {
+  active: boolean;
+  total_points: number;
+  form: number | null;
+  owned_percent: number | null;
+  singles_wins: number;
+  singles_losses: number;
+};
 
 export type ResultGameweek = {
   id: string;

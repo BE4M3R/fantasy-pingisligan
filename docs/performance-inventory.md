@@ -51,6 +51,20 @@ below describe code paths, not measured latency or throughput.
   of reuse. Cached catalogue or fixture data is not suitable for mutation validation.
 - Browser catalogue reuse is safe across account changes because it contains
   only the public roster. Personal result/detail caches live inside components.
+- Player statistics reuse the public sports cache for compact catalogue
+  aggregates and explicitly requested player histories. The transfer picker
+  makes one summary RPC, rather than a request per listed player. Opening a
+  player makes two parallel reads for summary/history, followed by at most one
+  three-row upcoming-fixture query. No raw payload is sent to the browser.
+  Detail requests are deduplicated in the browser, reused for 60 seconds and
+  bounded to 20 cached players. The shared cache contains sports data and aggregate
+  ownership percentages only. Ownership reuses indexed locked squad snapshots
+  for the latest completed gameweek, materialized once inside the existing
+  catalogue RPC. No individual team selections or manager identities are cached
+  publicly, and neither view adds a network request for ownership.
+  Both history and summary aggregates exclude in-progress or pending-refresh
+  gameweeks; they become eligible after successful unlock completion. Existing
+  cache revalidation may delay newly published statistics on the first read.
 - Public fixture and catalogue changes made by import scripts require no Vercel
   callback secret; they appear through time revalidation. Scored standings use a
   fresh read and therefore expose a completed results poll on the next page load.
