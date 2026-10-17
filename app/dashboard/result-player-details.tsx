@@ -29,15 +29,15 @@ export function getBreakdownDisplayPoints(result: ResultBreakdownData) {
     : result.team_points_contribution;
 }
 
-export function ClubLogo({ player }: { player: DashboardPlayer }) {
+export function ClubLogo({ player, compact = false }: { player: DashboardPlayer; compact?: boolean }) {
   const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
   const clubName = canonicalClubName(name ?? "Free agent");
   const logo = getClubLogo(clubName);
 
   return (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-[var(--pf-text)] p-1.5">
+    <div className={`flex shrink-0 items-center justify-center border border-white/15 bg-[var(--pf-text)] ${compact ? "h-8 w-8 rounded-md p-1" : "h-14 w-14 rounded-lg p-1.5"}`}>
       {logo ? (
-        <Image alt={logo.alt} className="h-auto w-auto max-h-12 max-w-12 object-contain" height={48} src={logo.src} width={48} />
+        <Image alt={logo.alt} className={`h-auto w-auto object-contain ${compact ? "max-h-6 max-w-6" : "max-h-12 max-w-12"}`} height={48} src={logo.src} width={48} />
       ) : (
         <span className="text-base font-black text-[var(--pf-navy)]">{clubName.slice(0, 1)}</span>
       )}

@@ -169,6 +169,29 @@ The browser league journey checks per-week lineups, chip status, scores, player 
 The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.
 
+Player statistics tests cover singles/doubles classification, walkovers, multiple
+fixtures, form including missed gameweeks, publication only after successful
+unlock despite stored live scores, inactive history and public-data boundaries.
+Ownership tests cover starters and benches across several locked squads,
+incomplete/late teams, no snapshots, rounding, stable history across transfers
+and live gameweeks, completion gating and private squad protection.
+The browser journey covers authenticated endpoints, transfer sorting,
+detail and squad-preview loading/retry, read-only statistics and selection from the transfer window,
+clickable identity/price fields in the outgoing card and all available-player statistics,
+fixed search/filters while the outgoing card scrolls, club and affordability filters,
+preserved filters/focus/drafts, nested Escape behavior, dismissible info popovers,
+one-row phone summaries, compact recent form and three upcoming opponents on
+one row with logos and gameweek/home/away labels. Recent form checks show missed
+weeks as `-` and retain played weeks with zero points. Singles set splits cover wins,
+losses, walkovers and doubles exclusion. Ownership is consistent between the
+detail endpoint, four summary cards and the compact transfer table, including
+sorting and unowned players. Squad popup coverage checks the three main actions in
+one row and a bottom footer with a larger statistics action beside removal, compact shared statistics without scrolling down to 320 × 568,
+info-popover Escape behavior, swap options and reuse of the loaded preview
+when opening full statistics. It captures mobile and desktop
+review screenshots in the ignored browser artifacts directory; screenshots still
+require visual inspection.
+
 ## Rendered UI inspection
 
 The repository skill `$verify-ui` uses this procedure and the

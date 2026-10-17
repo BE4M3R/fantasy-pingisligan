@@ -96,6 +96,7 @@ test.describe.serial("manager gameweek journey", () => {
     const breakdown = page.getByRole("dialog", { name: "Functional Player2" });
     await expect(breakdown.getByText("Lost singles set-score")).toBeVisible();
     await expect(breakdown.getByText("1 set won, 3 sets lost")).toBeVisible();
+    await expect(breakdown.getByRole("button", { name: /View statistics/ })).toHaveCount(0);
   });
 
   test("result navigation reuses cached results and shows each team's gameweek transfer cost", async ({ page }) => {

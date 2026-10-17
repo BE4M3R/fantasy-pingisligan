@@ -4,7 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { canonicalClubName } from "@/lib/clubs";
 import { ClubLogo, ResultBreakdown } from "@/app/dashboard/result-player-details";
+import { PlayerActionIcon } from "@/app/dashboard/player-action-icon";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
+import { PlayerStatisticsPreview } from "@/app/dashboard/player-statistics-preview";
+import { PlayerStatisticsButton } from "@/app/dashboard/player-statistics-button";
 import { animatePopupOpen, type PopupOrigin } from "@/app/dashboard/popup-animation";
 import { squadCardShellClass } from "@/app/dashboard/squad-card-visual";
 import type {
@@ -31,9 +34,8 @@ type SquadCardActionsProps = {
   transfersLocked: boolean;
 };
 
-function formatMoney(value: number | string) {
-  return `${(Number(value) / 1000000).toFixed(1)}m`;
-}
+const actionButtonClass = "group flex h-11 min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-[var(--pf-brand-blue-border)] bg-linear-to-br from-[var(--pf-table-blue)] to-[var(--pf-brand-blue-border)] px-1 text-xs font-bold leading-3 text-white shadow-md transition hover:border-[var(--pf-brand-blue-hover)] hover:brightness-110 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none disabled:brightness-100 sm:flex-row sm:gap-2 sm:px-3 sm:text-sm";
+const sectionDividerClass = "relative before:pointer-events-none before:absolute before:inset-x-0 before:-top-3 [@media(max-height:640px)]:before:-top-2 before:border-t before:border-[var(--pf-text-muted)]/25 before:content-['']";
 
 function getClubName(player: DashboardPlayer) {
   const name = Array.isArray(player.clubs) ? player.clubs[0]?.name : player.clubs?.name;
@@ -80,7 +82,7 @@ export function SquadCardActions({
     if (!isOpen) return;
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !document.querySelector("dialog[open], [popover]:popover-open")) {
         setSwapPickerOpen(false);
         setIsOpen(false);
       }
@@ -128,14 +130,14 @@ export function SquadCardActions({
             <div
               aria-labelledby={`squad-actions-${player.id}`}
               aria-modal="true"
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--pf-navy-deep)]/80 p-4 text-white"
+              className="fixed inset-0 z-[10000] flex items-center justify-center bg-[var(--pf-navy-deep)]/80 p-3 text-white sm:p-4"
               onClick={(event) => {
                 if (event.target === event.currentTarget) closeActions();
               }}
               role="dialog"
             >
               <div
-                className="max-h-[calc(100dvh_-_2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 shadow-2xl sm:p-6"
+                className={`max-h-[calc(100dvh_-_1.5rem)] w-full ${result ? "max-w-md p-5 sm:p-6" : "max-w-2xl p-3 sm:p-5"} overflow-y-auto overscroll-contain rounded-xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] shadow-2xl sm:max-h-[calc(100dvh_-_2rem)]`}
                 onClick={(event) => event.stopPropagation()}
                 ref={panelRef}
               >
@@ -152,7 +154,7 @@ export function SquadCardActions({
                       <p className="mt-1 text-sm font-bold text-[var(--pf-text-muted)]">
                         {result
                           ? `${getGameweekLabel(result)} · ${getDisplayedResultPoints(result)} pts`
-                          : formatMoney(player.price)}
+                          : getClubName(player)}
                       </p>
                     </div>
                   </div>
@@ -171,130 +173,145 @@ export function SquadCardActions({
                   <ResultBreakdown result={result} />
                 ) : (
                   <>
-                {transfersLocked ? (
-                  <div className="mt-5 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-3 text-sm text-[var(--pf-coral-text)]">
-                    Player changes are unavailable while the transfer window is
-                    closed.
-                  </div>
-                ) : null}
+                    {transfersLocked ? (
+                      <div className="mt-5 rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-3 text-sm text-[var(--pf-coral-text)]">
+                        Player changes are unavailable while the transfer window is
+                        closed.
+                      </div>
+                    ) : null}
 
-                {clubRepairRequired && !transfersLocked ? (
-                  <p className="mt-3 text-sm text-[var(--pf-coral-text)]">
-                    {transferRestricted
-                      ? "Transfer a player from a club with more than two players first."
-                      : "Transfer a player from this club to bring your squad within the club limit."}
-                  </p>
-                ) : null}
-
-                <div className="mt-5 grid gap-3">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    <button
-                      aria-label={
-                        player.is_captain
-                          ? `${playerName} is already captain`
-                          : `Make ${playerName} captain`
-                      }
-                      className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
-                      disabled={transfersLocked || clubRepairRequired || player.is_captain}
-                      onClick={() => {
-                        onMakeCaptain();
-                        closeActions();
-                      }}
-                      type="button"
-                    >
-                      Make captain
-                    </button>
-
-                    <PlayerPicker
-                      onSelect={(selectedPlayer) => {
-                        onReplace(selectedPlayer);
-                        closeActions();
-                      }}
-                      outgoingClubId={
-                        Array.isArray(player.clubs)
-                          ? player.clubs[0]?.id
-                          : player.clubs?.id
-                      }
-                      outgoingPlayerId={player.id}
-                      position={player.position}
-                      remainingBudget={remainingBudget + Number(player.price)}
-                      selectedClubIds={selectedClubIds}
-                      selectedPlayerIds={selectedPlayerIds}
-                      transfersLocked={transfersLocked}
-                      trigger="replace"
-                      triggerLabel="Transfer player"
-                    />
-
-                    <button
-                      aria-controls={`swap-picker-${player.id}`}
-                      aria-expanded={swapPickerOpen}
-                      className="h-12 w-full rounded-md bg-[var(--pf-brand-blue)] px-2 text-xs font-bold text-[var(--pf-navy-deep)] transition hover:bg-[var(--pf-brand-blue-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] disabled:cursor-not-allowed disabled:bg-[var(--pf-navy-elevated)] disabled:text-[var(--pf-text-muted)] disabled:opacity-60 sm:text-sm"
-                      disabled={transfersLocked || clubRepairRequired || swapTargets.length === 0}
-                      onClick={() => setSwapPickerOpen((open) => !open)}
-                      title={
-                        swapTargets.length
-                          ? undefined
-                          : `No ${player.position === "starter" ? "bench" : "main"} players available to swap`
-                      }
-                      type="button"
-                    >
-                      Swap
-                    </button>
-                  </div>
-
-                  {swapPickerOpen ? (
-                    <div
-                      className="rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] p-3"
-                      id={`swap-picker-${player.id}`}
-                    >
-                      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--pf-text-muted)]">
-                        Swap with
+                    {clubRepairRequired && !transfersLocked ? (
+                      <p className="mt-3 text-sm text-[var(--pf-coral-text)]">
+                        {transferRestricted
+                          ? "Transfer a player from a club with more than two players first."
+                          : "Transfer a player from this club to bring your squad within the club limit."}
                       </p>
-                      <div className="grid gap-2">
-                        {swapTargets.map((target) => (
+                    ) : null}
+
+                    <div className="mt-5 grid gap-3 [@media(max-height:640px)]:mt-3">
+                      <div>
+                        <h3 className="mb-2 text-left text-xs font-semibold text-[var(--pf-text-muted)] [@media(max-height:640px)]:text-[10px] [@media(max-height:640px)]:leading-3">Team action</h3>
+                        <div aria-label="Player actions" className="grid grid-cols-3 gap-2 sm:gap-3" role="group">
                           <button
-                            className="flex w-full items-center gap-3 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-2 text-left transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
-                            key={target.id}
+                            aria-label={
+                              player.is_captain
+                                ? `${playerName} is already captain`
+                                : `Make ${playerName} captain`
+                            }
+                            className={actionButtonClass}
+                            disabled={transfersLocked || clubRepairRequired || player.is_captain}
                             onClick={() => {
-                              onSwapPosition(target.id);
+                              onMakeCaptain();
                               closeActions();
                             }}
                             type="button"
                           >
-                            <ClubLogo player={target} />
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-bold text-[var(--pf-text)]">
-                                {target.first_name} {target.last_name}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-[var(--pf-text-muted)]">
-                                {getClubName(target)}
-                              </span>
-                            </span>
+                            <PlayerActionIcon kind="captain" className="h-4 w-4 shrink-0 text-[var(--pf-fantasy-yellow)]" />
+                            <span>Make captain</span>
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
 
-                  <button
-                    className="mx-auto mt-1 rounded-md border border-white/60 px-3 py-2 text-xs font-semibold text-[var(--pf-text-muted)] transition hover:border-white hover:bg-[var(--pf-brand-blue-soft)] hover:text-[var(--pf-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={transfersLocked || transferRestricted}
-                    onClick={() => {
-                      if (
-                        !window.confirm(
-                          `Remove ${playerName} from your squad?`,
-                        )
-                      ) {
-                        return;
-                      }
-                      onRemove();
-                      closeActions();
-                    }}
-                    type="button"
-                  >
-                    Remove from team
-                  </button>
-                </div>
+                          <PlayerPicker
+                            onSelect={(selectedPlayer) => {
+                              onReplace(selectedPlayer);
+                              closeActions();
+                            }}
+                            outgoingClubId={
+                              Array.isArray(player.clubs)
+                                ? player.clubs[0]?.id
+                                : player.clubs?.id
+                            }
+                            outgoingPlayerId={player.id}
+                            outgoingPlayer={player}
+                            position={player.position}
+                            remainingBudget={remainingBudget + Number(player.price)}
+                            selectedClubIds={selectedClubIds}
+                            selectedPlayerIds={selectedPlayerIds}
+                            transfersLocked={transfersLocked}
+                            triggerIcon={<PlayerActionIcon kind="transfer" />}
+                            triggerClassName={actionButtonClass}
+                            trigger="replace"
+                            triggerLabel="Transfer player"
+                          />
+
+                          <button
+                            aria-controls={`swap-picker-${player.id}`}
+                            aria-expanded={swapPickerOpen}
+                            className={actionButtonClass}
+                            disabled={transfersLocked || clubRepairRequired || swapTargets.length === 0}
+                            onClick={() => setSwapPickerOpen((open) => !open)}
+                            title={
+                              swapTargets.length
+                                ? undefined
+                                : `No ${player.position === "starter" ? "bench" : "main"} players available to swap`
+                            }
+                            type="button"
+                          >
+                            <PlayerActionIcon kind="swap" />
+                            <span>Swap</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {swapPickerOpen ? (
+                        <div
+                          className="rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] p-2"
+                          id={`swap-picker-${player.id}`}
+                        >
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--pf-text-muted)]">
+                            Swap with
+                          </p>
+                          <div className="grid gap-1">
+                            {swapTargets.map((target) => (
+                              <button
+                                className="flex min-h-11 w-full items-center gap-2 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy)] px-2 py-1 text-left transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
+                                key={target.id}
+                                onClick={() => {
+                                  onSwapPosition(target.id);
+                                  closeActions();
+                                }}
+                                type="button"
+                              >
+                                <ClubLogo player={target} compact />
+                                <span className="min-w-0">
+                                  <span className="block truncate text-xs font-bold leading-4 text-[var(--pf-text)]">
+                                    {target.first_name} {target.last_name}
+                                  </span>
+                                  <span className="block truncate text-[10px] leading-3 text-[var(--pf-text-muted)]">
+                                    {getClubName(target)}
+                                  </span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                    <PlayerStatisticsPreview playerId={player.id} className={`mt-6 [@media(max-height:640px)]:mt-4 ${sectionDividerClass}`} />
+                    <div aria-label="Player details and removal" className="mt-4 grid grid-cols-[1fr_2fr] gap-2 sm:gap-3 [@media(max-height:640px)]:mt-3" role="group">
+                      <button
+                        className="flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-[var(--pf-coral)]/35 px-2 py-1 text-xs font-semibold leading-tight text-[var(--pf-coral-text)] transition hover:border-[var(--pf-coral)] hover:bg-[var(--pf-coral-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] disabled:cursor-not-allowed disabled:opacity-40 sm:px-3"
+                        disabled={transfersLocked || transferRestricted}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Remove ${playerName} from your squad?`,
+                            )
+                          ) {
+                            return;
+                          }
+                          onRemove();
+                          closeActions();
+                        }}
+                        type="button"
+                      >
+                        <PlayerActionIcon kind="remove" className="hidden h-4 w-4 shrink-0 sm:block" />
+                        <span>Remove player</span>
+                      </button>
+                      <PlayerStatisticsButton player={player} className="group flex min-h-10 min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--pf-brand-blue-border)] bg-[var(--pf-brand-blue-soft)] px-3 py-1 text-xs font-bold leading-tight text-[var(--pf-text)] min-[360px]:text-sm transition hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-navy)] sm:px-4">
+                        <span className="min-w-0 text-left">Full player statistics</span>
+                        <PlayerActionIcon kind="arrow" className="h-5 w-5 shrink-0 transition-transform motion-safe:group-hover:translate-x-0.5" />
+                      </PlayerStatisticsButton>
+                    </div>
                   </>
                 )}
               </div>
