@@ -22,6 +22,51 @@ flowchart LR
 - The dashboard initially loads only the current fantasy team and its squad.
 - Opening a player picker triggers `GET /api/players`; the player pool is not
   included in the initial dashboard render.
+- The catalogue RPC `get_transfer_players` returns one compact statistics summary
+  per active player. `GET /api/players/[playerId]` loads player history and the next
+  three scheduled club fixtures only when a statistics dialog or squad actions
+  popup opens. The squad popup reuses the statistics summary (price, form and
+  ownership), recent form and upcoming opponents in a labelled Player overview
+  section below its three-action Team action row. All overview cards use the
+  same navy surface; compact spacing on short screens keeps actions reachable.
+  A smaller remove action sits at the bottom left and the larger Full player
+  statistics action sits at the bottom right. Both views share one bounded 60-second browser cache
+  and in-flight request; the dashboard does not preload player histories. Both routes
+  require verified authentication. Statistics appear in a dialog that preserves
+  the transfer draft and filters. The outgoing card's identity and price, and
+  player and statistic cells in the transfer list, open this read-only dialog;
+  adding a player uses only
+  the transfer window's add button. Result popups show the gameweek breakdown
+  without a full-statistics action. Compact cards keep price, points, form and
+  ownership percentage on one row on phones; info buttons open dismissible
+  explanations. The next
+  three opponents share one row with logos, names and gameweek/home/away labels.
+  Recent form shows the last five finished gameweeks: missed weeks show `-`,
+  while played weeks show their points, including zero. The Form
+  summary still averages the last five finished gameweeks, including missed
+  weeks as zero. Singles sets and their points are split by won/lost matches.
+  Player statistics and transfer summaries include only gameweeks whose unlock time has passed and
+  whose results/scoring refresh has completed, using the same completion marker
+  as the local and production unlock flow. Inactive owned players retain their
+  history but cannot be newly transferred in.
+- Ownership percentages reuse the latest completed gameweek's locked squad
+  snapshots, including starters and bench players. Teams without a snapshot
+  are excluded. The shared catalogue RPC supplies the same percentage for the
+  transfer table and player dialog; no per-player ownership requests are needed.
+  Only aggregate percentages are public, never individual manager selections.
+- The transfer picker sorts locally through clickable statistic column headers,
+  toggling ascending/descending order with an arrow beside the active title.
+  The Player header sorts by surname; names use a first initial and surname.
+  Numbers in the active statistic column are white and other columns are muted.
+  Price, form and ownership use equally sized columns on phones; wider screens
+  also show points and singles win rate. Club logos sit beside player names,
+  and transfer buttons show `+` or the reason a player cannot be added.
+  When replacing a player, a compact card shows their club logo, name, club and
+  price above the available-player count and sortable table. Only selected rows
+  are highlighted; regular rows share a surface with subtle separators. The
+  modal header, search and filters stay fixed while the outgoing card and table
+  scroll together. The card reuses the catalogue or the owned player's existing
+  data; opening statistics still loads details on demand.
 - Squad changes use Server Actions. Every mutation rechecks authentication,
   transfer locks, ownership, squad rules and budget on the server.
 - Supabase Row Level Security remains the database-level authorization boundary.

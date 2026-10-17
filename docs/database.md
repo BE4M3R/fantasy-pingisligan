@@ -91,3 +91,60 @@ a gameweek appears when its first fixture starts. Its score is live and may
 change as result imports arrive. It becomes final only after the post-gameweek
 refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
 points for a future gameweek are excluded from totals and rankings.
+
+## Player statistics
+
+Migration `20261013162024_player_statistics.sql` adds two read functions without
+changing scoring, stored results, prices or budgets. Forward migration
+`20261013181253_publish_player_statistics_after_unlock.sql` restricts their
+statistics to successfully unlocked gameweeks.
+
+Migration `20261014154000_player_statistics_singles_sets_by_outcome.sql` extends
+the weekly statistics RPC with singles sets won/lost and set points separately
+for won matches and lost matches, using the same walkover normalization. It
+recreates the RPC to extend its return type and restores its existing grants;
+it performs no data writes and adds no database queries to the detail loader.
+
+Migration `20261014173500_player_ownership_statistics.sql` adds
+`get_player_ownership(p_player_id)` and extends the catalogue RPC with
+`owned_percent`. Ownership is the percentage of locked squads containing a
+player in the latest successfully completed/unlocked gameweek, including bench
+players. The denominator is that game's squad snapshots; incomplete teams and
+teams created afterward do not affect it. Percentages are rounded to one decimal,
+with zero for an unowned player and null when no completed gameweek has team
+snapshots. Transfers and in-progress weeks cannot change historical ownership.
+The security-definer helper returns only player IDs and aggregate percentages;
+private squad rows, team IDs and manager identities remain protected by RLS.
+The catalogue materializes ownership once per request and keeps its existing
+security-invoker boundary and grants. No stored scores or squads are changed.
+
+- `get_player_statistics_rows(p_player_id)` returns weekly player points and
+  singles/doubles wins and losses, singles sets and set points. It includes zero
+  rows for missed unlocked gameweeks. A gameweek is included only after its
+  first fixture starts, its unlock time passes and `data_refreshed_at` records
+  successful results/scoring refresh. In-progress and pending-refresh results
+  are excluded, even if raw results and calculated points already exist.
+  An omitted player ID returns
+  active-player aggregates for the transfer summary.
+- `get_transfer_players(p_player_id)` adds total points, form, singles records and
+  ownership to the public player catalogue. An explicit ID also permits historical details
+  for inactive players. Form averages the last five unlocked gameweeks, or fewer
+  at season start, including zero appearances; it is null before any week
+  unlocks. Total points use `player_match_stats`, including existing bonuses and
+  excluding fantasy-manager captain/chip/transfer adjustments.
+
+The statistics helper is a security-definer function with an empty search path
+and explicit anonymous/authenticated grants. It exposes only sports aggregates;
+raw result payloads and personal fantasy data remain private. It classifies
+doubles from the complete sides, including unresolved player identities, and
+uses the scoring rules' walkover normalization. The catalogue function is a
+security invoker. This permits anonymous-key public caching after the web app
+has checked authentication, without introducing service-role credentials.
+
+Statistics cover all imported gameweeks in the existing single-season model.
+Upcoming fixtures are the current club's schedule, not a claim that the player
+will participate. The
+existing fixture query joins gameweek name/order for its home/away labels.
+The recent form chart displays the last five finished gameweeks, showing `-`
+for missed weeks and the points earned for played weeks, including zero.
+Missed weeks still count as zero in the Form summary average.

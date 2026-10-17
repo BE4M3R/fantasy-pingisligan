@@ -12,14 +12,10 @@ export async function GET() {
   }
 
   const { data, error } = await createPublicClient()
-    .from("players")
-    .select("id, first_name, last_name, birth_year, price, active, clubs(id, name)")
-    .eq("active", true)
-    .order("price", { ascending: false })
-    .order("id");
+    .rpc("get_transfer_players");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not load players." }, { status: 500 });
   }
 
   return NextResponse.json({ players: data ?? [] }, {
