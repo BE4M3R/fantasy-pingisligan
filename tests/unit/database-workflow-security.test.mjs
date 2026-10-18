@@ -19,7 +19,11 @@ const events = [
   "schedule", "repository_dispatch", "workflow_run", "workflow_call",
 ];
 
-test("schema status fails on SQL drift and CLI errors and reports success only for an empty diff", async () => {
+test("schema status fails on SQL drift and CLI errors and reports success only for an empty diff", {
+  // The production workflow uses Bash; execute its exact shell on POSIX and in
+  // Linux CI without requiring Bash/WSL for native Windows fast checks.
+  skip: process.platform === "win32" ? "Workflow shell execution is covered by Linux CI." : false,
+}, async () => {
   const workflow = await readWorkflow("database-status.yml");
   const steps = workflow.jobs.status.steps;
   const compare = steps.findIndex((step) => step.name === "Compare tracked and remote schemas");

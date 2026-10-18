@@ -74,11 +74,13 @@ diff -u data/player-catalogue.json data/player-catalogue.production.json
 ```
 
 This reads `.env.production` and requires its production Supabase URL and
-service-role key. Safety checks require a hosted Supabase URL different from
-staging. The command performs only paginated selects and writes the ignored
-`data/player-catalogue.production.json`; it cannot modify production or the
-committed catalogue. Review UUID, price, active-status and identity changes
-before manually promoting the candidate.
+service-role key plus `PRODUCTION_PROJECT_REF`. Safety checks require the exact
+expected hosted identity and retain the comparison against the operator staging
+file. This command has write-capable credentials, although its implementation
+performs only paginated selects and writes the ignored
+`data/player-catalogue.production.json`. It does not replace the committed
+catalogue. Review UUID, price, active-status and identity changes before manually
+promoting the candidate.
 
 An equivalent read-only staging comparison is also available:
 
@@ -487,3 +489,15 @@ appearance in the winning fixture and use the immutable
 `player_gameweek_club_snapshots` club captured at that gameweek's lock, not the
 current club on `players`. Other players registered to the winning club receive
 no fixture-win bonus.
+
+## Explicit operator targets
+
+Ordinary STUPA imports read `.env.local` only and reject inherited hosted URLs
+before contacting STUPA. Dry runs still contact upstream services and may read
+the selected database. Authorized hosted callers must supply `--target staging`
+or `--target production` plus the matching `STAGING_PROJECT_REF` or
+`PRODUCTION_PROJECT_REF` in a clean operator environment. `refresh:staging`
+passes its explicit staging target to children. The existing protected production
+results workflow is recognized by its canonical Actions context and needs no
+new secrets, variables or YAML changes. See [loading behavior and operator
+compatibility](local-development-security.md).

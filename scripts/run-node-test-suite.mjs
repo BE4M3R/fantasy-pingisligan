@@ -1,3 +1,4 @@
+import { developmentEnvironment } from "./environment.mjs";
 import { spawn } from "node:child_process";
 import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +26,11 @@ const child = spawn(process.execPath, [
   "--test-reporter-destination=stdout",
   `--test-reporter-destination=${path.join(resultsDirectory, "results.xml")}`,
   ...files,
-], { stdio: "inherit" });
+], { stdio: "inherit", env: {
+  ...developmentEnvironment(),
+  ...(suite === "functional" ? Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => /^FUNCTIONAL_TEST_(SUPABASE_URL|ANON_KEY|SERVICE_ROLE_KEY)$/.test(key))) : {}),
+} });
 
 const exitCode = await new Promise((resolve, reject) => {
   child.once("error", reject);

@@ -12,8 +12,8 @@ verifyStagingImportTarget({
 });
 
 for (const [script, args] of [
-  ["import-stupa-schedule.mjs", []],
-  ["import-stupa-results.mjs", ["--complete-gameweek-refresh"]],
+  ["import-stupa-schedule.mjs", ["--target", "staging"]],
+  ["import-stupa-results.mjs", ["--target", "staging", "--complete-gameweek-refresh"]],
   ["verify-staging-refresh.mjs", []],
 ]) {
   const result = spawnSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url)), ...args], {

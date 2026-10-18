@@ -4,24 +4,25 @@ Use this checklist after pulling application changes:
 
 ```bash
 git pull
-npm install
-npm run lint
-npm run build
+npm ci
+npm run check
 ```
 
 Do not paste database SQL into a remote SQL Editor. Timestamped migrations are
 validated on pull requests and deployed by the staging and production GitHub
 Actions described in [Database migrations](database-migrations.md).
 
-For local database development, start Docker and rebuild from the committed
-migration history:
+For local database development, start a compatible container runtime and apply
+pending migrations while preserving existing accounts/squads:
 
 ```bash
 npm run db:start
-npm run db:reset
+npx supabase migration up --local
 npm run db:lint
-npm run db:stop
 ```
+
+Use `db:reset` or the [documented rebuild procedure](database-migrations.md#rebuild-a-populated-local-database)
+only when you intend to erase local data.
 
 The SQL files under `supabase/legacy/` predate automated migration tracking.
 They are retained only to explain historical database changes and must not be
@@ -60,3 +61,10 @@ file or copy the service-role key into a `NEXT_PUBLIC_*` variable.
 Vercel needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the
 site URL documented in the root README. The local import scripts do not require
 adding the service-role key to Vercel.
+
+Local app/build commands now reject automatically loaded operator files such as
+`.env.production`. Follow [portable setup and manual credential separation](local-development-security.md)
+before running `npm run build` or `npm run check:all` in an existing mixed checkout.
+Fast checks need no Docker; full checks can run in PR CI when containers are
+unavailable. Ordinary import commands target local Supabase; hosted imports need
+explicit operator target/ref configuration described in that guide.

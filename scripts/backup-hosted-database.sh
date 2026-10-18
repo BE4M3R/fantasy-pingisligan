@@ -8,14 +8,6 @@ if [[ $# -gt 1 ]]; then
 fi
 
 backup_root=${1:-"$HOME/OneDrive/fantasy-pingisligan-db-backups"}
-mkdir -p "$backup_root"
-chmod 700 "$backup_root"
-
-timestamp=$(date -u +%Y%m%dT%H%M%SZ)
-backup_dir="$backup_root/$timestamp"
-mkdir "$backup_dir"
-chmod 700 "$backup_dir"
-
 db_url=${SUPABASE_DB_URL:-}
 if [[ -z "$db_url" ]]; then
   read -r -s -p "Hosted Supabase Postgres connection URL: " db_url
@@ -25,6 +17,18 @@ if [[ -z "$db_url" ]]; then
   echo "A connection URL is required." >&2
   exit 2
 fi
+
+# Explicit expected project identity is mandatory, including for prompted URLs.
+# Validation must happen before CLI/network access or creation of backup files.
+SUPABASE_DB_URL="$db_url" node scripts/verify-backup-target.mjs
+
+mkdir -p "$backup_root"
+chmod 700 "$backup_root"
+
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+backup_dir="$backup_root/$timestamp"
+mkdir "$backup_dir"
+chmod 700 "$backup_dir"
 
 cleanup() {
   unset db_url
@@ -42,4 +46,4 @@ npx --no-install supabase db dump --db-url "$db_url" --data-only --use-copy \
 chmod 600 "$backup_dir"/*.sql
 printf 'Backup completed at %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$backup_dir/README.txt"
 chmod 600 "$backup_dir/README.txt"
-echo "Backup completed. Confirm OneDrive has finished syncing this folder."
+echo "Backup completed. Confirm the private destination has been replicated if required."
