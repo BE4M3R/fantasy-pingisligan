@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { developmentEnvironment } from "./environment.mjs";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -96,7 +97,7 @@ for (const [label, schema, failure, followupOnly] of [
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
     "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000 });
+  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${label}: ${result.stderr}`);
   console.log(`Schema upgrade passed: ${label}`);

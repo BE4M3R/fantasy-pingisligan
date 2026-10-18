@@ -1,3 +1,5 @@
+import { developmentEnvironment } from "./environment.mjs";
+import { assertLocalNextFiles } from "./run-next.mjs";
 import assert from "node:assert/strict";
 import { randomBytes, randomInt } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -9,13 +11,20 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const supabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
+const supabaseCli = path.join(projectRoot, "node_modules", "supabase", "dist", "supabase.js");
+const npmCli = process.env.npm_execpath;
 const playwrightVersion = createRequire(import.meta.url)("@playwright/test/package.json").version;
 const image = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 let activeChild;
 let interrupted = false;
 
-function run(command, args, { cwd = projectRoot, env = process.env, capture = false, allowInterrupted = false } = {}) {
+function run(command, args, { cwd = projectRoot, env = developmentEnvironment(), capture = false, allowInterrupted = false } = {}) {
+  if (command === "npm" || command === supabaseCli) {
+    const entry = command === "npm" ? npmCli : supabaseCli;
+    if (!entry) throw new Error("Run this harness through its npm script.");
+    args = [entry, ...args];
+    command = process.execPath;
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd, env, stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -81,7 +90,7 @@ export function localEnvironment(values, portBase, inherited = process.env) {
   assert.equal(values.API_URL, url, "Temporary Supabase started on an unexpected API URL.");
   assert.ok(values.ANON_KEY && values.SERVICE_ROLE_KEY, "Temporary Supabase keys are missing.");
   return {
-    ...inherited,
+    ...developmentEnvironment(inherited),
     FUNCTIONAL_TEST_SUPABASE_URL: url,
     FUNCTIONAL_TEST_ANON_KEY: values.ANON_KEY,
     FUNCTIONAL_TEST_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
@@ -122,6 +131,7 @@ async function main() {
   if (args.length > 1 || (args.length && !functionalOnly && !comprehensive)) {
     throw new Error("Use 'check', 'functional' or no argument. Test targets cannot be overridden.");
   }
+  if (!functionalOnly) await assertLocalNextFiles(projectRoot);
   for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => {
       interrupted = true;
@@ -135,8 +145,7 @@ async function main() {
   const nextEnvPath = path.join(projectRoot, "next-env.d.ts");
   let startAttempted = false;
   let stopSucceeded = false;
-  const cliEnv = { ...process.env };
-  for (const key of ["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_ID"]) delete cliEnv[key];
+  const cliEnv = developmentEnvironment();
   try {
     if (!functionalOnly) await run("npm", ["run", comprehensive ? "check" : "test:unit"]);
     const portBase = await choosePortBase();
@@ -177,8 +186,11 @@ async function main() {
     console.log("Running database scenarios against the disposable stack...");
     await run("npm", ["run", "test:functional:db"], { env: environment });
     if (!functionalOnly) {
-      console.log("Running Chromium smoke tests in the matching Playwright container...");
-      await run("docker", browserArgs(environment), { env: environment });
+      const browserMode = process.env.LOCAL_TEST_BROWSER ?? (process.platform === "win32" ? "host" : "container");
+      if (!["host", "container"].includes(browserMode)) throw new Error("LOCAL_TEST_BROWSER must be host or container.");
+      console.log(`Running Chromium smoke tests (${browserMode})...`);
+      if (browserMode === "host") await run("npm", ["run", "test:e2e"], { env: environment });
+      else await run("docker", browserArgs(environment), { env: environment });
     }
     console.log(functionalOnly ? "Functional tests passed." : "All local tests passed.");
   } finally {

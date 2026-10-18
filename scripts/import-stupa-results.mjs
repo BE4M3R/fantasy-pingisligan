@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { importEnvironment } from "./environment.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
@@ -13,9 +13,6 @@ const DEFAULT_STAGE_ID = 5727;
 const LICENSE_PROVIDER = "sbtf_license";
 const ROLE_PROVIDER = "stupa_user_role";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, "..");
-
 function requireEnv(name, fallbackName) {
   const value = process.env[name] ?? process.env[fallbackName];
 
@@ -25,33 +22,6 @@ function requireEnv(name, fallbackName) {
   }
 
   return value;
-}
-
-async function loadEnvFile(filePath) {
-  let content;
-
-  try {
-    content = await readFile(filePath, "utf8");
-  } catch (error) {
-    if (error.code === "ENOENT") return;
-    throw error;
-  }
-
-  for (const line of content.split(/\r?\n/)) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith("#")) continue;
-
-    const match = trimmedLine.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    if (!match) continue;
-
-    const [, key, rawValue] = match;
-    if (process.env[key]) continue;
-
-    process.env[key] = rawValue
-      .trim()
-      .replace(/^(['"])(.*)\1$/, "$2")
-      .replace(/\\n/g, "\n");
-  }
 }
 
 function integer(value, fallback = 0) {
@@ -581,8 +551,9 @@ export async function persistScoreAndComplete(supabase, rows, { complete = false
 }
 
 async function main() {
-  await loadEnvFile(path.join(projectRoot, ".env.local"));
-  await loadEnvFile(path.join(projectRoot, ".env"));
+  const environment = await importEnvironment(process.argv.slice(2));
+  // Selected environment only; unrelated inherited credentials are not used.
+  process.env = { ...environment };
 
   const dryRun = process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
   const stageId = integer(process.env.STUPA_STAGE_ID, DEFAULT_STAGE_ID);

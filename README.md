@@ -4,34 +4,38 @@ Fantasy table-tennis app for Pingisligan, built with Next.js and Supabase.
 
 ## Start locally
 
-Start Docker, install dependencies, and start local Supabase:
+Install Node 24 and Git, then run `npm ci` and `npm run check`. Fast checks
+need no Docker, environment file, hosted credentials or Codex installation.
+
+For the app and full tests, start a compatible local container runtime, then:
 
 ```bash
-npm install
 npm run db:start
 npx supabase status
 ```
 
-Create `.env.local` using the values printed by `npx supabase status`:
+Copy [`.env.example`](.env.example) to your own ignored `.env.local` with your
+editor/file manager. Replace the placeholders using **local** status keys;
+both API URLs must stay `http://127.0.0.1:54321`. Never use hosted credentials
+or log in/link the Supabase CLI for normal development.
 
-```dotenv
-# API_URL
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-# PUBLISHABLE_KEY
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-local-publishable-key
-# SERVICE_ROLE_KEY; required by imports and gameweek test commands
-SUPABASE_SERVICE_ROLE_KEY=your-local-service-role-key
-# Set manually
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-Do not commit `.env.local` or its keys. Then start the app:
+On a fresh local stack:
 
 ```bash
+npm run import:players:catalogue
+npm run seed:local-accounts -- seed --count 10
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. Windows, macOS, Linux and WSL2 use the same npm
+commands; WSL and Codex are optional. Full local validation needs containers;
+PR CI remains available when contributors cannot run them.
+
+Read [portable development and credential separation](docs/local-development-security.md)
+for runtime/browser choices, target guards and the manual operator isolation
+steps. Local Next/build/browser commands stop if auto-loaded files such as
+`.env.production` exist; move operator authority out of the everyday environment
+manually before using them. This phase does not move any existing files.
 
 ### Rebuild a populated local database
 
@@ -86,7 +90,8 @@ npm run export:players:production-candidate
 diff -u data/player-catalogue.json data/player-catalogue.production.json
 ```
 
-This uses the uncommitted `.env.production`, selects production clubs, players
+This operator-only command requires `PRODUCTION_PROJECT_REF` in the uncommitted
+`.env.production`, selects production clubs, players
 and stored identity aliases, and writes only the ignored candidate file. It does
 not modify production or overwrite the committed catalogue.
 
@@ -165,7 +170,8 @@ directly to `main`.
 ## Data imports
 
 These commands target local Supabase by default: each script loads `.env.local`.
-Run them only from a terminal where `.env.staging.local` has not been sourced.
+Inherited hosted targets are rejected before any upstream request; hosted
+imports require an explicit operator target and expected project ref.
 Imports need `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Run dry imports
 before writing data:
 
@@ -310,14 +316,10 @@ use it only for a short, deliberate smoke test and always clean it up.
 To create staging test accounts, put `TEST_ACCOUNT_PASSWORD` in
 `.env.staging.local`, then run `npm run seed:staging-accounts`.
 
-To run the app against staging in a dedicated terminal:
-
-```bash
-set -a
-source .env.staging.local
-set +a
-npm run dev
-```
+To inspect the staging app from a separately authorized operator environment,
+use `npm run dev:staging`. It requires the staging public key/URL and
+`STAGING_PROJECT_REF` in `.env.staging.local`; ordinary `npm run dev` rejects
+hosted targets. See [operator setup](docs/local-development-security.md).
 
 ## Further documentation
 

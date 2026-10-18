@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { assertHostedUrl } from "./environment.mjs";
 
 export function verifyStagingImportTarget({ supabaseUrl, publicUrl, serviceKey, projectRef, appEnv, stageId }) {
   if (appEnv !== "staging") {
@@ -13,6 +14,7 @@ export function verifyStagingImportTarget({ supabaseUrl, publicUrl, serviceKey, 
   if (!serviceKey) {
     throw new Error("Set SUPABASE_SERVICE_ROLE_KEY in .env.staging.local.");
   }
+  assertHostedUrl(supabaseUrl, projectRef);
   let url;
   try {
     url = new URL(supabaseUrl);

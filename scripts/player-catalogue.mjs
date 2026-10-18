@@ -1,3 +1,4 @@
+import { assertTarget } from "./environment.mjs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,34 +50,18 @@ export async function loadEnvironment(target) {
     throw new Error(`Supabase URL and ${keyName} are required in ${fileName}.`);
   }
 
-  const url = new URL(supabaseUrl);
-  if (isStaging) {
-    if (values.APP_ENV !== "staging") {
-      throw new Error("APP_ENV must be exactly 'staging' in .env.staging.local.");
-    }
-    if (!values.STAGING_PROJECT_REF) {
-      throw new Error("STAGING_PROJECT_REF is required in .env.staging.local.");
-    }
-    if (url.hostname !== `${values.STAGING_PROJECT_REF}.supabase.co`) {
-      throw new Error(
-        `Staging safety check failed: ${url.hostname} does not match STAGING_PROJECT_REF.`,
-      );
-    }
-  } else if (isProduction) {
-    if (url.protocol !== "https:" || !/^[a-z0-9]+\.supabase\.co$/.test(url.hostname)) {
-      throw new Error("Production safety check failed: expected a hosted Supabase URL.");
-    }
+  assertTarget(values, target);
+  if (isStaging && values.APP_ENV !== "staging") throw new Error("APP_ENV must be staging.");
+  if (isProduction) {
+    // Preserve the existing production-versus-staging cross-check in the operator
+    // checkout as well as pinning the explicit production project reference.
     const stagingValues = parseEnvFile(
       await readFile(path.join(projectRoot, ".env.staging.local"), "utf8"),
     );
     const stagingUrl = stagingValues.SUPABASE_URL ?? stagingValues.NEXT_PUBLIC_SUPABASE_URL;
-    if (stagingUrl && url.origin === new URL(stagingUrl).origin) {
+    if (stagingUrl && new URL(supabaseUrl).origin === new URL(stagingUrl).origin) {
       throw new Error("Production safety check failed: production URL matches staging.");
     }
-  } else if (url.origin !== "http://127.0.0.1:54321") {
-    throw new Error(
-      "Local safety check failed: NEXT_PUBLIC_SUPABASE_URL must be http://127.0.0.1:54321.",
-    );
   }
 
   return { apiKey, supabaseUrl };
