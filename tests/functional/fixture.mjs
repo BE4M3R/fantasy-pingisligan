@@ -1,27 +1,20 @@
+import { assertTarget, readEnvironment } from "../../scripts/environment.mjs";
 import assert from "node:assert/strict";
 import { randomInt, randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 
 const password = "functional-test-12";
 
-function envFile(content) {
-  return Object.fromEntries(content.split(/\r?\n/).flatMap((line) => {
-    const match = line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    return match ? [[match[1], match[2].trim().replace(/^(['"])(.*)\1$/, "$2")]] : [];
-  }));
-}
-
 export async function localClients() {
   const isolated = process.env.FUNCTIONAL_TEST_SUPABASE_URL;
-  const fileValues = isolated ? {} : envFile(await readFile(new URL("../../.env.local", import.meta.url), "utf8"));
-  const env = { ...fileValues, ...process.env };
-  const url = env.FUNCTIONAL_TEST_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL;
-  const parsedUrl = new URL(url);
-  assert.equal(parsedUrl.protocol, "http:", "Functional tests require an HTTP local Supabase API.");
-  assert.equal(parsedUrl.hostname, "127.0.0.1", "Functional tests require a 127.0.0.1 Supabase API.");
-  const anonKey = env.FUNCTIONAL_TEST_ANON_KEY ?? env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceKey = env.FUNCTIONAL_TEST_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
+  const env = isolated ? {
+    SUPABASE_URL: isolated,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.FUNCTIONAL_TEST_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.FUNCTIONAL_TEST_SERVICE_ROLE_KEY,
+  } : await readEnvironment(new URL("../../.env.local", import.meta.url));
+  const url = assertTarget(env, "local", { localOrigin: isolated ? null : undefined });
+  const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
   assert.ok(anonKey, "Missing local anon key");
   assert.ok(serviceKey, "Missing local service role key");
   return {

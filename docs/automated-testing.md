@@ -114,14 +114,21 @@ to the migration guide. A populated local
 reset is destructive and needs authorization; use disposable tests for ordinary
 regression checks.
 
-The aggregate validation commands never use hosted credentials: fast checks
-do not query a database; disposable runners replace inherited Supabase URLs
-and keys with values from their own stack and verify its exact loopback API
-URL before building or testing. They reject target override flags and never
-link a project or run hosted resets/pushes. Next.js may load `.env.production`
-during its build, but the runner's explicit local URLs and keys take precedence
-over env files. `.env.local` is not changed. Use `check:all` for a safe validation build;
-standalone `npm run build` still uses your current Next.js environment.
+The aggregate validation commands never select a hosted database. Disposable
+runners replace inherited Supabase URLs/keys, filter unrelated provider/DB/CLI
+credentials and verify their exact loopback API URL. Before starting the full
+pipeline, a filename-only preflight rejects `.env.production` and other automatic
+Next env files; local Next commands use the same guard. Only `.env.local` is
+supported for everyday app configuration. This intentionally blocks old mixed
+operator/developer checkouts until manual isolation; no credential file is moved
+by tests. `npm run build` is also guarded, and Vercel's existing platform build
+configuration is preserved. See [loading behavior and isolation](local-development-security.md).
+
+Native Windows defaults to host Chromium; other platforms retain the matching
+Playwright container. Set `LOCAL_TEST_BROWSER=host` in your shell to use installed
+host Chromium elsewhere, including Docker Desktop without host networking.
+The full runner still requires local containers for Supabase. See the
+[portable setup](local-development-security.md#new-contributor-setup) for commands.
 
 `npm run test:functional` starts and removes its own clean disposable Supabase
 stack, without changing your usual local database. CI uses
@@ -133,6 +140,9 @@ For direct `test:e2e` runs on the host, install Chromium and its dependencies wi
 The suite runner uses Node's `--experimental-test-isolation=none`; use Node 24
 as in CI. Prefer the wrapper commands over invoking functional test files
 directly. Never point test configuration at a hosted Supabase project.
+The schema-status workflow's Bash execution regression runs on POSIX and Linux
+CI; native Windows skips that single case. Its JavaScript workflow-guard tests
+still run on every platform, so Windows fast checks do not require Bash or WSL.
 
 The unit suite includes `gameweek-steps.test.mjs` for individual event ordering,
 multi-day/DST timing and local-only CLI guards. The functional suite's matching
@@ -255,8 +265,12 @@ test("login visual review", async ({ page }, testInfo) => {
 For a review spec named `ui-review.spec.mjs`, a direct, already verified local
 target can run just that file with `npm run test:e2e -- ui-review.spec.mjs`.
 For authenticated fixture-backed reviews, the disposable `npm run test:all`
-discovers it automatically. `npm run test:e2e -- --list` lists tests without
-starting the app or connecting to a database.
+discovers it automatically. The guarded `npm run test:e2e` launcher validates a
+complete local credential set
+and filters inherited credentials; Playwright always starts a fresh guarded
+server and fails if its port is already occupied.
+`npm run test:e2e -- --list` lists tests without loading environment files,
+requiring database credentials, starting the app or connecting to a database.
 
 Capture the affected page and interactive states at mobile and desktop sizes;
 add the narrowest supported width and widths around affected breakpoints.
@@ -323,7 +337,8 @@ failures and traces.
 arrives independently and the existing CI stack is reused: do not add
 `check:all` or `test:all` to `functional-and-browser`, since either would start
 another database and repeat unit tests. CI uses the host Chromium installation;
-the local runner uses the matching Playwright container. Both use Node 24, the
+the local runner defaults to the matching Playwright container except on native
+Windows, and also supports explicit host-browser mode. Both use Node 24, the
 same suites, migration history, database lint flags and production build.
 
 The path-filtered `database-migrations-ci.yml` also rebuilds and lints a database.

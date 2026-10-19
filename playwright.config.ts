@@ -24,6 +24,7 @@ export default defineConfig({
     command: `npm run dev -- --webpack --port ${appPort}`,
     url: `${appOrigin}/login`,
     timeout: 120_000,
-    reuseExistingServer: !process.env.CI && !process.env.PLAYWRIGHT_TEST_ISOLATED,
+    // A listening localhost server could have been started with a hosted target.
+    reuseExistingServer: false,
   },
 });

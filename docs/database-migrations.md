@@ -90,17 +90,11 @@ Commit the new migration and open a pull request into `develop`. Pull requests
 first rebuild and lint a clean local database in CI. After the PR is merged,
 GitHub Actions applies the pending migration to staging.
 
-To test the application against staging locally, use a dedicated terminal.
-Next.js does not load `.env.staging.local` automatically:
-
-```bash
-set -a
-source .env.staging.local
-set +a
-npm run dev
-```
-
-Do not use this terminal for normal local development or imports.
+Inspect staging only in a separately authorized operator environment with
+`npm run dev:staging`. Its ignored `.env.staging.local` must include the staging
+public URL/key and `STAGING_PROJECT_REF`. Ordinary `npm run dev` is local-only.
+Do not source operator credentials into an everyday development terminal. See
+[credential separation](local-development-security.md).
 
 Test the application against staging, then promote the exact tested commit by
 opening a pull request from `develop` into `main`. GitHub Actions applies
@@ -243,32 +237,27 @@ hosted project.
 
 ## Back up hosted application data
 
-Before risky hosted database work, create a logical backup outside the
-repository. Add `SUPABASE_DB_URL` to the matching ignored local env file:
-`.env.production` for production and `.env.staging.local` for staging. Copy the
-Postgres connection URL from the matching Supabase project's **Connect** panel.
-Keep these URLs private; the env files are ignored by Git.
+Backups remain operator-only and use the existing `db:backup:production` and
+`db:backup:staging` commands with their ignored operator files. Supply
+`SUPABASE_DB_URL` and the expected Supabase API URL; the Session pooler must
+match that project exactly before any dump starts.
 
-Then run the matching command:
+Configure `SUPABASE_BACKUP_DIR` or pass the existing private destination:
 
-```bash
-npm run db:backup:production
-npm run db:backup:staging
+```text
+npm run db:backup:production -- /private/existing/production-backup-directory
+npm run db:backup:staging -- /private/existing/staging-backup-directory
 ```
 
-Each command checks that the database URL appears to match the project URL in
-that env file, then writes role, schema, and data SQL files into a timestamped
-folder under `/mnt/c/Users/gusta/OneDrive/fantasy-pingisligan-db-backups/production`
-or `/mnt/c/Users/gusta/OneDrive/fantasy-pingisligan-db-backups/staging`. Keep
-the OneDrive folders private, wait for syncing to finish, and periodically test
-a restore against a separate project or local database. Never commit backup
-files.
+The former personal Windows path is no longer a default. Preserve it explicitly
+in operator configuration if that is your existing backup history. Otherwise the
+portable fallback is `<operator-home>/fantasy-pingisligan-db-backups/<environment>`.
+See [backup configuration and compatibility](local-development-security.md#operator-compatibility-and-backups)
+for precedence, generic prompt identity requirements and Windows Bash paths.
+No existing env file or backup destination was modified by this change.
 
-For an ad hoc target, `npm run db:backup -- "/path/to/private/folder"` still
-prompts for a connection URL without displaying it.
-
-The CLI's standard dump excludes Supabase-managed schemas such as `auth` and
-`storage`; this procedure backs up application tables (including gameweek team
-snapshots and their stored points), but does not back up login accounts or
-Storage file objects. It also does not back up project settings, API keys, or
-Edge Functions. Treat Auth recovery as a separate procedure.
+The Bash procedure still writes private role/schema/data files. Standard dumps
+exclude managed schemas such as `auth` and `storage`: login accounts, Storage
+objects, project settings, API keys and Edge Functions require separate recovery
+planning. Confirm private replication and test restores in an isolated local or
+operator test environment. Never commit backups or run them from everyday Codex.

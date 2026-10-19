@@ -1,3 +1,4 @@
+import { assertTarget, importTarget } from "./environment.mjs";
 // Uses only Node built-ins so idle Actions runs can skip npm ci and STUPA.
 import { appendFile, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -112,10 +113,7 @@ async function main() {
       const match = line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
       if (match) environment[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
     }
-    const url = environment.SUPABASE_URL ?? environment.NEXT_PUBLIC_SUPABASE_URL;
-    if (local && (!url || new URL(url).origin !== "http://127.0.0.1:54321")) {
-      throw new Error("Local safety check failed: Supabase must be http://127.0.0.1:54321.");
-    }
+    if (local) assertTarget(environment, "local");
     if (staging) verifyStagingImportTarget({
       supabaseUrl: environment.SUPABASE_URL,
       publicUrl: environment.NEXT_PUBLIC_SUPABASE_URL,
@@ -125,6 +123,7 @@ async function main() {
       stageId: environment.STUPA_STAGE_ID,
     });
   }
+  if (!local && !staging) importTarget(environment, args);
   const at = option("--at") ?? (process.env.RESULTS_DISPATCH_KIND === "poll" ? process.env.RESULTS_SLOT_AT : undefined);
   const checkTime = at ? parseRefreshCheckTime(at) : new Date();
   const decision = await checkResultsRefresh({

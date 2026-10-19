@@ -31,6 +31,7 @@ Start with the root [README](../README.md) to install and run the application.
 9. [Performance inventory](performance-inventory.md)
 10. [Home matches and stream links](home-matches.md)
 11. [Privileged GitHub Actions security (Phase A2)](privileged-workflows-security.md)
+12. [Portable development and credential separation (Phase A3 + B)](local-development-security.md)
 
 ## Task shortcuts
 

@@ -56,6 +56,14 @@ for the full documentation index and [updating.md](docs/updating.md) for checkou
   practical to prevent the environments from drifting apart.
 
 ## Environment variables
+
+Read [portable setup and credential separation](docs/local-development-security.md)
+for target selection, operator boundaries and automation prerequisites. Use guarded
+npm entry points for local Next/Supabase/Playwright. Do not bypass a filename-only
+Next preflight failure by renaming credential files, setting VERCEL, or calling Next
+directly. Report the blocker and leave manual credential isolation to the developer.
+Never treat repository guards or environment filtering as OS credential isolation.
+
 Local development uses `.env.local`, and it must point to the local Supabase
 stack shown by `npx supabase status` (`http://127.0.0.1:54321` by default).
 Use `.env.staging.local` only for explicit staging commands. Keep production

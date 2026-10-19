@@ -187,6 +187,7 @@ test("staging import rejects absent credentials and a production or malformed UR
     { publicUrl: "https://production456.supabase.co" },
     { supabaseUrl: "https://staging123.supabase.co:5432" },
     { supabaseUrl: "http://staging123.supabase.co" },
+    { supabaseUrl: "https://synthetic:password@staging123.supabase.co", publicUrl: "https://synthetic:password@staging123.supabase.co" },
   ]) {
     assert.throws(() => verifyStagingImportTarget({ ...valid, ...fields }));
   }

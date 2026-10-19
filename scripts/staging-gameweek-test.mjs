@@ -1,3 +1,4 @@
+import { assertTarget } from "./environment.mjs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,25 +72,9 @@ async function loadEnvironment(target) {
     );
   }
 
-  const url = new URL(supabaseUrl);
-  if (!isStaging) {
-    if (url.hostname !== "127.0.0.1" || url.port !== "54321") {
-      throw new Error(
-        "Local safety check failed: NEXT_PUBLIC_SUPABASE_URL must be http://127.0.0.1:54321.",
-      );
-    }
-    return { fixtureFile, serviceKey, supabaseUrl, target };
-  }
-
+  assertTarget(values, target);
+  if (isStaging && values.APP_ENV !== "staging") throw new Error("APP_ENV must be staging.");
   const expectedProjectRef = values.STAGING_PROJECT_REF;
-  if (!expectedProjectRef) {
-    throw new Error("STAGING_PROJECT_REF is required in .env.staging.local.");
-  }
-  if (url.hostname !== `${expectedProjectRef}.supabase.co`) {
-    throw new Error(
-      `Staging safety check failed: ${url.hostname} does not match STAGING_PROJECT_REF.`,
-    );
-  }
 
   return { expectedProjectRef, fixtureFile, serviceKey, supabaseUrl, target };
 }

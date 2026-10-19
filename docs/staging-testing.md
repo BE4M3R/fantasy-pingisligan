@@ -307,15 +307,11 @@ above.
 
 ## Run the app against staging
 
-Next.js does not load `.env.staging.local` automatically. In Bash, export the
-variables from that file before starting the development server:
-
-```bash
-set -a
-source .env.staging.local
-set +a
-npm run dev
-```
+Inspect staging only in a separately authorized operator environment with
+`npm run dev:staging`. Its ignored `.env.staging.local` must include the staging
+public URL/key and `STAGING_PROJECT_REF`. Ordinary `npm run dev` is local-only.
+Do not source operator credentials into an everyday development terminal. See
+[credential separation](local-development-security.md).
 
 ## Test accounts
 
