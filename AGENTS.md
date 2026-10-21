@@ -3,6 +3,27 @@
 ## Project
 This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based on Pingisligan, the highest Swedish table tennis division.
 
+## Supabase access policy
+
+- Default to local Supabase on Windows, macOS and Linux; WSL2 is optional.
+  Never fall back to staging or production when local services are unavailable.
+- For explicitly authorized production database diagnostics, use **only**
+  `supabase-production-readonly`, with `read_only=true`, the production
+  `project_ref`, `features=database` and scoped `PF_SUPABASE_RO_TOKEN`
+  authentication. Run only read-only queries and minimize access to personal
+  user data.
+  If MCP authentication fails or the server is unavailable, stop and report it;
+  never fall back to connection strings, service-role keys, privileged Supabase
+  CLI credentials or other database connections.
+- Never write directly to production from local development. Production
+  migrations and imports must use the existing authorized GitHub Actions
+  workflows. Dispatching them or causing other indirect production writes
+  requires explicit authorization; diagnostic authorization does not grant it.
+- Do not read, print or expose secrets unnecessarily, or store production tokens
+  in repository files. MCP settings and credentials are developer-specific and
+  optional; see [safe production access](docs/codex-production-access.md).
+  These instructions and repository guards do not provide credential isolation.
+
 ## Architecture and task map
 Next.js App Router, TypeScript and Tailwind CSS; Supabase Auth/Postgres; Vercel
 hosting. GitHub Actions imports STUPA schedules/results; players use the
@@ -103,9 +124,8 @@ Never expose in logs, screenshots, reports or commits:
   changes, and ask for input when material uncertainty remains.
 - Preserve unrelated work. Do not discard changes, reset populated local data,
   commit, push, create PRs or deploy unless the user has authorized that action.
-- Default to local resources. Staging commands and hosted reads require an
-  explicit staging/production task; a dry-run label alone does not make an
-  importer offline or safe for a hosted target.
+- Staging access requires an explicit staging task; a dry-run label alone does
+  not make an importer offline or safe for a hosted target.
 
 ## Validation and repository skills
 - [Automated testing](docs/automated-testing.md) is the authoritative guide for

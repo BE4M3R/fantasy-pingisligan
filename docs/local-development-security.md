@@ -5,6 +5,9 @@ prevent common target mistakes; they cannot keep an agent from reading files,
 using cached authentication or changing scripts it can access. **Production
 credential isolation is not complete until the manual steps below are verified.**
 
+For Codex production diagnostics, follow [safe production access](codex-production-access.md).
+Operator-only commands documented here are not alternative diagnostic paths.
+
 ## New contributor setup
 
 Follow [Start locally in the README](../README.md#start-locally) for the shared
@@ -131,11 +134,11 @@ are retained. These are application backups, not complete Auth/Storage recovery.
 Backup database URLs still reach the CLI as arguments, as in the existing
 implementation; use a trusted operator machine with restricted process access.
 
-For authorized manual hosted imports, supply the chosen credentials and
-expected ref in an operator shell, then use e.g.
-`npm run import:results -- --target production --complete-gameweek-refresh`.
-The protected results workflow requires no new configuration. Do not run these
-commands during routine development or treat a dry run as offline.
+Production imports must use the existing protected results workflow; do not run
+them directly from local development. Explicit staging imports still require an
+authorized operator environment and the expected staging ref. A dry run is not
+offline. See [production modifications](codex-production-access.md#production-modifications)
+for authorization requirements.
 
 ## Manual credential isolation: both developers
 
@@ -197,8 +200,8 @@ access. A VM or separate machine is optional if account separation is insufficie
 | Context | Permitted authority |
 | --- | --- |
 | Everyday development | Local API/admin keys, local DB writes, containers, browser verification, feature branches and PR preparation. No production write credential, operator session or privileged workflow authority. |
-| Production diagnostics (future) | Only explicitly authorized, restricted DB/log reads with a dedicated identity; no service-role key, write grants, admin membership or migration/PAT authority. Not implemented in this phase. |
-| Production operations | Backups, corrections, privileged exports/imports and migrations in the operator boundary or existing protected workflows. Approval stays outside everyday automation. |
+| Codex production diagnostics | Explicitly authorized database reads only through the [approved read-only MCP](codex-production-access.md); optional project-scoped read-only token, no production write authority. |
+| Production operations | Migrations/imports through existing authorized GitHub Actions; backups, corrections and privileged exports remain separate operator procedures, not local Codex diagnostic fallbacks. Approval stays outside everyday automation. |
 
 Until isolation is completed, everyday Codex in the audited workspace can still
 read `.env.production`/`.env.staging.local`, access the Supabase fallback token
