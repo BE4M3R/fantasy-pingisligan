@@ -21,7 +21,7 @@ then run `npm run test:staging -- cleanup` when the test is finished.
 
 Keep the existing marked `[TEST] Seedlag` accounts and their squads in staging
 as a stable smoke-test baseline. Check them with
-`npm run seed:staging-accounts -- status`; do not routinely rerun `seed`, which
+`npm run seed:accounts:staging -- status`; do not routinely rerun `seed`, which
 resets their current squads. After a staging deployment, verify sign-in, team
 and player selection, the current transfer window, and points/standings for a
 completed real gameweek. Use local synthetic rounds for repeatable lock, score,
@@ -88,15 +88,15 @@ TEST_ACCOUNT_PASSWORD=choose-a-test-only-password
 Then seed the accounts. Choose the target explicitly:
 
 ```bash
-npm run seed:local-accounts
-npm run seed:staging-accounts
+npm run seed:accounts
+npm run seed:accounts:staging
 ```
 
 Use `--count` to choose another number, or inspect the generated accounts:
 
 ```bash
-npm run seed:local-accounts -- seed --count 20
-npm run seed:local-accounts -- status
+npm run seed:accounts -- seed --count 20
+npm run seed:accounts -- status
 ```
 
 The generated addresses are `fantasy-squad-test-01@example.com` and upwards.
@@ -109,7 +109,7 @@ Delete only accounts carrying the seeder's marker, together with their
 cascading fantasy data, by explicitly confirming cleanup:
 
 ```bash
-npm run seed:local-accounts -- cleanup --yes
+npm run seed:accounts -- cleanup --yes
 ```
 
 The service-role key and test password must remain only in the ignored
@@ -128,7 +128,10 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 The command reads `.env.staging.local` directly. It stops unless `APP_ENV` is
 exactly `staging` and the Supabase hostname exactly matches
-`STAGING_PROJECT_REF`.
+`STAGING_PROJECT_REF`. The developer is responsible for this file containing
+staging credentials and the correct staging ref. These lightweight checks are
+retained; no independent project identity registry is required. See
+[development commands](local-development-security.md#phase-b3-development-commands).
 
 To use another versioned fixture file, add a project-relative path:
 
@@ -164,8 +167,9 @@ The selected database must already contain the clubs and active players named
 in the fixture, plus two completed fantasy teams with valid squads. For a clean
 local database, run the player import first and create the test teams locally.
 
-`test:staging` remains a staging-only shortcut. For scripts or automation, use
-the explicit command: `npm run test:gameweek -- --env local|staging <action> [gameweek]`.
+`npm run test:gameweek -- <action> [gameweek]` defaults to local;
+`npm run test:gameweek:staging -- <action> [gameweek]` selects staging.
+The older `test:local` and `test:staging` shortcuts remain compatible.
 
 ## Local state controls
 
@@ -307,10 +311,13 @@ above.
 
 ## Run the app against staging
 
-Inspect staging only in a separately authorized operator environment with
+For explicitly authorized staging development, run the local app with
 `npm run dev:staging`. Its ignored `.env.staging.local` must include the staging
 public URL/key and `STAGING_PROJECT_REF`. Ordinary `npm run dev` is local-only.
-Do not source operator credentials into an everyday development terminal. See
+Staging-only credentials may remain in the development checkout, including the
+service-role key needed by authorized setup scripts. The app launcher passes
+only public staging configuration. Keep production write credentials inaccessible
+and do not source production operator credentials into development terminals. See
 [credential separation](local-development-security.md).
 
 ## Test accounts

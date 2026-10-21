@@ -32,7 +32,7 @@ export async function nextEnvironment(command, args, inherited = process.env, ro
     throw new Error("Unsupported local Next option. Project directory and target overrides are forbidden.");
   }
   const env = developmentEnvironment(inherited);
-  const isolated = inherited.FUNCTIONAL_TEST_SUPABASE_URL;
+  const isolated = !hosted && inherited.FUNCTIONAL_TEST_SUPABASE_URL;
   const values = isolated ? {
     NEXT_PUBLIC_SUPABASE_URL: isolated,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: inherited.FUNCTIONAL_TEST_ANON_KEY,
@@ -42,7 +42,9 @@ export async function nextEnvironment(command, args, inherited = process.env, ro
   if (!hosted && (inherited.SUPABASE_URL || inherited.NEXT_PUBLIC_SUPABASE_URL)) {
     assertTarget(inherited, "local", { localOrigin: isolated ?? undefined });
   }
-  if (!values.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error("Missing local public Supabase key.");
+  if (!values.NEXT_PUBLIC_SUPABASE_URL || !values.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error("Missing public Supabase URL or key.");
+  }
   // Next will also load .env.local; reject operator credentials there by name.
   const local = isolated || hosted ? await readEnvironment(path.join(root, ".env.local"), { optional: true }) : values;
   for (const key of Object.keys(local)) {

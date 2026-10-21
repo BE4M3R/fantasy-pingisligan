@@ -1,6 +1,9 @@
 # Automated tests
 
 Test source lives in `tests/unit/`, `tests/functional/`, and `tests/browser/`.
+`tests/unit/development-commands.test.mjs` covers local/staging command selection,
+file-over-shell credential precedence, target override rejection and child failure
+propagation using temporary synthetic configuration and stub processes only.
 Generated reports and failure artifacts live in the matching folders under
 `test-results/`, which Git ignores:
 

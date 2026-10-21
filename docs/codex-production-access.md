@@ -3,6 +3,11 @@
 Everyday development uses local Supabase on Windows, macOS or Linux, with or
 without WSL2. If local services are unavailable, report the blocker; never use
 staging or production as a fallback. Local setup needs no production access.
+Explicitly authorized staging development is a separate opt-in: staging-only
+credentials may remain in `.env.staging.local`, and authorized staging data
+reads/writes are allowed after target verification. See the
+[three environment policy](local-development-security.md#three-environment-policy).
+This does not grant production access or weaken the production boundary below.
 
 ## Production diagnostics
 

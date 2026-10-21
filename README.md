@@ -23,7 +23,7 @@ On a fresh local stack:
 
 ```bash
 npm run import:players:catalogue
-npm run seed:local-accounts -- seed --count 10
+npm run seed:accounts -- seed --count 10
 npm run dev
 ```
 
@@ -98,7 +98,7 @@ not modify production or overwrite the committed catalogue.
 An equivalent staging comparison is available when diagnosing environment drift:
 
 ```bash
-npm run export:players:staging-candidate
+npm run export:players:staging
 diff -u data/player-catalogue.json data/player-catalogue.staging.json
 ```
 
@@ -230,7 +230,7 @@ Generated local test users always use the password `test12`. Create 10 users
 with completed squads:
 
 ```bash
-npm run seed:local-accounts -- seed --count 10
+npm run seed:accounts -- seed --count 10
 ```
 
 If `db reset --local` removes the accounts, rerun the seed command; it recreates
@@ -239,8 +239,8 @@ them.
 Inspect or remove only accounts created by this script:
 
 ```bash
-npm run seed:local-accounts -- status
-npm run seed:local-accounts -- cleanup --yes
+npm run seed:accounts -- status
+npm run seed:accounts -- cleanup --yes
 ```
 
 ## Local gameweek lifecycle test
@@ -295,7 +295,7 @@ deploying `develop`:
 ```bash
 npm run refresh:staging
 npm run verify:staging
-npm run seed:staging-accounts -- status
+npm run seed:accounts:staging -- status
 ```
 
 `refresh:staging` checks the target in `.env.staging.local`, imports fixtures,
@@ -314,12 +314,25 @@ Run the synthetic lock/score/unlock sequence above against local Supabase.
 use it only for a short, deliberate smoke test and always clean it up.
 
 To create staging test accounts, put `TEST_ACCOUNT_PASSWORD` in
-`.env.staging.local`, then run `npm run seed:staging-accounts`.
+`.env.staging.local`, then run `npm run seed:accounts:staging`.
 
-To inspect the staging app from a separately authorized operator environment,
+For explicitly authorized staging development from the local checkout,
 use `npm run dev:staging`. It requires the staging public key/URL and
 `STAGING_PROJECT_REF` in `.env.staging.local`; ordinary `npm run dev` rejects
-hosted targets. See [operator setup](docs/local-development-security.md).
+hosted targets. Staging-only credentials may remain locally accessible; keep
+production write credentials isolated. Authorized staging test-data writes are
+allowed, but never run seeding or cleanup automatically during ordinary development.
+See the [three environment policy](docs/local-development-security.md#three-environment-policy).
+
+The [development command table](docs/local-development-security.md#phase-b3-development-commands)
+lists local/staging pairs. Use `seed:accounts` / `seed:accounts:staging` for
+accounts and squads, and `test:gameweek` / `test:gameweek:staging` for synthetic
+lifecycle controls. Staging imports use `import:schedule:staging` and
+`import:results:staging` (or `import:schedule:dry:staging` and
+`import:results:dry:staging` for previews). Previews still contact STUPA and may
+read staging. These commands load `.env.staging.local` without shell credential
+overrides; you are responsible for its staging credentials and project ref.
+The older account, gameweek and catalogue-export aliases remain available.
 
 ## Further documentation
 
