@@ -340,6 +340,11 @@ deleted/renamed paths are included and there is no GitHub API file-list limit.
 | Non-documentation changes under `supabase/` or `.github/`, schema-upgrade fixtures, `scripts/check-schema-upgrade.mjs`, `scripts/results-refresh-dispatch.local.sql`, or `scripts/ci-validation.mjs` | Both normal jobs plus the existing migration validation workflow. |
 | Manual `Validate pull request` run | All validation jobs. |
 
+To verify the documentation-only path, open a PR into `develop` containing only
+a small Markdown change under `docs/`. Expect `Detect changes` and `CI gate` to
+succeed, with `code-and-unit`, `functional-and-browser` and migration validation
+skipped. Use the PR-triggered run; a manual workflow run selects all jobs.
+
 Require the exact GitHub Actions check name **`CI gate`** in the `main` ruleset
 (and `develop` if it has required checks). The workflow UI groups it under
 `Validate pull request`. This single check evaluates every selected job,
