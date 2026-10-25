@@ -46,8 +46,8 @@ actually run, their results, and any coverage that remains unverified.
 Codex follows these defaults through `AGENTS.md` during development and
 `prepare-pr` selects coverage from this table for the intended PR diff. Commands
 are run by the agent or developer, not by a file watcher or commit hook. PR CI
-runs automatically as described [below](#ci-and-reports); its current workflow
-runs both jobs even for documentation-only PRs.
+runs automatically as described [below](#ci-and-reports); documentation-only
+PRs report the required gate while skipping expensive tests.
 
 ## Local suites and isolation
 
@@ -327,14 +327,40 @@ offline; report missing tools or failed checks without claiming readiness.
 
 ## CI and reports
 
-On every pull request to `develop` and `main`, GitHub runs two checks in
-parallel: `code-and-unit` runs `npm run check`; `functional-and-browser` starts a
-fresh local Supabase stack from migrations, lints the database, builds the app,
-and runs the functional and browser suites. Both checks must pass before merge
-when configured as required branch-protection checks. The Actions log prints
-each named case; the job summary lists pass/fail counts and every case. Download
-the JUnit results and Playwright HTML report from the job artifacts to inspect
-failures and traces.
+Every PR runs `Validate pull request`, including PRs into `main`, `develop` and
+feature branches, including when a PR's base branch is edited. There are no
+workflow-level path or base-branch filters. `Detect changes`
+checks the PR merge commit against its base using a NUL-delimited Git diff;
+deleted/renamed paths are included and there is no GitHub API file-list limit.
+
+| Changes | Selected validation |
+| --- | --- |
+| Markdown (`*.md`, including README, AGENTS and skill instructions); static images/PDF/text under `docs/` | No unit, functional, browser or migration jobs. |
+| Any other files, including app, scripts, dependencies, tests and new/unknown configuration | `code-and-unit` and `functional-and-browser`. |
+| Non-documentation changes under `supabase/` or `.github/`, schema-upgrade fixtures, `scripts/check-schema-upgrade.mjs`, `scripts/results-refresh-dispatch.local.sql`, or `scripts/ci-validation.mjs` | Both normal jobs plus the existing migration validation workflow. |
+| Manual `Validate pull request` run | All validation jobs. |
+
+Require the exact GitHub Actions check name **`CI gate`** in the `main` ruleset
+(and `develop` if it has required checks). The workflow UI groups it under
+`Validate pull request`. This single check evaluates every selected job,
+including reusable migration validation. Detection must succeed, both selection
+outputs must be valid, selected jobs must be `success`, and unselected jobs must
+be `skipped`. Failed, cancelled, missing or unexpectedly skipped jobs fail the
+gate. A cancelled gate itself cannot satisfy the required check.
+
+After this workflow has appeared in a PR run, replace the old required
+`code-and-unit`, `functional-and-browser`, and any standalone migration check
+with `CI gate`, selecting GitHub Actions as its source when offered. Retain the
+existing requirements until the new check is available; this repository change
+does not edit rulesets or branch protection settings.
+
+The normal jobs retain their coverage: `code-and-unit` runs `npm run check`;
+`functional-and-browser` starts a fresh local Supabase stack, checks populated
+schema upgrades, lints the database, builds the app, and runs functional/browser
+tests. Logs, JUnit summaries and Playwright artifacts remain available for jobs
+that run. Documentation-only runs perform no dependency installation or database
+startup. `tests/unit/ci-validation.test.mjs` covers selection, real Git diffs,
+renames/deletions, gate failure/cancellation/skip cases and workflow wiring offline.
 
 `check:all` covers both jobs locally. Keep the CI jobs split so fast feedback
 arrives independently and the existing CI stack is reused: do not add
@@ -344,11 +370,12 @@ the local runner defaults to the matching Playwright container except on native
 Windows, and also supports explicit host-browser mode. Both use Node 24, the
 same suites, migration history, database lint flags and production build.
 
-The path-filtered `database-migrations-ci.yml` also rebuilds and lints a database.
-Its transaction-wrapped `results-refresh-dispatch.local.sql` cadence check and
-local migration listing are additional coverage. If consolidating CI later,
-move those checks into `functional-and-browser` before retiring the overlapping
-migration job; retain required-check names/branch protection deliberately.
+`database-migrations-ci.yml` is now called conditionally by the PR workflow and
+retains its separate manual trigger. Its rebuild, transaction-wrapped
+`results-refresh-dispatch.local.sql` cadence check, schema-upgrade checks, lint
+and local migration listing are unchanged. There is no duplicate standalone PR
+trigger. Both workflows use `contents: read`, no hosted environments or secrets;
+PR code is never run through `pull_request_target` or a privileged follow-up.
 Hosted deployment, migration-status and results-import workflows serve separate
 explicit staging/production operations and are not local validation gates.
 
