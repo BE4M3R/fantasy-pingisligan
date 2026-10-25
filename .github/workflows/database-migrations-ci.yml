@@ -1,11 +1,7 @@
 name: Validate database migrations
 
 on:
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/config.toml"
-      - ".github/workflows/database-*.yml"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -34,6 +30,7 @@ jobs:
 
       - name: Check results dispatch windows
         run: |
+          set -euo pipefail
           (printf 'begin;\n'; cat scripts/results-refresh-dispatch.local.sql; printf '\nrollback;\n') |
             docker exec -i supabase_db_fantasy-pingisligan psql -v ON_ERROR_STOP=1 -U postgres -d postgres
 

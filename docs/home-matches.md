@@ -49,6 +49,10 @@ The local functional test reimports a changed schedule and verifies gameweek
 isolation, kickoff times and club names in the public match summary. Browser
 tests check those details on Home, the in-place schedule refresh, the exact
 kickoff transition to LIVE, and removal of LIVE when a club reaches five wins.
+The schedule-refresh browser test advances each timer with `clock.runFor`,
+asserts no request in the first four minutes and one after five, then checks
+kickoff and final scores. Server-rendered content alone does not establish that
+the client polling effect has attached; a single large clock jump can race hydration.
 
 ## Update a stream
 

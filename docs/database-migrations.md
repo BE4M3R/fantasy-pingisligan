@@ -90,10 +90,12 @@ Commit the new migration and open a pull request into `develop`. Pull requests
 first rebuild and lint a clean local database in CI. After the PR is merged,
 GitHub Actions applies the pending migration to staging.
 
-Inspect staging only in a separately authorized operator environment with
+For explicitly authorized staging development, run the local app with
 `npm run dev:staging`. Its ignored `.env.staging.local` must include the staging
 public URL/key and `STAGING_PROJECT_REF`. Ordinary `npm run dev` is local-only.
-Do not source operator credentials into an everyday development terminal. See
+Staging-only credentials may remain in the development checkout. Keep production
+write credentials isolated and verify staging identity before privileged data
+operations. This does not authorize direct hosted schema changes. See
 [credential separation](local-development-security.md).
 
 Test the application against staging, then promote the exact tested commit by

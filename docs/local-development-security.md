@@ -1,9 +1,80 @@
 # Portable development and credential separation (Phase A3 + B)
 
-Everyday development needs local Supabase credentials only. Repository guards
-prevent common target mistakes; they cannot keep an agent from reading files,
+Default development needs local Supabase credentials only. Explicit staging
+development may also use locally accessible staging-only credentials. Repository
+guards prevent common target mistakes; they cannot keep an agent from reading files,
 using cached authentication or changing scripts it can access. **Production
 credential isolation is not complete until the manual steps below are verified.**
+
+For Codex production diagnostics, follow [safe production access](codex-production-access.md).
+Operator-only commands documented here are not alternative diagnostic paths.
+
+## Three environment policy
+
+| Environment | Development policy |
+| --- | --- |
+| Local (default) | `npm run dev`, normal development and automated tests use local Supabase. Unavailable local services are a blocker, never a reason to select a hosted target. |
+| Staging (explicit opt-in) | Authorized developers may run `npm run dev:staging`, read/write staging and deliberately create test data. Staging-only credentials may stay in ignored `.env.staging.local` in the development checkout. The developer owns the correctness of that file; existing lightweight target checks remain. No automatic seeding, cleanup, reset or lifecycle changes during ordinary development. |
+| Production (strict isolation) | No production write credentials or privileged production sessions accessible to everyday development. Codex diagnostics require explicit authorization and the approved read-only MCP only. Migrations/imports use authorized GitHub Actions; no privileged fallback. |
+
+Staging access does not require access to the production operator environment.
+Credentials labelled staging must have authority only over staging; a cross-project
+Supabase PAT or privileged GitHub session would defeat that separation. Hosted
+schema changes still follow the existing migration/promotion process. All
+development paths must support native Windows, macOS and Linux; WSL2 is optional.
+
+## Phase B3 development commands
+
+Use the default command for local Supabase and the `:staging` suffix for explicit
+staging work. All commands below use Node/npm on Windows, macOS and Linux;
+WSL2 is optional. They reuse the existing seed, lifecycle, import and verification
+scripts. Nothing automatically seeds, resets or cleans up staging.
+
+| Operation | Local (default) | Explicit staging |
+| --- | --- | --- |
+| Run the app | `npm run dev` | `npm run dev:staging` |
+| Seed test accounts and fantasy squads | `npm run seed:accounts` | `npm run seed:accounts:staging` |
+| Synthetic gameweeks | `npm run test:gameweek -- <action> [gw1]` | `npm run test:gameweek:staging -- <action> [gw1]` |
+| Import schedule | `npm run import:schedule` | `npm run import:schedule:staging` |
+| Preview schedule import | `npm run import:schedule:dry` | `npm run import:schedule:dry:staging` |
+| Import results | `npm run import:results` | `npm run import:results:staging` |
+| Preview results import | `npm run import:results:dry` | `npm run import:results:dry:staging` |
+| Inspect results cadence | `npm run check:results-refresh` | `npm run check:results-refresh:staging` |
+| Refresh real staging schedule/results, score and verify | — | `npm run refresh:staging` |
+| Verify real staging data | — | `npm run verify:staging` |
+| Export staging catalogue candidate | — | `npm run export:players:staging` |
+
+Seed commands accept `-- status`, `-- seed --count 10`, and deliberate
+`-- cleanup --yes`. Inspect status before reseeding existing squads. Synthetic
+staging gameweeks can close transfers for all staging users; use them deliberately
+and clean up afterward. Individual `kickoff`/`next-match` controls remain local-only.
+Catalogue imports remain local-only; staging accounts use existing players and
+player additions can use the existing reviewed data migrations.
+
+Older names remain compatible aliases: `seed:local-accounts`,
+`seed:staging-accounts`, `test:local`, `test:staging`,
+`check:results-refresh:local`, and `export:players:staging-candidate`.
+`test:gameweek` now selects local itself; do not append `--env` to it.
+
+Staging configuration comes from `.env.staging.local` as a complete credential
+set. Shell Supabase credentials, project refs and functional-test selectors cannot
+override the staging target. `run-staging.mjs` replaces Node's shell-first
+`--env-file` loading for refresh/verification and launches existing importers with
+`--target staging`. It rejects target overrides and retains inherited `DRY_RUN=1`
+as a safety switch. Next receives only public staging configuration; its inherited
+functional-test variables cannot replace the staging file. Existing seed,
+lifecycle, catalogue export and cadence scripts already read their selected file
+directly.
+
+The developer accepts responsibility for the staging credentials and project ref
+in that file. Existing exact URL/ref checks, plus `APP_ENV`/stage checks where
+already required, remain in place. There is no separate identity registry,
+production credential lookup or hosted verification. The earlier B3.2 proposal
+for more elaborate identity validation is superseded by this simpler workflow.
+A3's local guards and Vercel build compatibility remain unchanged. This does not
+verify production credential isolation or live token/GitHub permissions; the
+manual procedure below remains separate. Existing operator backups still require
+Bash and are not a prerequisite for development.
 
 ## New contributor setup
 
@@ -37,24 +108,24 @@ the existing operator backup implementation still requires Bash.
 
 ## Audit and loading behavior
 
-This audit inspected source, variable names, file metadata and callers, not
+The earlier A3 audit inspected source, variable names, file metadata and callers, not
 credential contents. The audited checkout contained `.env.local`,
 `.env.staging.local` and `.env.production`, each mode `0644`, and a Supabase
 fallback token file at `~/.supabase/access-token`, mode `0600`. A Docker config
 file was present. GitHub authority was not tested and no authentication was
 opened. Permissions describe this checkout, not a required portable setup.
 
-| Entry point | Environment and target after this change |
+| Entry point | Current loading behavior (A3 guards + B3 commands) |
 | --- | --- |
 | `check`, lint, typecheck, unit suite | No dotenv loading, no database required. Unit child receives an OS/runtime allowlist, not provider credentials. |
 | `dev`, `build`, `start` | Guarded local Next entry point. Validates `.env.local`, rejects inherited hosted URL selectors and removes unrelated inherited credentials. |
 | Local Next preflight | Refuses `.env`, `.env.production[.local]`, `.env.development[.local]`, `.env.test[.local]` by filename before reading any dotenv file. Do not rename these to evade the check. `.env.local` is the single local source. |
 | Vercel builds | Existing `VERCEL=1` platform environment retains ordinary Next loading/build behavior. This build-only compatibility branch is not an authorization boundary and must not be set in everyday shells; `dev` and `start` always use the guards. No Vercel setting changes are required. |
-| `dev:staging` | Explicit operator-only app inspection, validates `STAGING_PROJECT_REF` from `.env.staging.local` and passes its public credentials. Keep a valid local `.env.local` in that operator checkout as Next also loads it. Production dotenv files may remain in this explicit operator mode because Next dev never loads them. |
+| `dev:staging` | Explicit staging app development, validates `STAGING_PROJECT_REF` from `.env.staging.local` and passes its public credentials. If `.env.local` exists, it must remain valid local configuration because Next also loads it. Existing A3 staging mode permits production dotenv filenames because Next dev does not load them; production policy still requires those credentials to be inaccessible. |
 | `import:players`, catalogue import, local seed/gameweek controls | Read `.env.local` directly; shell keys do not override it. Validate local URL selectors. Catalogue dry validation is offline. |
 | STUPA schedule/results import, including dry runs | Default to `.env.local` only, no fallback `.env`; reject inherited hosted selectors before loading local config or contacting STUPA. Dry runs still contact STUPA and results dry runs can read their selected DB. |
 | Explicit hosted STUPA imports | `--target staging` or `--target production`, with the matching `STAGING_PROJECT_REF` or `PRODUCTION_PROJECT_REF` in the supplied operator environment. URL must match exactly. Both `--target staging` and `--target=staging` forms are supported; repeated or invalid target options are rejected. No implicit hosted target outside the protected results caller. |
-| `refresh:staging`, `verify:staging` | Existing Node `--env-file=.env.staging.local` commands retained. Refresh validates staging first and passes `--target staging` to import children. Node's inherited variables take precedence over `--env-file`; use a clean operator shell and verify its project identity. |
+| `refresh:staging`, `verify:staging`, `import:schedule[:dry]:staging`, `import:results[:dry]:staging` | Node launcher reads `.env.staging.local` as the complete credential set and filters inherited credentials. Existing URL/ref checks run before launch; refresh keeps its app-env/stage checks and schedule → results → verification order. |
 | Staging seed/gameweek, staging catalogue export, cadence `--staging` | Explicit staging commands load staging file; existing app-env/ref checks retained. Full URL checks reject userinfo, paths, query strings and disagreements between URL selectors. |
 | Production catalogue export | Explicit existing export command reads `.env.production` and now requires its `PRODUCTION_PROJECT_REF`. The existing comparison with the operator staging file is retained. Uses a service-role key despite performing selects: operator-only, not restricted diagnostics. |
 | Cadence `--local` | Reads only local file and validates loopback before the database RPC. No STUPA import. |
@@ -131,11 +202,12 @@ are retained. These are application backups, not complete Auth/Storage recovery.
 Backup database URLs still reach the CLI as arguments, as in the existing
 implementation; use a trusted operator machine with restricted process access.
 
-For authorized manual hosted imports, supply the chosen credentials and
-expected ref in an operator shell, then use e.g.
-`npm run import:results -- --target production --complete-gameweek-refresh`.
-The protected results workflow requires no new configuration. Do not run these
-commands during routine development or treat a dry run as offline.
+Production imports must use the existing protected results workflow; do not run
+them directly from local development. Explicit staging imports require an
+authorized staging task, staging-only credentials and the correct file project
+ref under the developer's responsibility. A dry run is not offline. See
+[production modifications](codex-production-access.md#production-modifications)
+for authorization requirements.
 
 ## Manual credential isolation: both developers
 
@@ -143,16 +215,19 @@ No credential files, permissions, OS users, authentication or global approval
 settings were changed by this phase. Perform these steps manually, outside the
 everyday agent session, preserving existing credentials and backup procedures:
 
-1. Keep an operator checkout/environment for existing `.env.production`,
-   `.env.staging.local`, Supabase PAT/database passwords/service-role keys,
-   privileged GitHub/Vercel sessions and backup access. Record its backup
+1. Keep a separate production operator checkout/environment for existing
+   `.env.production`, production PAT/database passwords/service-role keys,
+   privileged GitHub/Vercel sessions and production backup access. Staging-only
+   `.env.staging.local` may remain in the development checkout; verify that any
+   staging PAT/session cannot access production. Record the operator backup
    destination. Keep existing protected workflow secrets where they are.
-2. Create a fresh everyday checkout with only `.env.local` from the example.
-   Exclude operator credentials, backups, linked hosted metadata and generated
-   hosted build artifacts. Remove inherited hosted variables from the everyday
-   terminal/IDE launch environment and shell profiles; never source operator
-   env files there. Check IDE tasks, npm config, Git credential helpers, SSH
-   agents, browser sessions, password-manager integration and CLI token stores.
+2. Create a fresh everyday checkout with `.env.local` from the example and,
+   optionally, staging-only `.env.staging.local` for explicit staging work.
+   Exclude production operator credentials/backups, linked hosted metadata and
+   generated hosted build artifacts. Remove inherited hosted variables from the
+   everyday terminal/IDE launch environment and shell profiles; never source
+   production operator env files there. Check IDE tasks, npm config, Git credential
+   helpers, SSH agents, browser sessions, password-manager integration and CLI token stores.
 3. Give the everyday identity only repository feature/PR permissions needed by
    the team. Do not give it workflow dispatch/admin, environment approval,
    repository-secret management, direct protected-branch promotion, or a
@@ -196,15 +271,18 @@ access. A VM or separate machine is optional if account separation is insufficie
 
 | Context | Permitted authority |
 | --- | --- |
-| Everyday development | Local API/admin keys, local DB writes, containers, browser verification, feature branches and PR preparation. No production write credential, operator session or privileged workflow authority. |
-| Production diagnostics (future) | Only explicitly authorized, restricted DB/log reads with a dedicated identity; no service-role key, write grants, admin membership or migration/PAT authority. Not implemented in this phase. |
-| Production operations | Backups, corrections, privileged exports/imports and migrations in the operator boundary or existing protected workflows. Approval stays outside everyday automation. |
+| Default development | Local API/admin keys, local DB writes, containers, browser verification, feature branches and PR preparation. No production write credential, operator session or privileged workflow authority. |
+| Explicit staging development | Locally accessible staging-only credentials; authorized staging reads/writes, app development and test-data setup after target verification. No production authority and no automatic destructive operations. |
+| Codex production diagnostics | Explicitly authorized database reads only through the [approved read-only MCP](codex-production-access.md); optional project-scoped read-only token, no production write authority. |
+| Production operations | Migrations/imports through existing authorized GitHub Actions; backups, corrections and privileged exports remain separate operator procedures, not local Codex diagnostic fallbacks. Approval stays outside everyday automation. |
 
-Until isolation is completed, everyday Codex in the audited workspace can still
-read `.env.production`/`.env.staging.local`, access the Supabase fallback token
+The earlier audit found that, before isolation, everyday Codex could still
+read `.env.production`, access the Supabase fallback token
 as the same user, potentially use privileged GitHub/Windows credential helpers,
 and reach Windows-mounted backup locations. The previous audit established the
 latter paths; this phase did not enumerate backup contents or test GitHub authority.
+Staging-only `.env.staging.local` access is permitted and is not itself an
+isolation failure. Current credential locations and isolation remain unverified.
 Docker access can expose other containers, host files and credentials; a
 privileged Docker socket is effectively broad host authority. Cached CLI auth,
 raw shell/network commands, edited scripts and the Vercel compatibility switch

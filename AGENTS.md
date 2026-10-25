@@ -3,6 +3,42 @@
 ## Project
 This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based on Pingisligan, the highest Swedish table tennis division.
 
+## Supabase access policy
+
+- Default to local Supabase on Windows, macOS and Linux; WSL2 is optional.
+  `npm run dev` and normal development/test commands must use local Supabase.
+  Never fall back to staging or production when local services are unavailable.
+- Staging is an explicit opt-in development target. Authorized developers may
+  run the local Next.js app against staging with `npm run dev:staging`, read and
+  write staging data, and deliberately create test accounts, players, fantasy
+  teams and other fixtures. Staging-only credentials may remain locally
+  accessible in ignored `.env.staging.local`; they need not share the production
+  operator boundary. Credential availability alone is not authorization.
+- Staging commands use a consistent `:staging` suffix and load configuration
+  from `.env.staging.local` without inherited credential/target overrides.
+  The developer is responsible for that file containing staging credentials.
+  Preserve the existing lightweight URL/project-ref and app-env checks; do not
+  add a separate staging identity registry or production credential lookups.
+  See [development commands](docs/local-development-security.md#phase-b3-development-commands).
+  Never run staging seeding, resets, cleanup or lifecycle changes automatically
+  during ordinary development. Hosted schema changes still use GitHub Actions.
+- For explicitly authorized production database diagnostics, use **only**
+  `supabase-production-readonly`, with `read_only=true`, the production
+  `project_ref`, `features=database` and scoped `PF_SUPABASE_RO_TOKEN`
+  authentication. Run only read-only queries and minimize access to personal
+  user data.
+  If MCP authentication fails or the server is unavailable, stop and report it;
+  never fall back to connection strings, service-role keys, privileged Supabase
+  CLI credentials or other database connections.
+- Never write directly to production from local development. Production
+  migrations and imports must use the existing authorized GitHub Actions
+  workflows. Dispatching them or causing other indirect production writes
+  requires explicit authorization; diagnostic authorization does not grant it.
+- Do not read, print or expose secrets unnecessarily, or store production tokens
+  in repository files. MCP settings and credentials are developer-specific and
+  optional; see [safe production access](docs/codex-production-access.md).
+  These instructions and repository guards do not provide credential isolation.
+
 ## Architecture and task map
 Next.js App Router, TypeScript and Tailwind CSS; Supabase Auth/Postgres; Vercel
 hosting. GitHub Actions imports STUPA schedules/results; players use the
@@ -67,7 +103,10 @@ Never treat repository guards or environment filtering as OS credential isolatio
 Local development uses `.env.local`, and it must point to the local Supabase
 stack shown by `npx supabase status` (`http://127.0.0.1:54321` by default).
 Use `.env.staging.local` only for explicit staging commands. Keep production
-values in Vercel and GitHub environment secrets, not in `.env.local`.
+write credentials out of the everyday development identity, including its files,
+inherited environment and cached authentication. Keep deployed application/job
+credentials in Vercel and GitHub environment secrets as appropriate; separate
+production operator stores must be inaccessible to everyday development.
 
 Expected public variables:
 - `NEXT_PUBLIC_SUPABASE_URL`
@@ -103,9 +142,8 @@ Never expose in logs, screenshots, reports or commits:
   changes, and ask for input when material uncertainty remains.
 - Preserve unrelated work. Do not discard changes, reset populated local data,
   commit, push, create PRs or deploy unless the user has authorized that action.
-- Default to local resources. Staging commands and hosted reads require an
-  explicit staging/production task; a dry-run label alone does not make an
-  importer offline or safe for a hosted target.
+- Staging access requires an explicit staging task; a dry-run label alone does
+  not make an importer offline or safe for a hosted target.
 
 ## Validation and repository skills
 - [Automated testing](docs/automated-testing.md) is the authoritative guide for
