@@ -11,6 +11,7 @@ export type LeagueTableRow = {
   rank?: number;
   user_id: string;
   team_name: string;
+  display_name: string | null;
   total_points: number | string;
 };
 
@@ -424,6 +425,11 @@ export function LeagueTable({
                         </span>
                       ) : null}
                     </div>
+                    {row.display_name?.trim() ? (
+                      <p className="mt-0.5 truncate text-xs text-[var(--pf-text-muted)]" title={row.display_name}>
+                        {row.display_name}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
@@ -496,6 +502,11 @@ export function LeagueTable({
                             </span>
                           ) : null}
                         </button>
+                        {row.display_name?.trim() ? (
+                          <p className="mt-0.5 break-words text-xs text-[var(--pf-text-muted)]">
+                            {row.display_name}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-[var(--pf-text)]">
                         {formatPoints(row.total_points)}
@@ -553,6 +564,11 @@ export function LeagueTable({
               >
                 {selectedTeam?.team_name}
               </h2>
+              {selectedTeam?.display_name?.trim() ? (
+                <p className="mt-1 break-words text-sm text-[var(--pf-text-muted)]">
+                  {selectedTeam.display_name}
+                </p>
+              ) : null}
             </div>
             <button
               aria-label="Close gameweek team"

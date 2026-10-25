@@ -8,6 +8,8 @@ let fixture;
 let guest;
 let leagueId;
 let inviteCode;
+const ownerDisplayName = "Alex Andersson";
+const guestDisplayName = "Robin Svensson";
 
 async function login(page, account) {
   await page.goto("/login");
@@ -46,6 +48,9 @@ test.describe.serial("private league journey", () => {
   test.beforeAll(async () => {
     fixture = await createFixture({ gameweeks: 2 });
     guest = await createGuest(fixture);
+    for (const [id, display_name] of [[fixture.userId, ownerDisplayName], [guest.userId, guestDisplayName]]) {
+      checked(await fixture.admin.from("profiles").update({ display_name }).eq("id", id), "Set manager display name");
+    }
     const players = [fixture.players[0], fixture.players[2], fixture.players[4], fixture.players[6],
       fixture.players[1], fixture.players[3]];
     const ownerSquad = squad([...players.slice(0, 5), fixture.players[9]]);
@@ -87,6 +92,33 @@ test.describe.serial("private league journey", () => {
     await cleanupFixture(fixture);
   });
 
+  test("home and global standings show manager display names on mobile and desktop", async ({ page }, testInfo) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+    await login(page, fixture);
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+      for (const [route, label] of [["overview", "home"], ["leagues/global", "global-league"]]) {
+        await page.goto(`/dashboard/${route}`);
+        if (route === "overview") {
+          await expect(page.getByRole("heading", { name: `Functional ${fixture.id}` })
+            .locator("..").getByText(ownerDisplayName, { exact: true })).toBeVisible();
+        } else {
+          const standings = width < 768 ? page.locator(".md\\:hidden") : page.getByRole("table");
+          await expect(standings.getByText(ownerDisplayName, { exact: true })).toBeVisible();
+          await expect(standings.getByText(guestDisplayName, { exact: true })).toBeVisible();
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        if (width === 390 || width === 1440) {
+          await page.evaluate(() => document.fonts.ready);
+          await page.screenshot({ path: testInfo.outputPath(`${label}-display-names-${width}.png`), fullPage: true });
+        }
+      }
+    }
+    expect(errors).toEqual([]);
+  });
+
   test("global league searches team names and opens a matching team", async ({ page }) => {
     await login(page, fixture);
     await page.goto("/dashboard/leagues/global");
@@ -99,6 +131,7 @@ test.describe.serial("private league journey", () => {
     await expect(table.getByRole("button", { name: guest.teamName })).toBeVisible();
     await expect(guestRow.getByRole("cell").first()).toHaveText(rank);
     await expect(guestRow.getByRole("cell").last()).toHaveText(points);
+    await expect(guestRow.getByText(guestDisplayName, { exact: true })).toBeVisible();
     await expect(table.getByRole("button", { name: `Functional ${fixture.id}` })).toHaveCount(0);
     await table.getByRole("button", { name: guest.teamName }).click();
     await expect(page.getByRole("dialog", { name: guest.teamName })).toBeVisible();
@@ -125,7 +158,7 @@ test.describe.serial("private league journey", () => {
     expect(inviteCode).toMatch(/^[A-Z0-9]{8}$/);
   });
 
-  test("second manager joins by invitation code and appears in league standings", async ({ page }) => {
+  test("second manager joins by invitation code and appears in league standings", async ({ page }, testInfo) => {
     await login(page, guest);
     await page.goto("/dashboard/leagues");
     await page.getByRole("button", { name: "Join league", exact: true }).click();
@@ -135,6 +168,16 @@ test.describe.serial("private league journey", () => {
     await expect(page.getByText("You joined the private league.")).toBeVisible();
     await expect(page.getByRole("table").getByRole("button", { name: guest.teamName })).toBeVisible();
     await expect(page.getByRole("table").getByRole("button", { name: `Functional ${fixture.id}` })).toBeVisible();
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+      const standings = width < 768 ? page.locator(".md\\:hidden") : page.getByRole("table");
+      await expect(standings.getByText(ownerDisplayName, { exact: true })).toBeVisible();
+      await expect(standings.getByText(guestDisplayName, { exact: true })).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({ path: testInfo.outputPath(`private-league-display-names-${width}.png`), fullPage: true });
+    }
+    await expect(page.getByRole("table").getByText(ownerDisplayName, { exact: true })).toBeVisible();
+    await expect(page.getByRole("table").getByText(guestDisplayName, { exact: true })).toBeVisible();
   });
 
   test("pressing a team name shows its locked lineup, chip and scores across gameweeks", async ({ page }) => {

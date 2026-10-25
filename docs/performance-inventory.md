@@ -19,6 +19,7 @@ below describe code paths, not measured latency or throughput.
 | Standings transport | Every team serialized to the browser even in top-ten mode | Initially top ten plus own team (maximum 11); authenticated endpoint returns subsequent batches of 50. Rows retain absolute rank. |
 | Standings row cap | Default PostgREST row cap could omit teams and their ranks | Server reads 500-row batches until exhausted; errors reject the entire refresh rather than publishing partial standings. |
 | Global team-name search | Each typed query reloaded the complete leaderboard in 500-row batches before filtering in Next.js | An authenticated database function ranks the live standings once, filters matching names, and returns at most 50 complete rows with their absolute ranks and points. The same standings row and team dialog handle search hits. |
+| Manager display names | Standings contained only team names | Global/private standings and search join profiles once in the existing RPC, returning only the display name alongside each row. Home loads its own profile in parallel with its existing reads. |
 | Standings details | Reopening the same team's dialog repeated its RPC | Component-local 60-second cache, bounded to 20 teams. Request sequence guards stop older responses replacing the selected team's scores. |
 | Squad results | Adjacent gameweeks fetched automatically, each making three database calls | Removed speculative prefetch. Only requested gameweeks are loaded; existing component-local result reuse remains. Avoids up to six database reads on initial mount. |
 | Historical squad page | Latest result + set breakdown loaded, then discarded when an older round was requested | Determine selected round from snapshots and load only its two result RPCs. Teams without snapshots skip both. Compatibility fallback remains on error. |
@@ -42,6 +43,8 @@ below describe code paths, not measured latency or throughput.
   The server loader uses that existing access; no service-role credential or new
   grant is introduced. It is deliberately uncached because live result imports
   cannot invalidate the Next.js application cache.
+  Display names are included in this existing public projection; account emails
+  and other profile fields are excluded.
 - Private leagues, invitations, squads, chips, transfer deadlines and mutations
   never enter the shared cache. Saving still uses the database's current prices,
   budget, deadline and roster validation.
