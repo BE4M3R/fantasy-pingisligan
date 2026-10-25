@@ -3,6 +3,42 @@
 ## Project
 This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based on Pingisligan, the highest Swedish table tennis division.
 
+## Mandatory Git workflow
+
+- Start all development from `develop` on a dedicated feature/fix/docs branch.
+  Codex may develop, test, commit and push that branch, and create PRs targeting
+  `develop`, unless the current request limits those actions.
+- **Codex must NEVER merge PRs.** Only the human operator may approve/confirm
+  and merge PRs into `develop` or merge PRs into `main`.
+- Production releases happen exclusively through `develop` → `main` PRs after
+  staging verification, promoting the exact tested `develop` commit. Codex may
+  prepare such a release PR only when explicitly requested; the human merges it.
+- Never push directly to `develop` or `main`, create a feature → `main` PR,
+  bypass branch protections, or trigger production deployments as a substitute
+  for this release workflow.
+
+### Pull request CI verification
+
+- After pushing a feature branch and creating a PR into `develop`, run
+  `gh pr checks <PR>` and check `CI gate` and all relevant test results.
+- If checks are pending, use `gh pr checks <PR> --watch` when appropriate.
+- If checks fail, inspect the failure logs with
+  `gh run view <run-id> --log-failed`, fix the issue, commit/push the fix on the
+  feature branch, and verify CI again.
+- When CI succeeds, report the PR URL, test results and readiness for human
+  review. **Never merge the PR, even when every check passes.**
+- Never bypass CI checks. If GitHub authentication fails, stop and report it;
+  never use privileged credentials as a fallback.
+
+## Git authentication
+
+- Always use the repository's configured HTTPS remote and restricted GitHub CLI
+  authentication on every platform.
+- Never switch to SSH, use an SSH URL, or access/use the existing SSH private
+  key for this repository, including as an authentication fallback.
+- If HTTPS authentication fails, stop and report the issue. Never fall back to
+  another privileged GitHub credential or change authentication to work around it.
+
 ## Supabase access policy
 
 - Default to local Supabase on Windows, macOS and Linux; WSL2 is optional.
@@ -128,10 +164,6 @@ Never expose in logs, screenshots, reports or commits:
 - `supabase/legacy/` is archived SQL; never reapply it.
 
 ## Workflow
-- Use the branch-promotion order `feature branch` → `develop` → `main`.
-  Open feature pull requests into `develop`; do not push feature work directly
-  to `main`. After staging has been tested, promote the exact tested `develop`
-  commit with a pull request into `main`.
 - For schema changes, merging into `develop` deploys pending migrations to
   staging. Merging the tested `develop` commit into `main` deploys those
   migrations to production. Do not deploy a migration to production before it
@@ -141,7 +173,8 @@ Never expose in logs, screenshots, reports or commits:
   explain the plan briefly. Prefer focused changes, show diffs before large
   changes, and ask for input when material uncertainty remains.
 - Preserve unrelated work. Do not discard changes, reset populated local data,
-  commit, push, create PRs or deploy unless the user has authorized that action.
+  or deploy unless the user has authorized that action. Feature commits, pushes
+  and PR creation follow the mandatory Git workflow and the current request's scope.
 - Staging access requires an explicit staging task; a dry-run label alone does
   not make an importer offline or safe for a hosted target.
 
@@ -168,7 +201,7 @@ Never expose in logs, screenshots, reports or commits:
     with captured screenshots that Codex must open and inspect.
   - [$prepare-pr](.agents/skills/prepare-pr/SKILL.md): review, choose validation,
     inspect migrations/credentials and draft a PR targeting `develop`.
-    Invocation alone does not authorize committing, pushing or creating a PR.
+    Follow the Git permissions above; preparation-only requests remain local.
 - Inspect the final diff, including new files. Report checks performed, failures
   or checks not run, migrations created, and any Vercel variables the user must
   add manually. Never claim visual verification from assertions alone.
