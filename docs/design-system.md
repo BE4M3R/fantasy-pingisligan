@@ -32,6 +32,21 @@ Use these rank colors sparingly: the app's normal interactive color is brand
 blue, keeping medal colors available for rank and other special fantasy
 moments.
 
+## Site icons and link previews
+
+Browser tabs and search results use `app/favicon.ico` (16–256px) and
+`public/branding/icon-96.png`. Apple home-screen bookmarks use
+`public/branding/apple-touch-icon.png` (180px). These square assets reuse
+`pingisligan-fantasy-mark-transparent-v2.png` with its transparent padding trimmed,
+contained at 94% of the icon's width/height on the `--pf-navy` background. Browser
+icons have transparent corners with a radius of 22% of the icon size. Apple icons
+keep an opaque background so the device can apply its own home-screen mask.
+Keep the mark readable at small sizes; use the full
+`pingisligan-fantasy-logo.png` for Open Graph and Twitter previews.
+The shared document metadata supplies icons and fallback previews for both
+language roots; public pages supply their own titles, descriptions and URLs.
+Keep icon URLs stable so search engines can refresh the same assets.
+
 ## Public landing page
 
 The public page uses the same blue table-tennis court surface as the logged-in
