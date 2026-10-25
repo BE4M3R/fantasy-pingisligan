@@ -32,6 +32,28 @@ const socialImage = {
   alt: "Pingisligan Fantasy – logotyp med bordtennisracket och krona",
 };
 
+export function socialMetadata(
+  title: string = SITE_NAME,
+  description: string = HOME_DESCRIPTION,
+): Pick<Metadata, "openGraph" | "twitter"> {
+  return {
+    openGraph: {
+      siteName: SITE_NAME,
+      locale: "sv_SE",
+      type: "website",
+      title,
+      description,
+      images: [socialImage],
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+      images: [socialImage],
+    },
+  };
+}
+
 // Set complete metadata per public page so social previews match the page,
 // and private routes never inherit a public page's canonical URL.
 // Use absolute URLs without metadataBase: Next.js 16 otherwise strips the
@@ -42,26 +64,17 @@ export function publicPageMetadata(
   description: string,
 ): Metadata {
   const url = new URL(path, SITE_URL).href;
+  const social = socialMetadata(title, description);
 
   return {
+    ...social,
     title,
     description,
     alternates: { canonical: url },
     robots: { index: true, follow: true },
     openGraph: {
-      siteName: SITE_NAME,
-      locale: "sv_SE",
-      type: "website",
+      ...social.openGraph,
       url,
-      title,
-      description,
-      images: [socialImage],
-    },
-    twitter: {
-      card: "summary",
-      title,
-      description,
-      images: [socialImage],
     },
   };
 }
