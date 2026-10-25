@@ -1,6 +1,6 @@
 ---
 name: prepare-pr
-description: Review Pingisligan Fantasy branch and working-tree changes, select local validation, inspect migrations and credentials, and draft a feature PR targeting develop. Use when preparing changes for review; invocation alone does not authorize committing, pushing or creating a PR.
+description: Review Pingisligan Fantasy branch and working-tree changes, select local validation, inspect migrations and credentials, and draft a feature PR targeting develop. Use when preparing changes for review; follow AGENTS.md Git permissions and the current request's scope. Never merge PRs.
 ---
 
 # Prepare PR
@@ -48,7 +48,11 @@ Return a proposed title and concise PR body describing the concrete problem,
 resulting behavior, validation and limitations, migrations, and any Vercel
 variables to add manually (names only). State base `develop` and the current
 head branch; keep optional draft files outside the tracked tree. Feature work
-follows feature branch → `develop`; a tested `develop` → `main` promotion is a
-separate task. Do not commit, push, create a PR or deploy unless the user has
-explicitly authorized that action. When PR creation is authorized, use this
-reviewed draft and target `develop`; never infer authorization from the skill name.
+follows feature branch → `develop`. Codex may commit/push its feature branch and
+create the PR using this reviewed draft under the standing Git permissions in
+`AGENTS.md`; honor preparation-only requests. A tested `develop` → `main` release
+PR requires an explicit request. Only the human operator may approve/confirm and
+merge PRs into `develop` or merge into `main`; Codex must never merge any PR.
+Use the configured HTTPS remote and restricted GitHub CLI authentication, with
+no SSH/private-key or privileged-credential fallback. Stop and report HTTPS auth
+failures. Deployment still requires separate authorization.

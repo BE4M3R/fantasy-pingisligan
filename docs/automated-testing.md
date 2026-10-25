@@ -309,7 +309,10 @@ commits (`git diff develop...HEAD`) and uncommitted work (`git diff` and
 `git diff --cached`); inspect untracked files explicitly. Check that local
 `develop` is the intended base; if it is missing or stale, report that limitation
 instead of silently fetching or switching branches. Feature PRs target
-`develop`; promotion of a tested `develop` commit to `main` is a separate task.
+`develop`; only the human operator may approve/confirm and merge them. Codex may
+prepare a tested `develop` → `main` release PR only when explicitly requested
+and must never merge any PR. Follow the [mandatory Git workflow and authentication
+rules](../AGENTS.md#mandatory-git-workflow).
 
 Select tests from the table above and inspect the complete intended diff for
 migration edits, authorization changes, credentials and unrelated artifacts.
@@ -321,9 +324,14 @@ access is unnecessary for preparation.
 
 Draft a concise title and body covering the problem, resulting behavior,
 validation (including checks not run), migrations and required manual Vercel
-variables. Keep draft files outside the tracked tree. Do not commit, push,
-create a PR or deploy unless separately authorized. Preparation remains useful
-offline; report missing tools or failed checks without claiming readiness.
+variables. Keep draft files outside the tracked tree. Codex may commit/push its
+feature branch and create a PR into `develop` under the standing Git permissions;
+honor narrower requests such as local preparation only. Deployment still requires
+separate authorization. Preparation remains useful offline; report missing tools
+or failed checks without claiming readiness.
+
+After pushing and creating the PR, follow [pull request CI verification](../AGENTS.md#pull-request-ci-verification)
+before reporting readiness for human review. Passing CI never authorizes Codex to merge.
 
 ## CI and reports
 

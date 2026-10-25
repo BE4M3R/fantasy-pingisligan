@@ -152,7 +152,8 @@ deploy through GitHub Actions.
 
 ## Feature branch to staging
 
-Start from the current `develop` branch, then commit and push your feature:
+Start all development from the current `develop` branch on a dedicated
+feature/fix/docs branch, then commit and push that branch:
 
 ```bash
 git switch develop
@@ -163,9 +164,20 @@ git commit -m "Describe the change"
 git push -u origin feature/describe-the-change
 ```
 
-Open a pull request from the feature branch into `develop`. After it is merged,
-GitHub Actions deploys pending migrations to staging. Do not push feature work
-directly to `main`.
+Codex may develop, test, commit, push its branch and create a PR into `develop`,
+subject to the current request's scope. Only the human operator may approve/confirm
+and merge it. GitHub Actions then deploys pending migrations to staging.
+
+Production releases use only a PR from the exact staging-tested `develop` commit
+into `main`. Codex may prepare this PR only when explicitly requested; only the
+human operator may merge it. Codex must never merge any PR. Never push directly
+to `develop` or `main`, open a feature PR into `main`, bypass branch protections,
+or trigger production deployments to substitute for this workflow.
+
+On every platform, use the configured HTTPS remote and restricted GitHub CLI
+authentication. Never switch to SSH, use an SSH URL, or access/use the existing
+SSH private key for this repository. If HTTPS authentication fails, stop and
+report it; never use another privileged GitHub credential as a fallback.
 
 ## Data imports
 
