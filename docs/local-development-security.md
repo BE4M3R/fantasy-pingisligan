@@ -232,7 +232,10 @@ everyday agent session, preserving existing credentials and backup procedures:
    the team. Do not give it workflow dispatch/admin, environment approval,
    repository-secret management, direct protected-branch promotion, or a
    privileged reusable token. Confirm actual permissions/protections manually;
-   token names alone do not establish their scope.
+   token names alone do not establish their scope. Follow the
+   [mandatory Git workflow and authentication rules](../AGENTS.md#mandatory-git-workflow):
+   restricted HTTPS/GitHub CLI only, human-only PR approval/confirmation and merges,
+   and no SSH/private-key or privileged-credential fallback on HTTPS failure.
 4. Enforce inability to read operator stores or invoke an authenticated operator
    session. A different folder, `.gitignore`, a separate terminal, `chmod 600`
    under the same account, an unset variable, or a container with the home

@@ -87,8 +87,9 @@ environment; staging deploy/status runs use `develop` and **staging**. Results
 processing remains separately bound to **production-results** and unattended.
 
 Commit the new migration and open a pull request into `develop`. Pull requests
-first rebuild and lint a clean local database in CI. After the PR is merged,
-GitHub Actions applies the pending migration to staging.
+first rebuild and lint a clean local database in CI. Only the human operator may
+approve/confirm and merge the PR; GitHub Actions then applies the pending migration
+to staging. Follow the [mandatory Git workflow](../AGENTS.md#mandatory-git-workflow).
 
 For explicitly authorized staging development, run the local app with
 `npm run dev:staging`. Its ignored `.env.staging.local` must include the staging
@@ -99,9 +100,10 @@ operations. This does not authorize direct hosted schema changes. See
 [credential separation](local-development-security.md).
 
 Test the application against staging, then promote the exact tested commit by
-opening a pull request from `develop` into `main`. GitHub Actions applies
-approved migrations to staging and production; it is the only normal path for
-hosted schema changes.
+opening a pull request from `develop` into `main`. Codex may prepare this release
+PR only when explicitly requested and must never merge it; only the human operator
+merges into `main`. GitHub Actions applies approved migrations to staging and
+production; it is the only normal path for hosted schema changes.
 
 Never edit an already deployed migration. Add a new migration that moves the
 schema forward. Keep player, fixture and result imports in their existing
