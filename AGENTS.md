@@ -6,7 +6,22 @@ This repository is `fantasy-pingisligan`, a Next.js app for a fantasy game based
 ## Supabase access policy
 
 - Default to local Supabase on Windows, macOS and Linux; WSL2 is optional.
+  `npm run dev` and normal development/test commands must use local Supabase.
   Never fall back to staging or production when local services are unavailable.
+- Staging is an explicit opt-in development target. Authorized developers may
+  run the local Next.js app against staging with `npm run dev:staging`, read and
+  write staging data, and deliberately create test accounts, players, fantasy
+  teams and other fixtures. Staging-only credentials may remain locally
+  accessible in ignored `.env.staging.local`; they need not share the production
+  operator boundary. Credential availability alone is not authorization.
+- Staging commands use a consistent `:staging` suffix and load configuration
+  from `.env.staging.local` without inherited credential/target overrides.
+  The developer is responsible for that file containing staging credentials.
+  Preserve the existing lightweight URL/project-ref and app-env checks; do not
+  add a separate staging identity registry or production credential lookups.
+  See [development commands](docs/local-development-security.md#phase-b3-development-commands).
+  Never run staging seeding, resets, cleanup or lifecycle changes automatically
+  during ordinary development. Hosted schema changes still use GitHub Actions.
 - For explicitly authorized production database diagnostics, use **only**
   `supabase-production-readonly`, with `read_only=true`, the production
   `project_ref`, `features=database` and scoped `PF_SUPABASE_RO_TOKEN`
@@ -88,7 +103,10 @@ Never treat repository guards or environment filtering as OS credential isolatio
 Local development uses `.env.local`, and it must point to the local Supabase
 stack shown by `npx supabase status` (`http://127.0.0.1:54321` by default).
 Use `.env.staging.local` only for explicit staging commands. Keep production
-values in Vercel and GitHub environment secrets, not in `.env.local`.
+write credentials out of the everyday development identity, including its files,
+inherited environment and cached authentication. Keep deployed application/job
+credentials in Vercel and GitHub environment secrets as appropriate; separate
+production operator stores must be inaccessible to everyday development.
 
 Expected public variables:
 - `NEXT_PUBLIC_SUPABASE_URL`

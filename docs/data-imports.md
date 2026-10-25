@@ -2,9 +2,10 @@
 
 Player setup reads the committed catalogue offline; it never calls Profixio or
 SBTF. STUPA remains the source for schedules and results. Schedule/result
-scripts load `.env.local` and then `.env`; their dry runs fetch source data
-without writing to Supabase. The player dry run requires no credentials or
-network access.
+scripts default to `.env.local` only; their dry runs fetch source data and may
+read the selected database without writing to it. Hosted targets require
+explicit selection as described below. The player dry run requires no
+credentials or network access.
 
 ## Required order
 
@@ -85,7 +86,7 @@ promoting the candidate.
 An equivalent read-only staging comparison is also available:
 
 ```bash
-npm run export:players:staging-candidate
+npm run export:players:staging
 diff -u data/player-catalogue.json data/player-catalogue.staging.json
 ```
 
@@ -490,14 +491,23 @@ appearance in the winning fixture and use the immutable
 current club on `players`. Other players registered to the winning club receive
 no fixture-win bonus.
 
-## Explicit operator targets
+## Explicit hosted targets
 
 Ordinary STUPA imports read `.env.local` only and reject inherited hosted URLs
 before contacting STUPA. Dry runs still contact upstream services and may read
-the selected database. Authorized hosted callers must supply `--target staging`
-or `--target production` plus the matching `STAGING_PROJECT_REF` or
-`PRODUCTION_PROJECT_REF` in a clean operator environment. `refresh:staging`
-passes its explicit staging target to children. The existing protected production
-results workflow is recognized by its canonical Actions context and needs no
-new secrets, variables or YAML changes. See [loading behavior and operator
-compatibility](local-development-security.md).
+the selected database. Use `npm run import:schedule:staging` and
+`npm run import:results:staging` for explicit staging imports; preview commands
+are `import:schedule:dry:staging` and `import:results:dry:staging`.
+These commands load the complete `.env.staging.local` configuration through the
+Node staging launcher, ignoring inherited provider credentials, and supply
+`--target staging` to the existing importers. The developer owns the correctness
+of staging credentials and `STAGING_PROJECT_REF`; existing URL/ref checks remain.
+`refresh:staging` uses the same loader and passes its explicit staging target to
+children. Staging-only credentials may remain locally accessible in `.env.staging.local`; ordinary
+development must never automatically import or reset staging data. The
+underlying importer also supports `--target production` with
+`PRODUCTION_PROJECT_REF`, but local production imports are prohibited by policy;
+production migrations/imports use authorized GitHub Actions. The existing
+protected production results workflow is recognized by its canonical Actions
+context and needs no new secrets, variables or YAML changes. See
+[loading behavior and credential separation](local-development-security.md).

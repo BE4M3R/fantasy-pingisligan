@@ -209,10 +209,12 @@ test("home fixtures refresh from the selected gameweek and change state at kicko
       return route.fulfill({ json: { matches: [updatedMatch], error: false } });
     });
 
-    // A refreshed schedule moves kickoff and both clubs while the tab stays open.
-    // Flush due hydration callbacks so the refresh timer exists before jumping.
-    await page.clock.runFor(0);
-    await page.clock.fastForward(6 * 60_000);
+    // Let hydration and each minute timer run normally. A single fastForward
+    // can collapse hydration callbacks and attach the polling effect after the
+    // jump, even though the server-rendered card already passed its assertions.
+    await page.clock.runFor(4 * 60_000);
+    expect(requests).toBe(0);
+    await page.clock.runFor(60_000);
     await expect(card.getByRole("heading", { level: 3 })).toHaveText(stockholmDate(revisedStart));
     await expect(card.locator("time")).toHaveText(stockholmTime(revisedStart));
     await expect(card.locator('[title="Kosta SK"]')).toHaveCount(1);
@@ -224,7 +226,7 @@ test("home fixtures refresh from the selected gameweek and change state at kicko
     expect(requests).toBe(1);
 
     // The scheduled start alone makes the fixture live, even with no score.
-    await page.clock.fastForward(121_000);
+    await page.clock.fastForward(181_000);
     await expect(card.getByText("LIVE", { exact: true })).toHaveCount(1);
     await expect(card).toContainText("0–0");
     expect(requests).toBe(2);
