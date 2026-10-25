@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     const rows = (matches ?? []) as {
       user_id: string;
       team_name: string;
+      display_name: string | null;
       total_points: number | string;
       rank: number;
       total_matches: number | string;
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
       rows: rows.map((row) => ({
         user_id: row.user_id,
         team_name: row.team_name,
+        display_name: row.display_name,
         total_points: row.total_points,
         rank: row.rank,
       })),

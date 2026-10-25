@@ -70,6 +70,11 @@ flowchart LR
 - Squad changes use Server Actions. Every mutation rechecks authentication,
   transfer locks, ownership, squad rules and budget on the server.
 - Supabase Row Level Security remains the database-level authorization boundary.
+- Home shows the signed-in manager's profile display name under their team name.
+  Global and private standings, search results and team dialogs show the same
+  smaller secondary text. Standings RPCs join profiles in the existing query;
+  missing or blank names omit the secondary line. Display names follow the
+  existing public global-standings visibility; emails are never added to rows.
 - Team owners can update only `name`, `onboarding_completed`, and `updated_at`.
   New teams must start with a 100m budget; only trusted server operations can
   adjust existing budgets. The complete-squad save RPC requires exactly one

@@ -98,7 +98,7 @@ export default async function OverviewPage() {
     fantasyTeam = createdTeam as FantasyTeam | null;
   }
 
-  const [squadResult, transferLockResult, progressResult, leagueTableResult] =
+  const [squadResult, transferLockResult, progressResult, leagueTableResult, profileResult] =
     await Promise.all([
       fantasyTeam
         ? supabase
@@ -109,6 +109,7 @@ export default async function OverviewPage() {
       supabase.rpc("current_transfer_lock"),
       supabase.rpc("get_my_gameweek_progress"),
       getGlobalLeaderboard(),
+      supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle(),
     ]);
 
   const squad = (squadResult.data ?? []) as SquadRow[];
@@ -215,6 +216,11 @@ export default async function OverviewPage() {
               <h1 className="mt-1.5 break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl">
                 {fantasyTeam?.name ?? "Your fantasy club"}
               </h1>
+              {profileResult.data?.display_name?.trim() ? (
+                <p className="mt-1 break-words text-sm text-[var(--pf-text-muted)] sm:text-base">
+                  {profileResult.data.display_name}
+                </p>
+              ) : null}
               <div
                 aria-hidden="true"
                 className="mx-auto mt-3 h-px w-12 bg-sky-100/20"
