@@ -92,6 +92,17 @@ change as result imports arrive. It becomes final only after the post-gameweek
 refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
 points for a future gameweek are excluded from totals and rankings.
 
+## Announcements
+
+`announcements` stores scheduled, database-driven English content.
+`announcement_user_state` stores private read/dismissal timestamps keyed by user
+and announcement. `announcement_user_preferences` stores a user-wide snooze
+deadline. Ordinary users cannot modify content or directly rewrite interaction
+state. Authenticated RPCs provide a compact summary, irreversible interaction
+writes and a database-timed 24-hour snooze. Published due content remains in the
+inbox after popup expiry; drafts/future content and their private Storage artwork
+are protected by RLS. See [publishing](announcements.md).
+
 ## Player statistics
 
 Migration `20261013162024_player_statistics.sql` adds two read functions without

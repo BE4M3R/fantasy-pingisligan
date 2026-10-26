@@ -149,6 +149,13 @@ completion run only after successful persistence.
 
 ## Trust boundaries
 
+Dashboard announcements use a persistent layout controller and the existing
+Supabase clients/Server Actions. A compact per-user summary supplies popup
+candidates and unread count; inbox history and content load on demand. Database
+publication policies also guard private artwork. Dismissals and the 24-hour
+Normal snooze persist per user without polling or publication jobs. See
+[announcements](announcements.md) for publishing and reader behavior.
+
 Public Supabase URL and anonymous keys may be used by the web app. The service
 role key bypasses RLS and is restricted to local/server import jobs. Scraping,
 source parsing and service-role writes belong in `scripts/`, a scheduled GitHub

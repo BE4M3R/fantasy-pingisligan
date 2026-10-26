@@ -11,6 +11,7 @@ import { updateTeamName } from "@/app/dashboard/actions";
 import { ChangeTeamNameDialog } from "@/app/dashboard/change-team-name-dialog";
 import { DeleteAccountForm } from "@/app/dashboard/delete-account-form";
 import { SettingsMenu } from "@/app/dashboard/settings-menu";
+import { AnnouncementBell } from "@/app/dashboard/announcements/controller";
 import { getClaims, getMyTeam } from "@/lib/supabase/server";
 
 type TeamSettings = {
@@ -188,6 +189,7 @@ export async function DashboardHeader() {
 
       <header className="relative z-40 border-b border-[var(--pf-card-border)] bg-[var(--pf-navy)]">
         <div className="relative mx-auto flex min-h-12 max-w-6xl items-center px-4 py-1 sm:min-h-14 sm:px-6">
+          <AnnouncementBell />
           <Link
             aria-label="Fantasy Pingisligan home"
             className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"
