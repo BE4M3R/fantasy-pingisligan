@@ -10,6 +10,7 @@ below describe code paths, not measured latency or throughput.
 | Area | Previous cost | Change and freshness |
 | --- | --- | --- |
 | Authentication/header | Separate server clients and repeated claims verification in page/header | React request memoization for the client and claims; no shared user cache. Proxy still handles cookie refresh. |
+| Announcements | No announcement inbox or popup delivery | One compact authenticated summary on entry/return and after interactions; no polling. Inbox cards load 20 rows with preview text at a time; private artwork and the separate Markdown renderer load when details open. |
 | Team reads | Squad/overview and header selected the same team separately | One request-memoized projection containing ID, name, budget and onboarding status. Actions retain fresh reads. |
 | Player catalogue | Each picker instance fetched the same list and kept it indefinitely | One shared in-flight browser request and 60-second catalogue lifetime, checked whenever a picker opens. Failed requests are retryable. |
 | Player database reads | Authenticated API queried public players on each request | Anonymous, cookie-free Supabase GET cached by Next for 60 seconds; API still authenticates each network request and returns `private, no-store`. |
