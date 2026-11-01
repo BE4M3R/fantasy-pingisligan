@@ -102,3 +102,59 @@ for (const [label, schema, failure, followupOnly] of [
   assert.equal(result.status, 0, `${label}: ${result.stderr}`);
   console.log(`Schema upgrade passed: ${label}`);
 }
+
+// Reconstruct the exact original banner schema only inside rollback-only tests.
+// Verify a populated conversion as well as duplicate-content rejection.
+const originalBanners = await readFile(path.join(root, "supabase/migrations/20261026120000_homepage_banners.sql"), "utf8");
+const competitionMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261031120000_gameweek_homepage_competitions.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const bannerFixture = await readFile(path.join(root, "tests/fixtures/homepage-banner-upgrade.sql"), "utf8");
+for (const duplicate of [null, "gameweek", "season"]) {
+  const sql = `begin;
+    drop policy "Revealed homepage competition artwork is readable" on storage.objects;
+    drop function public.get_homepage_competitions();
+    drop table public.homepage_banners;
+    drop function public.homepage_gameweek_states();
+    ${originalBanners}
+    ${bannerFixture}
+    ${duplicate ? `insert into public.homepage_banners (kind, gameweek_id, title, description)
+      select kind, gameweek_id, 'Conflicting campaign', 'Preserve me' from public.homepage_banners
+      where ${duplicate === "season" ? "kind = 'season'" : "title = 'Ready campaign'"};
+      do $test$ begin
+        begin
+          execute $migration$${competitionMigration}$migration$;
+          raise exception 'Expected duplicate rejection';
+        exception when others then
+          if position('Duplicate homepage competition content requires operator review' in sqlerrm) = 0 then raise; end if;
+        end;
+        if exists (select 1 from information_schema.columns where table_schema = 'public'
+          and table_name = 'homepage_banners' and column_name = 'content_ready') then
+          raise exception 'Rejected migration did not roll back';
+        end if;
+        if (select count(*) from public.homepage_banners) <> 7 then
+          raise exception 'Rejected migration changed content';
+        end if;
+      end; $test$;` : `${competitionMigration}
+      do $test$ begin
+        if exists (select 1 from banner_before old join public.homepage_banners b using (id)
+          where (to_jsonb(old) - 'kind') <> (to_jsonb(b) - 'kind' - 'content_ready'))
+          or (select count(*) from public.homepage_banners) <> 6 then
+          raise exception 'Legacy content or publication settings changed';
+        end if;
+        if (select count(*) from public.homepage_banners where content_ready) <> 1
+          or not (select content_ready from public.homepage_banners where title = 'Ready campaign') then
+          raise exception 'Draft, scheduled, expired or teaser content was marked ready';
+        end if;
+        if exists (select 1 from public.homepage_banners where kind not in ('gameweek', 'season')) then
+          raise exception 'Legacy kinds were not converted';
+        end if;
+      end; $test$;`}
+    rollback;`;
+  const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+    "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `Homepage banner upgrade (${duplicate ?? "populated"}): ${result.stderr}`);
+  console.log(`Homepage banner upgrade passed: ${duplicate ? `${duplicate} duplicate rejection and rollback` : "content preservation and safe readiness conversion"}`);
+}

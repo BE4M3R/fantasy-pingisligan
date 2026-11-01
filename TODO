@@ -34,13 +34,13 @@ Some startig guide and welcome message first time logging in??
 
 Maybe create some notication box if something is not working properly or just to send out some info on page?
 
-Add upcoming matches on home page (with results maybe?)
+(FIXED) Add upcoming matches on home page (with results maybe?)
 
 (FIXED) Make it clear when gameweek is live on home page.
 
-When pressing a guy in league show the players squad he has (same as in result mode)
+(FIXED) When pressing a guy in league show the players squad he has (same as in result mode)
 
-Show stats when pressing a player in squad mode and transfer mode.
+(FIXED) Show stats when pressing a player in squad mode and transfer mode.
 
 (FIXED) Making scoring of different teams appearing immediately when scoring is done
 
@@ -63,3 +63,21 @@ Wildcard should not be possible to use GW1
 (FIXED) Make us fetch schedule once every night and results once every night normally. But on game days fetch only results every 15min from first match starts until 00:00. After that back daily rutine again.
 
 Supabase mail about adding GRANT attribute, do we need to do that?
+
+Make it clear early if a player is part of team or not in result mode
+
+(FIXED) Add display name in leagues and home page
+
+Make notification system
+
+Make good for APP from webpage for both IOS and Android
+
+Add text for live stream button on home page
+
+Add match results in Fixture page
+
+Show league for each gameweek aswell in leagues view
+
+Codex can still have to much access if it uses SSH key and because in rulset we dont require any other reviewer
+
+Higher resolution logo? Looks not good in tabs on browsers?

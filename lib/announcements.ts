@@ -7,8 +7,6 @@ export type AnnouncementCandidate = {
 export type AnnouncementSummary = {
   unread_count: number;
   pending: AnnouncementCandidate[];
-  snoozed_until: string | null;
-  checked_at: string;
 };
 
 export type Announcement = {
@@ -39,13 +37,6 @@ export function announcementPreview(body: string) {
   return text.length > 140 ? `${text.slice(0, 137).trimEnd()}…` : text;
 }
 
-// Use the database's clock so a phone's timezone/clock cannot change snooze eligibility.
-export function popupCandidates(summary: AnnouncementSummary) {
-  const snoozed = Boolean(summary.snoozed_until &&
-    Date.parse(summary.snoozed_until) > Date.parse(summary.checked_at));
-  return summary.pending.filter((item) => item.priority === "high" || !snoozed);
-}
-
 export function safeAnnouncementUrl(value: string | null | undefined): string | undefined {
   if (!value || /[\s\\\u0000-\u001f\u007f]/.test(value)) return undefined;
   if (value.startsWith("/") && !value.startsWith("//")) return value;
@@ -55,4 +46,11 @@ export function safeAnnouncementUrl(value: string | null | undefined): string | 
   } catch {
     return undefined;
   }
+}
+
+// No dedicated local competition pages exist yet. Publishers may supply a
+// verified external competition destination; never substitute an unrelated page.
+export function safeBannerUrl(value: string | null) {
+  const safe = safeAnnouncementUrl(value);
+  return safe?.startsWith("https://") ? safe : undefined;
 }

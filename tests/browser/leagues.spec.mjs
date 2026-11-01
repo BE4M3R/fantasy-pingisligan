@@ -112,7 +112,8 @@ test.describe.serial("private league journey", () => {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (width === 390 || width === 1440) {
           await page.evaluate(() => document.fonts.ready);
-          await page.screenshot({ path: testInfo.outputPath(`${label}-display-names-${width}.png`), fullPage: true });
+          // Do not mutate input caret styles while a server-rendered table is hydrating.
+          await page.screenshot({ path: testInfo.outputPath(`${label}-display-names-${width}.png`), fullPage: true, caret: "initial" });
         }
       }
     }

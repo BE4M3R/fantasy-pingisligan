@@ -149,11 +149,21 @@ completion run only after successful persistence.
 
 ## Trust boundaries
 
+Home's streamed sponsored carousel uses the authenticated, security-invoker
+`get_homepage_competitions()` RPC. A shared SQL calculation follows the existing
+transfer lock and `data_refreshed_at`; RLS protects weekly content readiness and
+independent season publication, including direct table and Storage access.
+All historical rounds, current, two future generic teasers and a final season
+card are returned without creating content rows. One batch signs readable artwork.
+Home entry selects current (or latest completed) without interrupting browsing.
+No privileged client, publication job or winner calculation is involved.
+See [homepage highlights](homepage-banners.md).
+
 Dashboard announcements use a persistent layout controller and the existing
 Supabase clients/Server Actions. A compact per-user summary supplies popup
 candidates and unread count; inbox history and content load on demand. Database
-publication policies also guard private artwork. Dismissals and the 24-hour
-Normal snooze persist per user without polling or publication jobs. See
+publication policies also guard private artwork. Individual dismissals persist
+per user across devices without snoozing, polling or publication jobs. See
 [announcements](announcements.md) for publishing and reader behavior.
 
 Public Supabase URL and anonymous keys may be used by the web app. The service

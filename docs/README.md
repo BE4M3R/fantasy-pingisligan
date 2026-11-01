@@ -34,6 +34,7 @@ Start with the root [README](../README.md) to install and run the application.
 12. [Portable development and credential separation (Phase A3 + B)](local-development-security.md)
 13. [Safe production access for Codex (Phase B3.1)](codex-production-access.md)
 14. [Announcements and publishing](announcements.md)
+15. [Homepage sponsored highlights](homepage-banners.md)
 
 ## Task shortcuts
 

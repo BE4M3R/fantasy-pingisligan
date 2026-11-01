@@ -13,7 +13,7 @@ async function login(page, fixture) {
 
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-test("announcement sequence, snooze across devices, inbox and safe responsive layouts", async ({ page, browser }, testInfo) => {
+test("announcement sequence, dismissal across devices, inbox and safe responsive layouts", async ({ page, browser }, testInfo) => {
   test.setTimeout(150_000);
   const f = await createFixture();
   const ids = Array.from({ length: 27 }, () => randomUUID());
@@ -59,7 +59,7 @@ test("announcement sequence, snooze across devices, inbox and safe responsive la
     await page.evaluate(() => document.fonts.ready);
     await popup.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: testInfo.outputPath("dashboard-high-popup-390.png") });
-    await popup.getByRole("button", { name: "Dismiss and continue" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("heading", { name: "New player statistics" })).toBeVisible();
     await expect(popup.getByText("2 of 3", { exact: true })).toBeVisible();
     const failAction = async (route) => {
@@ -67,12 +67,12 @@ test("announcement sequence, snooze across devices, inbox and safe responsive la
       else await route.continue();
     };
     await page.route("**/dashboard/**", failAction);
-    await popup.getByRole("button", { name: "Dismiss and continue" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("alert")).toContainText("Could not save");
     await expect(popup.getByRole("heading", { name: "New player statistics" })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("dashboard-popup-save-error-390.png") });
     await page.unroute("**/dashboard/**", failAction);
-    await popup.getByRole("button", { name: "Dismiss and continue" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("heading", { name: "Your next sponsored gameweek" })).toBeVisible();
     await expect(popup.getByText("3 of 3", { exact: true })).toBeVisible();
     await expect(popup.getByAltText("Fantasy Pingisligan sponsor artwork")).toBeVisible();
@@ -84,7 +84,7 @@ test("announcement sequence, snooze across devices, inbox and safe responsive la
       expect(bounds.height).toBeLessThanOrEqual(viewport.height * 0.85 + 1);
       expect(Math.abs(bounds.x + bounds.width / 2 - viewport.width / 2)).toBeLessThan(2);
       expect(Math.abs(bounds.y + bounds.height / 2 - viewport.height / 2)).toBeLessThan(2);
-      await expect(popup.getByRole("button", { name: "Dismiss", exact: true })).toBeInViewport({ ratio: 1 });
+      await expect(popup.getByRole("button", { name: "Close announcement", exact: true })).toBeInViewport({ ratio: 1 });
       const art = await popup.getByAltText("Fantasy Pingisligan sponsor artwork").boundingBox();
       expect(art.height).toBeLessThanOrEqual(viewport.width < 640 ? Math.min(176, viewport.height * 0.24) + 1 : 177);
       await popup.getByRole("link", { name: "See the rules" }).scrollIntoViewIfNeeded();
@@ -93,33 +93,31 @@ test("announcement sequence, snooze across devices, inbox and safe responsive la
       await page.screenshot({ path: testInfo.outputPath(`dashboard-sponsor-popup-${viewport.width}.png`) });
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await popup.getByRole("button", { name: "Skip remaining for 24 hours" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup).not.toBeVisible();
-    const prefs = checked(await f.user.from("announcement_user_preferences").select("snoozed_until").single(), "Read browser snooze");
-    expect(Date.parse(prefs.snoozed_until)).toBeGreaterThan(Date.now() + 23 * 60 * 60_000);
     const state = checked(await f.user.from("announcement_user_state").select("announcement_id, dismissed_at"), "Read browser dismissals");
-    expect(state.map((item) => item.announcement_id).sort()).toEqual(ids.slice(0, 2).sort());
+    expect(state.map((item) => item.announcement_id).sort()).toEqual(ids.slice(0, 3).sort());
     expect(state.every((item) => item.dismissed_at)).toBe(true);
     await page.reload();
-    await expect(page.getByRole("button", { name: "Open announcements (2 unread)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open announcements (1 unread)" })).toBeVisible();
     await expect(popup).not.toBeVisible();
 
     secondDevice = await browser.newContext();
     const otherPage = await secondDevice.newPage();
     await login(otherPage, f);
-    await expect(otherPage.getByRole("button", { name: "Open announcements (2 unread)" })).toBeVisible();
+    await expect(otherPage.getByRole("button", { name: "Open announcements (1 unread)" })).toBeVisible();
     await expect(otherPage.getByRole("dialog", { name: "Announcement", exact: true })).not.toBeVisible();
     await secondDevice.close();
     secondDevice = null;
 
-    await page.getByRole("button", { name: "Open announcements (2 unread)" }).click();
+    await page.getByRole("button", { name: "Open announcements (1 unread)" }).click();
     await expect(inbox).toBeVisible();
     await expect(inbox.getByText("Dismissed updates stay here whenever you need them.")).toHaveCount(0);
     await expect(inbox.getByRole("button", { name: /Previous promotion/ })).toBeVisible();
-    expect(checked(await f.user.rpc("get_my_announcement_summary"), "Unread after list").unread_count).toBe(2);
+    expect(checked(await f.user.rpc("get_my_announcement_summary"), "Unread after list").unread_count).toBe(1);
     await expect(inbox.getByText("Sponsored", { exact: true })).toBeVisible();
     await expect(inbox.getByText("Welcome, managers.", { exact: false }).first()).toBeVisible();
-    await expect(inbox.getByRole("listitem").filter({ hasText: "Your next sponsored gameweek" }).getByLabel("Unread")).toBeVisible();
+    await expect(inbox.getByRole("listitem").filter({ hasText: "Your next sponsored gameweek" }).getByLabel("Unread")).toHaveCount(0);
     await expect(inbox.getByRole("listitem").filter({ hasText: "New player statistics" }).getByLabel("Unread")).toHaveCount(0);
     for (const width of [320, 390, 639, 640, 641, 768, 1440]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
@@ -196,25 +194,19 @@ test("announcement sequence, snooze across devices, inbox and safe responsive la
     await expect(page).toHaveURL(/\/dashboard\/leagues/);
     await expect(popup).not.toBeVisible();
 
-    // A new High notice bypasses an existing Normal snooze on return.
+    // A new High notice is discovered on return after the sequence was dismissed.
     checked(await f.admin.from("announcements").insert({ id: ids[4], title: "Urgent maintenance notice", body: "A rare important notice.", published: true, priority: "high", popup_enabled: true, publish_at: ago(1) }), "Publish urgent notice");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(popup.getByRole("heading", { name: "Urgent maintenance notice" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(popup).not.toBeVisible();
 
-    // Expire only the fixture's snooze; no business-rule bypass or populated-stack reset.
-    checked(await f.admin.from("announcement_user_preferences").update({ snoozed_until: ago(1) }).eq("user_id", f.userId), "Advance snooze fixture");
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(popup.getByRole("heading", { name: "Your next sponsored gameweek" })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss", exact: true }).click();
-    await expect(popup).not.toBeVisible();
     // A newly published Normal item is eligible on the next visit in the same login session.
     checked(await f.admin.from("announcements").insert({ id: ids[5], title: "Later ordinary news", body: "A new announcement on your next visit.", published: true, popup_enabled: true, publish_at: ago(0) }), "Publish later news");
     await page.reload();
     await expect(popup.getByRole("heading", { name: "Later ordinary news" })).toBeVisible();
-    await expect(popup.getByText("1 of 1", { exact: true })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await expect(popup.getByText("1 of 1", { exact: true })).toHaveCount(0);
+    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup).not.toBeVisible();
     // Opening the inbox preserves an unsaved captain change on the squad page.
     await page.getByRole("link", { name: "Squad", exact: true }).click();
@@ -286,9 +278,9 @@ test("an initially empty visit discovers new popups on return and preserves the 
     await page.keyboard.press("Escape");
     await expect(blockingDialog).not.toBeVisible();
     await expect(popup.getByRole("heading", { name: "New High after an empty visit" })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss and continue" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("heading", { name: "New Normal after an empty visit" })).toBeVisible();
-    // New High follows the current announcement; new Normal waits until another visit.
+    // New items join behind the current announcement without replacing it.
     checked(await f.admin.from("announcements").insert([
       { id: ids[6], title: "High while reading", priority: "high" },
       { id: ids[7], title: "Normal for the next visit", priority: "normal" },
@@ -297,22 +289,20 @@ test("an initially empty visit discovers new popups on return and preserves the 
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await activeCheck;
     await expect(popup.getByRole("heading", { name: "New Normal after an empty visit" })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss and continue" }).click();
+    await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("heading", { name: "High while reading" })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss", exact: true }).click();
-    await expect(popup).not.toBeVisible();
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup.getByRole("heading", { name: "Normal for the next visit" })).toBeVisible();
     // Reload reconstructs only remaining items; earlier persisted dismissals do not restart.
     await page.reload();
     await expect(popup.getByRole("heading", { name: "Normal for the next visit" })).toBeVisible();
-    await expect(popup.getByText("1 of 1", { exact: true })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await expect(popup.getByText("1 of 1", { exact: true })).toHaveCount(0);
+    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup).not.toBeVisible();
     checked(await f.admin.from("announcements").update({ publish_at: ago(0) }).eq("id", ids[3]), "Reach scheduled publication");
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await expect(popup.getByRole("heading", { name: "Scheduled for later" })).toBeVisible();
-    await popup.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup).not.toBeVisible();
     await page.reload();
     await expect(page.getByRole("button", { name: "Open announcements (2 unread)" })).toBeVisible();
