@@ -1,4 +1,6 @@
 import { getGlobalLeaderboard } from "@/lib/leaderboard";
+import { Suspense } from "react";
+import { HomepageBanners, HomepageBannersLoading } from "@/app/dashboard/homepage-banners";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
@@ -183,9 +185,15 @@ export default async function OverviewPage() {
     <main className="dashboard-shell table-tennis-surface min-h-screen text-white">
       <DashboardHeader />
 
-      <section className="mx-auto max-w-3xl px-4 pb-5 pt-3 sm:px-6 sm:py-8">
+      <section className="pb-5 sm:pb-8">
         <div>
-          <div className="space-y-3 sm:space-y-5">
+          <div className="homepage-overview-grid gap-y-3 sm:gap-y-5">
+            <div className="homepage-banner-breakout">
+              <Suspense fallback={<HomepageBannersLoading />}>
+                <HomepageBanners />
+              </Suspense>
+            </div>
+
             <section className="table-panel overflow-hidden rounded-lg border p-3.5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--pf-brand-blue)] sm:text-xs">

@@ -92,16 +92,25 @@ change as result imports arrive. It becomes final only after the post-gameweek
 refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
 points for a future gameweek are excluded from totals and rankings.
 
-## Announcements
+## Homepage banners and announcements
+
+`homepage_banners` stores one optional content row per gameweek plus one season
+row. Weekly `content_ready` and derived Fantasy lifecycle gate authenticated reads;
+season retains independent `published`/publication/expiry controls. Legacy weekly
+publication values are preserved but no longer control visibility. All writes are
+operator-only. `homepage_gameweek_states()` shares lifecycle between RLS and the
+security-invoker `get_homepage_competitions()` RPC, which returns all history,
+current, two generic future teasers and season last. Artwork follows the same RLS
+through the private announcement bucket. See [homepage highlights](homepage-banners.md).
 
 `announcements` stores scheduled, database-driven English content.
 `announcement_user_state` stores private read/dismissal timestamps keyed by user
-and announcement. `announcement_user_preferences` stores a user-wide snooze
-deadline. Ordinary users cannot modify content or directly rewrite interaction
-state. Authenticated RPCs provide a compact summary, irreversible interaction
-writes and a database-timed 24-hour snooze. Published due content remains in the
-inbox after popup expiry; drafts/future content and their private Storage artwork
-are protected by RLS. See [publishing](announcements.md).
+and announcement. The legacy `announcement_user_preferences` table and snooze
+RPC remain unused; the app ignores snooze values. Ordinary users cannot modify
+content or directly rewrite interaction state. Authenticated RPCs provide a
+compact summary and irreversible interaction writes. Published due content remains
+in the inbox after popup expiry; drafts/future content and their private Storage
+artwork are protected by RLS. See [publishing](announcements.md).
 
 ## Player statistics
 

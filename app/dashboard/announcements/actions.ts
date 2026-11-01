@@ -14,12 +14,3 @@ export async function recordAnnouncementInteraction(id: string, dismiss = false)
   });
   return { error: error ? "Could not save. Please try again." : null };
 }
-
-export async function snoozeAnnouncements() {
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  if (!claims?.claims.sub) return { error: "Please sign in again." };
-  const { data, error } = await supabase.rpc("snooze_announcements");
-  return { error: error ? "Could not save the pause. Please try again." : null,
-    snoozedUntil: error ? null : data as string };
-}

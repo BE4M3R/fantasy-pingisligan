@@ -4,19 +4,26 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/browser";
-import { announcementCategoryLabels, announcementFields, announcementPreview, popupCandidates, type Announcement, type AnnouncementCandidate, type AnnouncementSummary } from "@/lib/announcements";
+import { announcementCategoryLabels, announcementFields, announcementPreview, type Announcement, type AnnouncementCandidate, type AnnouncementSummary } from "@/lib/announcements";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
-import { recordAnnouncementInteraction, snoozeAnnouncements } from "./actions";
+import { recordAnnouncementInteraction } from "./actions";
 import { AnnouncementCategoryIcon } from "./category-icon";
+import { AnnouncementMetadata } from "./metadata";
 
 const AnnouncementContent = dynamic(() => import("./content").then((module) => module.AnnouncementContent), {
   loading: () => <p className="py-8 text-sm text-[var(--pf-text-muted)]" role="status">Loading announcement…</p>,
 });
 
 const InboxContext = createContext<{ unread: number; open: (anchor: HTMLButtonElement) => void } | null>(null);
-const buttonClass = "min-h-11 rounded-md bg-[var(--pf-brand-blue)] px-4 py-2.5 text-sm font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)] disabled:opacity-50";
 const secondaryClass = "min-h-11 rounded-md border border-[var(--pf-brand-blue-border)] px-4 py-2.5 text-sm font-semibold text-[var(--pf-text)] hover:bg-[var(--pf-navy-elevated)] disabled:opacity-50";
 type InboxItem = Pick<Announcement, "id" | "title" | "body" | "category" | "publish_at"> & { announcement_user_state: { read_at: string }[] };
+
+function isPopupBackdrop(event: React.MouseEvent<HTMLDialogElement>) {
+  if (event.target !== event.currentTarget) return false;
+  const bounds = event.currentTarget.getBoundingClientRect();
+  return event.clientX < bounds.left || event.clientX > bounds.right ||
+    event.clientY < bounds.top || event.clientY > bounds.bottom;
+}
 
 export function AnnouncementBell() {
   const inbox = useContext(InboxContext);
@@ -32,7 +39,8 @@ export function Announcements({ children, ready }: {
 }) {
   const [supabase] = useState(createClient);
   const router = useRouter();
-  const normalIds = useRef<Set<string> | null>(null);
+  const savingDismissal = useRef(false);
+  const backdropPointerDown = useRef(false);
   const refreshing = useRef<Promise<void> | null>(null);
   const popup = useRef<HTMLDialogElement>(null);
   const inbox = useRef<HTMLDialogElement>(null);
@@ -52,6 +60,7 @@ export function Announcements({ children, ready }: {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dismissalError, setDismissalError] = useState<{ message: string; destination?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -113,12 +122,7 @@ export function Announcements({ children, ready }: {
       const next = data as AnnouncementSummary;
       setSummary(next);
       if (!popup.current?.open) setProgress(1);
-      const snoozed = Boolean(next.snoozed_until && Date.parse(next.snoozed_until) > Date.parse(next.checked_at));
-      if (!snoozed && normalIds.current === null) {
-        normalIds.current = new Set(next.pending.filter((item) => item.priority === "normal").map((item) => item.id));
-      }
-      const eligible = popupCandidates(next).filter((item) =>
-        item.priority === "high" || normalIds.current?.has(item.id));
+      const eligible = next.pending;
       setQueue((previous) => {
         const current = popup.current?.open && eligible.find((item) => item.id === previous[0]?.id);
         return current ? [current, ...eligible.filter((item) => item.id !== current.id)] : eligible;
@@ -138,8 +142,6 @@ export function Announcements({ children, ready }: {
     let cancelled = false;
     const onReturn = () => {
       if (cancelled || document.visibilityState !== "visible") return;
-      // A return can start a fresh Normal batch. Keep any sequence being read stable.
-      if (!popup.current?.open && !inbox.current?.open) normalIds.current = null;
       void refresh();
     };
     const onDialogClose = (event: Event) => {
@@ -231,34 +233,25 @@ export function Announcements({ children, ready }: {
   }, [queue, inboxOpen, ready, checking, refresh]);
 
   async function dismiss(destination?: string) {
-    if (saving || !queue[0] || loading || detailError) return;
+    if (savingDismissal.current || !queue[0]) return;
+    const id = queue[0].id;
+    savingDismissal.current = true;
     setSaving(true);
     setError(null);
-    const result = await recordAnnouncementInteraction(queue[0].id, true).catch(() => ({ error: "Could not save. Please try again." }));
-    if (result.error) setError(result.error);
+    setDismissalError(null);
+    const result = await recordAnnouncementInteraction(id, true).catch(() => ({ error: "Could not save. Please try again." }));
+    if (result.error) setDismissalError({ message: result.error, destination });
     else {
       setProgress((value) => value + 1);
       await refresh(true);
+      // A successful save must advance even if refreshing the summary failed.
+      setQueue((previous) => previous.filter((item) => item.id !== id));
       if (destination) {
         if (destination.startsWith("/")) router.push(destination);
         else window.location.assign(destination);
       }
     }
-    setSaving(false);
-  }
-
-  async function skip() {
-    if (saving || queue.some((item) => item.priority === "high")) return;
-    setSaving(true);
-    setError(null);
-    const result = await snoozeAnnouncements().catch(() => ({ error: "Could not save the pause. Please try again." }));
-    if (result.error) setError(result.error);
-    else {
-      normalIds.current = null;
-      setQueue([]);
-      setProgress(1);
-      await refresh(true);
-    }
+    savingDismissal.current = false;
     setSaving(false);
   }
 
@@ -281,22 +274,47 @@ export function Announcements({ children, ready }: {
   const detail = <>
     {loading || (!visibleContent && !detailError) ? <p className="py-8 text-sm text-[var(--pf-text-muted)]" role="status">Loading announcement…</p> : null}
     {detailError ? <div className="space-y-3 py-6"><p role="alert">Announcement could not be loaded.</p><button className={secondaryClass} onClick={() => setRetry((value) => value + 1)} type="button">Retry</button></div> : null}
-    {!loading && visibleContent ? <AnnouncementContent announcement={visibleContent} imageUrl={imageUrl} onFollowLink={inboxOpen ? undefined : (url) => void dismiss(url)} /> : null}
+    {!loading && visibleContent ? <AnnouncementContent announcement={visibleContent} imageUrl={imageUrl} showMetadata={inboxOpen} onFollowLink={inboxOpen ? undefined : (url) => void dismiss(url)} /> : null}
   </>;
 
   return <InboxContext.Provider value={{ unread: summary?.unread_count ?? 0, open: openInbox }}>
     {children}
-    <dialog aria-label="Announcement" aria-describedby="announcement-progress" className="m-auto max-h-[85dvh] w-[90vw] max-w-md overflow-hidden rounded-2xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/55" id="announcement-popup" onCancel={(event) => { event.preventDefault(); void dismiss(); }} onClose={() => setPopupOpen(false)} onToggle={(event) => setPopupOpen((event.target as HTMLDialogElement).open)} ref={popup}>
+    <dialog
+      aria-label="Announcement"
+      aria-describedby={progress + queue.length - 1 > 1 ? "announcement-progress" : undefined}
+      className="m-auto max-h-[85dvh] w-[90vw] max-w-md overflow-hidden rounded-2xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/55"
+      id="announcement-popup"
+      onCancel={(event) => { event.preventDefault(); void dismiss(); }}
+      onClose={() => { setPopupOpen(false); setDismissalError(null); }}
+      onToggle={(event) => setPopupOpen((event.target as HTMLDialogElement).open)}
+      onPointerDown={(event) => { backdropPointerDown.current = isPopupBackdrop(event); }}
+      onClick={(event) => {
+        if (backdropPointerDown.current && isPopupBackdrop(event)) void dismiss();
+        backdropPointerDown.current = false;
+      }}
+      ref={popup}
+    >
       <div className="flex max-h-[85dvh] flex-col">
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
-          <p aria-live="polite" className="mb-4 text-[11px] font-semibold text-[var(--pf-text-muted)]" id="announcement-progress">{progress} of {progress + queue.length - 1}</p>
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-2 sm:px-6 sm:pt-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            {!inboxOpen && visibleContent ? <AnnouncementMetadata announcement={visibleContent} compact /> : null}
+            {progress + queue.length - 1 > 1 ? <p aria-live="polite" className="text-[11px] font-semibold text-[var(--pf-text-muted)]" id="announcement-progress">{progress} of {progress + queue.length - 1}</p> : null}
+          </div>
+          <button aria-label="Close announcement" className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center text-xl leading-none text-[var(--pf-text-muted)] hover:text-[var(--pf-text)] focus-visible:text-[var(--pf-text)] focus-visible:outline-none disabled:opacity-50" disabled={saving} onClick={() => void dismiss()} type="button">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 pt-1 sm:px-6 sm:pb-6">
           {!inboxOpen && queue.length > 0 ? detail : null}
         </div>
-        <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--pf-card-border)] px-5 py-4 sm:px-6">
-          {error ? <p className="mb-1 text-sm text-[var(--pf-coral-text)]" role="alert">{error}</p> : null}
-          <button className={visibleContent?.cta_url ? secondaryClass : buttonClass} disabled={saving || loading || detailError || !visibleContent} onClick={() => void dismiss()} type="button">{saving ? "Saving…" : queue.length > 1 ? "Dismiss and continue" : "Dismiss"}</button>
-          {queue.length > 0 && !queue.some((item) => item.priority === "high") ? <button className="min-h-11 rounded-md px-3 py-2 text-xs font-semibold text-[var(--pf-text-muted)] hover:bg-[var(--pf-navy-elevated)] hover:text-[var(--pf-text)] disabled:opacity-50" disabled={saving} onClick={() => void skip()} type="button">Skip remaining for 24 hours</button> : null}
-        </div>
+        {saving || dismissalError || error ? <div className="shrink-0 space-y-2 px-5 pb-4 text-sm sm:px-6">
+          {saving ? <p className="text-[var(--pf-text-muted)]" role="status">Saving dismissal…</p> : null}
+          {dismissalError ? <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--pf-coral-soft)] p-3">
+            <p className="text-[var(--pf-coral-text)]" role="alert">{dismissalError.message} This announcement is still open.</p>
+            <button className={secondaryClass} disabled={saving} onClick={() => void dismiss(dismissalError.destination)} type="button">Retry</button>
+          </div> : null}
+          {error ? <p className="text-[var(--pf-coral-text)]" role="alert">{error}</p> : null}
+        </div> : null}
       </div>
     </dialog>
     <dialog
@@ -338,7 +356,7 @@ export function Announcements({ children, ready }: {
               <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
             </button>
           </div>
-          <p className="mt-1 text-xs leading-5 text-[var(--pf-text-muted)]" id="announcement-inbox-description">News, updates and special gameweeks.</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--pf-text-muted)]" id="announcement-inbox-description">Important news and updates.</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {detailId ? (
