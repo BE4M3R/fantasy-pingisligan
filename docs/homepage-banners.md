@@ -6,6 +6,11 @@ imports need no competition writes. `homepage_banners` supplies optional content
 with at most one row per gameweek and one season row. Announcements, inbox
 history and dismissals remain separate.
 
+The feature-wide launch switch in `competition_publication` defaults to disabled.
+Until explicitly enabled, no carousel cards or competition links are shown, even
+when banners are ready or published. Direct database and artwork reads are also
+gated. See [safe competition launch](competition-launch.md).
+
 ## Automatic lifecycle and navigation
 
 `homepage_gameweek_states()` reads the existing `current_transfer_lock()` rule.
@@ -32,8 +37,9 @@ autoplay. Arrows are hidden below 640px; reduced motion is respected.
 
 Completed cards show “Awaiting winner confirmation”. The refresh marker means
 Fantasy has completed its post-unlock processing, not that upstream scores can
-never change. Winner calculations, eligibility, tie rules, confirmation and
-competition pages are deferred. There is no new scoring system or winner field.
+never change. Public competition pages and provisional standings are available;
+confirmation and winner announcements remain deferred. There is no new scoring
+system or winner field. See [competitions](competitions.md).
 
 ## Weekly content in Supabase
 
@@ -59,30 +65,36 @@ insert, update or delete content or upload artwork.
 6. Optional `description` is the concise prize summary (240 characters), shown
    as a smaller bold information line beside the logo, below the headline. Each
    information line is limited to one visual line to keep the banner compact.
-   Lifecycle status shares this information area. Future competition pages can
-   show the complete summary.
-7. Optional `cta_url` must point to a real, publisher-verified HTTPS competition
-   destination. Until internal competition pages exist, internal URLs are not
-   interactive. URL validation does not prove that a destination exists. The
-   entire banner links only with an accepted destination; no development links
-   to Squad or placeholder pages remain. Linked banners have a plain gold
-   chevron at the right, without a text label or surrounding box.
+   Lifecycle status shares this information area. Public competition pages show
+   the complete summary and optional long-form content.
+7. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
+   revealed season banners link to `/competitions/season`. No URL entry is needed.
+   Existing UUID links redirect when their number is unambiguous. Reused numbers
+   retain UUID links until season-aware URLs are introduced. The unused stored `cta_url`
+   column has been removed; RPC destinations remain generated.
+   Linked banners retain the plain gold chevron at the right.
 8. Set `content_ready = true` after reviewing the content. You can do this well
    before the gameweek: database and Storage authorization prevent early access.
    Set it false to withdraw content on subsequent reads. The generic competition
    card remains; revealed cards without content show “Competition details coming soon”.
 
-Do **not** manage weekly `published`, `publish_at`, `expires_at`, or `sort_order`.
-They are retained as legacy publication metadata and for season scheduling; the
+Do **not** manage weekly `published`, `publish_at`, or `expires_at`.
+They are retained for season scheduling; unused `sort_order` is removed. The
 weekly visibility gate uses only `content_ready` plus Fantasy state. There are
 no weekly publication dates or manually maintained current/previous kinds.
 
 ## Season Competition in Supabase
 
 Create or edit the single row with `kind = season` and `gameweek_id = null`.
-Use the same optional title, sponsor, image, headline, description and destination
-fields. Its default title is “Season Competition”. A crown, longer gold accent
+Use the same optional title, sponsor, image, headline and description
+fields, plus the [detail-page content](competitions.md#enter-a-new-weekly-smash-prize-in-supabase). Its default title is “Season Competition”. A crown, longer gold accent
 and subtle gold court treatment distinguish it without changing the palette.
+
+Enter approximate prize values with `prize_value_sek`; put any prize choices in
+`prize_description`. Shared terms now live in versioned `competition_rules`
+documents, separately for Weekly Smash and Season Competition. Approval and
+automatic version assignment are described in [the content guide](competitions.md).
+Do not repeat rules/eligibility on each weekly row or assume any prize is tax-free.
 
 Season uses the existing independent publication controls:
 
@@ -105,6 +117,8 @@ public gameweek state to content protected by RLS, returning safe generic cards
 when content is unreadable. The same shared gameweek calculation is used by RLS;
 there is no duplicated browser lifecycle calculation. Direct content requests
 cannot read future weekly metadata, unready weekly rows or unrevealed season rows.
+Anonymous readers can read only the granted public editorial columns of revealed
+rows, and their sponsor/prize artwork. Announcement access remains authenticated.
 
 Storage's competition policy checks the referenced banner through that same RLS.
 The independent announcement policy remains unchanged. **Never reuse a published

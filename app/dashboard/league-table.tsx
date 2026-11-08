@@ -101,12 +101,16 @@ export function LeagueTable({
   rows,
   searchable = false,
   totalRowCount,
+  gameweekId,
+  emptyMessage = "No fantasy teams yet.",
 }: {
   currentUserId: string;
   initialRowCount?: number;
   rows: LeagueTableRow[];
   searchable?: boolean;
   totalRowCount?: number;
+  gameweekId?: string;
+  emptyMessage?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -155,7 +159,7 @@ export function LeagueTable({
     initialRowCount !== undefined && (totalRowCount ?? rows.length) > initialRowCount;
   const isCompact = !activeSearch && hasCollapsedRows && !showAll;
   const showCurrentUserSeparately = Boolean(
-    isCompact && currentUserRow && currentUserRow.rank > initialRowCount,
+    isCompact && currentUserRow && !rankedRows.slice(0, initialRowCount).some(({ row }) => row.user_id === currentUserId),
   );
   const visibleRows = isCompact
     ? [
@@ -192,6 +196,7 @@ export function LeagueTable({
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ search: query, offset: "0" });
+        if (gameweekId) params.set("gameweek", gameweekId);
         const response = await fetch(`/api/leaderboard?${params}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -217,6 +222,7 @@ export function LeagueTable({
     try {
       const offset = activeSearch ? searchRows.length : showAll ? loadedRows.length : 0;
       const params = new URLSearchParams({ offset: String(offset) });
+      if (gameweekId) params.set("gameweek", gameweekId);
       if (activeSearch) params.set("search", activeSearch);
       const response = await fetch(`/api/leaderboard?${params}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Standings could not be loaded.");
@@ -262,7 +268,8 @@ export function LeagueTable({
       const scores = await loadGameweekScores(row.user_id);
       if (requestId !== scoresRequestRef.current) return;
       setGameweekScores(scores);
-      const index = Math.max(scores.length - 1, 0);
+      const requestedIndex = gameweekId ? scores.findIndex((score) => score.gameweek_id === gameweekId) : -1;
+      const index = requestedIndex >= 0 ? requestedIndex : Math.max(scores.length - 1, 0);
       setGameweekIndex(index);
       if (scores.length) {
         const lineupRequestId = ++lineupRequestRef.current;
@@ -433,7 +440,7 @@ export function LeagueTable({
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--pf-text-muted)]">
-                      Total
+                      {gameweekId ? "Gameweek" : "Total"}
                     </p>
                     <p className="mt-0.5 text-base font-black text-[var(--pf-text)]">
                       {formatPoints(row.total_points)}
@@ -445,7 +452,7 @@ export function LeagueTable({
           })
         ) : (
           <div className="rounded-lg border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-4 py-6 text-sm text-[var(--pf-text-muted)]">
-            {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : "No fantasy teams yet."}
+            {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : emptyMessage}
           </div>
         )}
       </div>
@@ -456,7 +463,7 @@ export function LeagueTable({
             <tr>
               <th className="w-20 px-4 py-3">Rank</th>
               <th className="px-4 py-3">Team</th>
-              <th className="px-4 py-3 text-right">Total points</th>
+              <th className="px-4 py-3 text-right">{gameweekId ? "Gameweek points" : "Total points"}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--pf-card-border)]">
@@ -521,7 +528,7 @@ export function LeagueTable({
                   className="px-4 py-6 text-[var(--pf-text-muted)]"
                   colSpan={3}
                 >
-                  {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : "No fantasy teams yet."}
+                  {isLoadingRows ? "Searching teams…" : rowsError ? "Search unavailable." : activeSearch ? "No teams found." : emptyMessage}
                 </td>
               </tr>
             )}

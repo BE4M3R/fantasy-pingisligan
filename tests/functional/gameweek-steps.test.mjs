@@ -6,7 +6,7 @@ import { kickoff, nextIndividualMatch, unlock } from "../../scripts/staging-game
 import { addMatch, checked, cleanupFixture, createFixture, lock, save, squad } from "./fixture.mjs";
 
 async function localScenario(t, { deferred = false } = {}) {
-  const f = await createFixture();
+  const f = await createFixture({ competitions: true });
   let secondUserId;
   t.after(async () => {
     if (secondUserId) checked(await f.admin.auth.admin.deleteUser(secondUserId), "Remove second manager");
@@ -124,11 +124,20 @@ test("locked local rounds advance from kickoff through singles/doubles and then 
   await nextIndividualMatch(f.admin, scenario, definition);
   assert.deepEqual(await state(f), final, "exhausted next-match does nothing");
   await assert.rejects(kickoff(f.admin, scenario, definition), /already has results/);
+  const competitionBefore = checked(await f.user.rpc("get_competition_standings", {
+    p_gameweek_id: f.weeks[0].id,
+  }), "Read competition before simulated unlock");
+  assert.equal(competitionBefore.total_count, 2);
   await unlock(f.admin, scenario, definition);
   current = await state(f);
   assert.ok(current.week.data_refreshed_at);
   assert.deepEqual(current.totals, final.totals, "bulk unlock preserves incremental scores");
   assert.equal(checked(await f.user.rpc("current_transfer_lock"), "Read reopened window")[0].is_locked, false);
+  const competitionAfter = checked(await f.user.rpc("get_competition_standings", {
+    p_gameweek_id: f.weeks[0].id,
+  }), "Read competition after simulated unlock");
+  assert.deepEqual(competitionAfter.rows, competitionBefore.rows,
+    "Simulated elapsed time must preserve valid locked competition entries");
   await assert.rejects(nextIndividualMatch(f.admin, scenario, definition), /already refreshed/);
 });
 

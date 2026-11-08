@@ -12,7 +12,7 @@ const cards = async (f) => checked(await f.user.rpc("get_homepage_competitions")
 // Exercise ordinary direct table/RPC/storage requests as well as Fantasy's
 // actual lock, scoring and completion helpers on a disposable database.
 test("Weekly Smash follows transfer availability and successful refresh, with exactly two secure teasers", async () => {
-  const f = await createFixture({ gameweeks: 5 });
+  const f = await createFixture({ gameweeks: 5, competitions: true });
   const ids = Array.from({ length: 6 }, () => randomUUID());
   const paths = ids.map((id) => `${f.id}/${id}.png`);
   const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
@@ -21,7 +21,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     checked(await f.admin.from("homepage_banners").insert([
       ...f.weeks.map((w, i) => ({ id: ids[i], gameweek_id: w.id, content_ready: true,
         title: i ? `Secret ${i}` : null, sponsor: `Partner ${i}`, description: `Prize ${i}`,
-        image_path: paths[i], image_alt: `Logo ${i}`, cta_url: `https://example.com/prize-${i}` })),
+        image_path: paths[i], image_alt: `Logo ${i}` })),
       { id: ids[5], kind: "season", published: true, publish_at: minutes(60), title: "Secret season",
         sponsor: "Season partner", image_path: paths[5], image_alt: "Season logo" },
     ], { defaultToNull: false }), "Prepare all content without weekly publication dates");
@@ -45,7 +45,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     assert.ok((await anon.rpc("get_homepage_competitions")).error);
     assert.ok((await anon.from("homepage_banners").select("*")).error);
     assert.ok(checked(await signing(0), "Revealed image").signedUrl);
-    assert.ok((await anon.storage.from("announcement-artwork").createSignedUrl(paths[0], 60)).error);
+    assert.ok(checked(await anon.storage.from("announcement-artwork").createSignedUrl(paths[0], 60), "Public revealed artwork").signedUrl);
     for (let i = 1; i < paths.length; i++) {
       assert.deepEqual(checked(await f.user.from("homepage_banners").select("*").eq("id", ids[i]), "Direct secret lookup"), []);
       assert.ok((await signing(i)).error, "Future artwork cannot be signed");
@@ -109,7 +109,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
 });
 
 test("no content rows are required, completed history is retained, and no gameweeks still yields season", async () => {
-  const f = await createFixture({ gameweeks: 5 });
+  const f = await createFixture({ gameweeks: 5, competitions: true });
   try {
     let rows = await cards(f);
     assert.equal(rows.length, 4);
@@ -131,7 +131,7 @@ test("no content rows are required, completed history is retained, and no gamewe
 });
 
 test("overlapping pending gameweeks keep the next competition and its artwork locked until both refreshes complete", async () => {
-  const f = await createFixture({ gameweeks: 3 });
+  const f = await createFixture({ gameweeks: 3, competitions: true });
   const id = randomUUID();
   const artwork = `${f.id}/next-competition.png`;
   const nextId = `gameweek:${f.weeks[2].id}`;
@@ -171,7 +171,7 @@ test("overlapping pending gameweeks keep the next competition and its artwork lo
 });
 
 test("weekly readiness overrides legacy publication dates while season uses its own publication controls", async () => {
-  const f = await createFixture();
+  const f = await createFixture({ competitions: true });
   const weeklyId = randomUUID();
   const seasonId = randomUUID();
   try {

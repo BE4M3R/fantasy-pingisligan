@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 // Only for tables whose RLS explicitly permits anonymous reads. Never attach
 // cookies or a user token: these responses are shared across visitors.
-export function createPublicClient() {
+export function createPublicClient({ fresh = false }: { fresh?: boolean } = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error("Missing Supabase environment variables");
@@ -13,8 +13,8 @@ export function createPublicClient() {
     global: {
       fetch: (input, init) => fetch(input, {
         ...init,
-        cache: "force-cache",
-        next: { revalidate: 60, tags: ["public-game-data"] },
+        cache: fresh ? "no-store" : "force-cache",
+        ...(fresh ? {} : { next: { revalidate: 60, tags: ["public-game-data"] } }),
       }),
     },
   });

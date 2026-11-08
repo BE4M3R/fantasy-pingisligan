@@ -7,7 +7,7 @@ const minutes = (n) => new Date(Date.now() + n * 60_000).toISOString();
 
 test("Home selects current on entry, preserves browsing, and supports secure weekly and season slides", async ({ page, browser }, testInfo) => {
   test.setTimeout(180_000);
-  const f = await createFixture({ gameweeks: 6 });
+  const f = await createFixture({ gameweeks: 6, competitions: true });
   const ids = Array.from({ length: 4 }, () => randomUUID());
   const artwork = `${f.id}/home-sponsor.png`;
   const opaqueArtwork = `${f.id}/home-sponsor-opaque.jpg`;
@@ -27,13 +27,13 @@ test("Home selects current on entry, preserves browsing, and supports secure wee
       { id: ids[0], gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Historical partner" },
       { id: ids[1], gameweek_id: f.weeks[1].id, content_ready: true,
         description: "Win a premium training kit.", sponsor: "Fantasy Test Partner", image_path: artwork,
-        image_alt: "Test partner artwork", cta_label: "Discover prize", cta_url: "https://competitions.example.invalid/gameweek-prize" },
+        image_alt: "Test partner artwork", cta_label: "Discover prize" },
       { id: ids[2], gameweek_id: f.weeks[2].id, content_ready: true, title: "Embargoed weekly title",
         description: "Embargoed weekly prize", sponsor: "Embargoed weekly sponsor", image_path: opaqueArtwork,
-        image_alt: "Embargoed weekly logo", cta_url: "https://competitions.example.invalid/secret" },
+        image_alt: "Embargoed weekly logo" },
       { id: ids[3], kind: "season", published: true, publish_at: minutes(60), title: "The Grand Season Prize",
         description: "Win a premium table tennis kit.", sponsor: "Embargoed season partner",
-        cta_label: "Explore the grand prize", cta_url: "https://competitions.example.invalid/season-prize" },
+        cta_label: "Explore the grand prize" },
     ], { defaultToNull: false }), "Prepare content");
     async function capture(p, region, index, name) {
       await expect.poll(() => region.locator(".sponsored-track").evaluate((element, selected) =>
@@ -70,7 +70,7 @@ test("Home selects current on entry, preserves browsing, and supports secure wee
     await expect(carousel.getByRole("button", { name: /^Show highlight/ })).toHaveCount(5);
     expect(await page.content()).not.toContain("Embargoed");
     await expect(carousel.getByText("Win a premium training kit.", { exact: true })).toBeVisible();
-    await expect(carousel.getByRole("link")).toHaveAttribute("href", "https://competitions.example.invalid/gameweek-prize");
+    await expect(carousel.getByRole("link")).toHaveAttribute("href", "/competitions/gameweek/2");
     await expect.poll(() => carousel.getByAltText("Test partner artwork").evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
     await expectCompactInformation(carousel);
     await page.evaluate(() => document.fonts.ready);
@@ -151,22 +151,21 @@ test("Home selects current on entry, preserves browsing, and supports secure wee
     await expect(phone).toHaveURL(/\/dashboard\/overview$/);
     await expect(phoneStatus).toHaveText("Highlight 4 of 5: The Weekly Smash GW 4");
     await phoneCarousel.getByRole("button", { name: "Show highlight 5: The Grand Season Prize" }).tap();
-    await phone.route("https://competitions.example.invalid/season-prize", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Season competition details</h1>" }));
     await phoneCarousel.getByRole("heading", { name: "The Grand Season Prize" }).tap();
-    await expect(phone).toHaveURL("https://competitions.example.invalid/season-prize");
+    await expect(phone).toHaveURL(/\/competitions\/season$/);
     await phone.goBack();
     await expect(phone).toHaveURL(/\/dashboard\/overview$/);
     await expect(phoneStatus).toHaveText("Highlight 2 of 5: The Weekly Smash GW 2");
 
-    // A logo without a destination must never acquire the old dev-only Squad link.
-    checked(await f.admin.from("homepage_banners").update({ image_path: opaqueArtwork, cta_url: null }).eq("id", ids[1]), "Show unlinked opaque logo");
+    // Every revealed competition links to its dedicated public page.
+    checked(await f.admin.from("homepage_banners").update({ image_path: opaqueArtwork }).eq("id", ids[1]), "Show logo with derived page link");
     await phone.goto(new URL("/dashboard/overview", page.url()).href);
-    await expect(phoneCarousel.getByRole("link")).toHaveCount(0);
+    await expect(phoneCarousel.getByRole("link")).toHaveAttribute("href", "/competitions/gameweek/2");
     await expect.poll(() => phoneCarousel.getByRole("img").evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
     await capture(phone, phoneCarousel, 1, "home-opaque-sponsor-mobile-390.png");
     await phone.route("**/storage/v1/object/sign/announcement-artwork/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: "invalid image" }));
     await phone.reload();
-    await expect(phoneCarousel.getByText("Discover prize", { exact: true })).toBeVisible();
+    await expect(phoneCarousel.locator('article[aria-hidden="false"]').getByText("Discover prize", { exact: true })).toBeVisible();
     await expect(phoneCarousel.getByText("Win a premium training kit.", { exact: true })).toBeVisible();
     await expect(phoneCarousel.getByRole("img")).toHaveCount(0);
     checked(await f.admin.from("homepage_banners").delete().eq("id", ids[1]), "Remove optional current content");

@@ -35,6 +35,7 @@ Start with the root [README](../README.md) to install and run the application.
 13. [Safe production access for Codex (Phase B3.1)](codex-production-access.md)
 14. [Announcements and publishing](announcements.md)
 15. [Homepage sponsored highlights](homepage-banners.md)
+16. [Public competition pages and provisional results](competitions.md)
 
 ## Task shortcuts
 
@@ -62,3 +63,5 @@ $prepare-pr Review this branch and uncommitted changes, run the appropriate chec
 Skills are versioned in `.agents/skills/<name>/SKILL.md`. Reopen the repository
 in a new Codex session if newly added skills are not listed yet; as a fallback,
 ask Codex to read and follow the specific `SKILL.md` path.
+
+- [Competition launch and rollback](competition-launch.md)

@@ -33,7 +33,7 @@ test("locked gameweek and season payloads stay generic, while revealed editorial
   assert.equal(buildHomepageCards([row({ gameweek_number: null })])[0].gameweekLabel, undefined);
 });
 
-test("only real publisher-verified HTTPS competition destinations are clickable", () => {
+test("competition links accept existing HTTPS destinations and dedicated public routes", () => {
   assert.equal(safeBannerUrl("https://example.com/prize"), "https://example.com/prize");
   for (const value of [null, "/dashboard", "/dashboard/competitions/1", "//evil.invalid", "javascript:alert(1)", "https://user:pass@example.com"]) assert.equal(safeBannerUrl(value), undefined);
 });
