@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { LeagueTableRow } from "@/app/dashboard/league-table";
 
 // Live result imports happen outside Next.js, so this read must not use the
@@ -38,4 +39,14 @@ export function initialGlobalRows(rows: LeagueTableRow[], userId: string) {
   const ownRow = rows.find((row) => row.user_id === userId);
   if (ownRow && !firstPage.some((row) => row.user_id === userId)) firstPage.push(ownRow);
   return firstPage;
+}
+
+export type GameweekLeaderboard = { rows: LeagueTableRow[]; total: number; visible: boolean };
+
+export async function getGameweekLeaderboard(gameweekId: string) {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase.rpc("get_gameweek_leaderboard", {
+    p_gameweek_id: gameweekId, p_limit: 10, p_include_own: true,
+  });
+  return { standings: error ? null : data as GameweekLeaderboard | null, error: Boolean(error) };
 }

@@ -46,7 +46,7 @@ async function createGuest(f) {
 
 test.describe.serial("private league journey", () => {
   test.beforeAll(async () => {
-    fixture = await createFixture({ gameweeks: 2 });
+    fixture = await createFixture({ gameweeks: 2, competitions: true });
     guest = await createGuest(fixture);
     for (const [id, display_name] of [[fixture.userId, ownerDisplayName], [guest.userId, guestDisplayName]]) {
       checked(await fixture.admin.from("profiles").update({ display_name }).eq("id", id), "Set manager display name");
@@ -142,6 +142,61 @@ test.describe.serial("private league journey", () => {
     await expect(table.getByText("No teams found.")).toBeVisible();
     await search.getByLabel("Search team name").fill("");
     await expect(table.getByRole("button", { name: `Functional ${fixture.id}` })).toBeVisible();
+  });
+
+  test("Gameweek mode reuses the global table, searches with tied ranks and navigates rounds and team previews", async ({ page }, testInfo) => {
+    await login(page, fixture);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dashboard/leagues/global");
+    const modes = page.getByRole("navigation", { name: "Standings view" });
+    await expect(modes.getByRole("link", { name: "Season", exact: true })).toHaveAttribute("aria-current", "page");
+    await modes.getByRole("link", { name: "Gameweek", exact: true }).click();
+    const rounds = page.getByRole("navigation", { name: "Standings Gameweeks" });
+    await expect(rounds.getByText("Gameweek 2", { exact: true })).toBeVisible();
+    await expect(rounds.getByRole("button", { name: "No next Gameweek" })).toBeDisabled();
+    await expect(page.getByRole("combobox")).toHaveCount(0);
+    const table = page.getByRole("table");
+    await expect(table.getByRole("columnheader", { name: "Gameweek points", exact: true })).toBeVisible();
+    expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(["1", "1"]);
+    await page.getByLabel("Search team name").fill("league rival");
+    await expect(table.locator("tbody tr")).toHaveCount(1);
+    await expect(table.getByText(guestDisplayName, { exact: true })).toBeVisible();
+    await table.getByRole("button", { name: guest.teamName }).click();
+    const team = page.getByRole("dialog");
+    await expect(team.getByRole("navigation", { name: "Gameweek navigation" }).getByText("Gameweek 2", { exact: true })).toBeVisible();
+    await expect(team.getByText("Triple Captain activated", { exact: true })).toBeVisible();
+    await team.getByRole("button", { name: "Close gameweek team" }).click();
+    await rounds.getByRole("button", { name: "Previous: Gameweek 1" }).click();
+    await expect(rounds.getByText("Gameweek 1", { exact: true })).toBeVisible();
+    await expect(rounds.getByRole("button", { name: "No previous Gameweek" })).toBeDisabled();
+    await expect(page.getByLabel("Search team name")).toHaveValue("");
+    const rival = table.getByRole("row").filter({ hasText: guest.teamName });
+    await expect(rival.getByRole("cell").first()).toHaveText("2");
+    await expect(rival.getByRole("cell").last()).toHaveText("13");
+    await rival.getByRole("button", { name: guest.teamName }).click();
+    await expect(team.getByRole("navigation", { name: "Gameweek navigation" }).getByText("Gameweek 1", { exact: true })).toBeVisible();
+    await team.getByRole("button", { name: "Close gameweek team" }).click();
+    await page.screenshot({ path: testInfo.outputPath("gameweek-league-desktop-1440.png"), fullPage: true });
+    for (const width of [320, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".md\\:hidden").getByText(guestDisplayName, { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("gameweek-league-mobile-390.png"), fullPage: true });
+    const competitionLink = page.getByRole("link", { name: "View this Weekly Smash competition →", exact: true });
+    await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/1");
+    const leaguesUrl = page.url();
+    await competitionLink.scrollIntoViewIfNeeded();
+    const scroll = await page.evaluate(() => scrollY);
+    await competitionLink.click();
+    await page.getByRole("link", { name: "Back to Fantasy", exact: true }).click();
+    await expect(page).toHaveURL(leaguesUrl);
+    await expect.poll(() => page.evaluate((expected) => Math.abs(scrollY - expected), scroll)).toBeLessThan(4);
+    await modes.getByRole("link", { name: "Season", exact: true }).click();
+    await expect(page.getByRole("navigation", { name: "Standings Gameweeks" })).toHaveCount(0);
+    const own = page.locator(".md\\:hidden").getByRole("button").filter({ hasText: `Functional ${fixture.id}` });
+    await expect(own.getByText("35", { exact: true })).toBeVisible();
   });
 
   test("owner creates a private league and receives an invitation code", async ({ page }) => {

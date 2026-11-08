@@ -57,7 +57,9 @@ function freePort(port) {
 
 async function choosePortBase() {
   for (let attempt = 0; attempt < 40; attempt++) {
-    const base = randomInt(33000, 49000);
+    // Keep listeners below common ephemeral client ranges: functional requests
+    // can otherwise consume the future browser-server port before it starts.
+    const base = randomInt(15000, 30000);
     const offsets = [0, 1, 2, 3, 4, 7, 9, 10];
     if ((await Promise.all(offsets.map((offset) => freePort(base + offset)))).every(Boolean)) return base;
   }

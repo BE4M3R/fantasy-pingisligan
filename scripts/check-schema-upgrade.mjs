@@ -110,9 +110,15 @@ const competitionMigration = (await readFile(path.join(root,
   "supabase/migrations/20261031120000_gameweek_homepage_competitions.sql"), "utf8"))
   .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 const bannerFixture = await readFile(path.join(root, "tests/fixtures/homepage-banner-upgrade.sql"), "utf8");
+const publicCompetitionMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261101120000_public_competition_content.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 for (const duplicate of [null, "gameweek", "season"]) {
   const sql = `begin;
+    update public.competition_publication set enabled = true where id;
+    drop policy "Only approved rules for revealed competitions are readable" on public.competition_rules;
     drop policy "Revealed homepage competition artwork is readable" on storage.objects;
+    drop function public.get_public_competition(uuid);
     drop function public.get_homepage_competitions();
     drop table public.homepage_banners;
     drop function public.homepage_gameweek_states();
@@ -149,6 +155,16 @@ for (const duplicate of [null, "gameweek", "season"]) {
         if exists (select 1 from public.homepage_banners where kind not in ('gameweek', 'season')) then
           raise exception 'Legacy kinds were not converted';
         end if;
+      end; $test$;
+      create temp table competition_before on commit drop as select * from public.homepage_banners;
+      ${publicCompetitionMigration}
+      do $test$ begin
+        if exists (select 1 from competition_before old join public.homepage_banners b using (id)
+          where to_jsonb(old) <> (to_jsonb(b) - array['prize_image_path', 'prize_image_alt',
+            'prize_description', 'rules_markdown', 'eligibility_markdown', 'details_markdown']))
+          or (select count(*) from public.homepage_banners) <> 6 then
+          raise exception 'Public competition migration changed existing content';
+        end if;
       end; $test$;`}
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
@@ -157,4 +173,69 @@ for (const duplicate of [null, "gameweek", "season"]) {
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `Homepage banner upgrade (${duplicate ?? "populated"}): ${result.stderr}`);
   console.log(`Homepage banner upgrade passed: ${duplicate ? `${duplicate} duplicate rejection and rollback` : "content preservation and safe readiness conversion"}`);
+}
+
+// Published terms and their references must remain stable across editorial updates.
+const rulesValidation = await readFile(path.join(root, "tests/fixtures/competition-rules.sql"), "utf8");
+const rulesResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: rulesValidation, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (rulesResult.error) throw rulesResult.error;
+assert.equal(rulesResult.status, 0, `Competition rules validation: ${rulesResult.stderr}`);
+console.log("Competition rules passed: approval, immutable history, automatic binding, kind isolation and anonymous RLS");
+
+// A populated content cleanup must preserve unapproved legacy text privately;
+// an oversized combination must roll back, never truncate or partially migrate.
+const contentCleanup = (await readFile(path.join(root,
+  "supabase/migrations/20261101170000_simplify_competition_content.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+for (const oversized of [false, true]) {
+  const sql = `begin;
+    update public.competition_publication set enabled = true where id;
+    alter table public.homepage_banners add column rules_markdown text,
+      add column eligibility_markdown text, add column cta_url text,
+      add column sort_order integer not null default 0;
+    drop index public.homepage_banners_publication_idx;
+    create index homepage_banners_publication_idx on public.homepage_banners (kind, sort_order, publish_at desc, id) where published;
+    insert into public.fantasy_gameweeks (id, stupa_stage_id, stupa_round_id, name, round_order, lock_at, unlock_at, first_match_starts_at, last_match_ends_at)
+      values ('00000000-0000-0000-0000-000000004901', -1999999600, -1999999601, 'Cleanup upgrade', 4901, now() + interval '1 hour', now() + interval '2 days', now() + interval '2 hours', now() + interval '1 day');
+    insert into public.homepage_banners (id, gameweek_id, content_ready, title, prize_description, rules_markdown, eligibility_markdown)
+      values ('00000000-0000-0000-0000-000000004902', '00000000-0000-0000-0000-000000004901', true,
+        'Preserved prize', 'Preserved description', ${oversized ? "repeat('a', 12000), repeat('b', 12000)" : "'Legacy rules text', 'Legacy eligibility text'"});
+    ${oversized ? `do $test$ begin
+      begin
+        execute $cleanup$${contentCleanup}$cleanup$;
+        raise exception 'Oversized legacy content was accepted';
+      exception when check_violation then null; end;
+      if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'homepage_banners' and column_name = 'eligibility_markdown')
+        or exists (select 1 from public.competition_rules where title like 'Migrated draft:%') then
+        raise exception 'Content cleanup failed to roll back'; end if;
+      if (select length(rules_markdown) from public.homepage_banners where title = 'Preserved prize') <> 12000 then
+        raise exception 'Rollback lost original legacy text'; end if;
+    end; $test$;` : `${contentCleanup}
+    do $test$ begin
+      if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'homepage_banners'
+        and column_name in ('rules_markdown', 'eligibility_markdown', 'cta_url', 'sort_order')) then
+        raise exception 'Unused columns remain'; end if;
+      if not exists (select 1 from public.homepage_banners where title = 'Preserved prize' and prize_description = 'Preserved description'
+        and rules_version_id is null and content_ready) then raise exception 'Prize content or binding changed'; end if;
+      if not exists (select 1 from public.competition_rules where approved_at is null
+        and title = 'Migrated draft: banner 00000000-0000-0000-0000-000000004902'
+        and body = E'Legacy rules:\\n\\nLegacy rules text\\n\\nLegacy eligibility:\\n\\nLegacy eligibility text') then
+        raise exception 'Legacy terms were lost or approved'; end if;
+    end; $test$;
+    set local role anon;
+    do $test$ begin
+      if exists (select 1 from public.competition_rules where title like 'Migrated draft:%') then
+        raise exception 'Migrated draft leaked'; end if;
+      if (select rules_markdown from public.get_public_competition('00000000-0000-0000-0000-000000004901')) is not null then
+        raise exception 'Legacy terms were published'; end if;
+    end; $test$;`}
+    rollback;`;
+  const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+    "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `Competition content cleanup (${oversized ? "rollback" : "preservation"}): ${result.stderr}`);
+  console.log(`Competition content cleanup passed: ${oversized ? "oversized-content rollback" : "private draft and prize preservation"}`);
 }

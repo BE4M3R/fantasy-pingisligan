@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Markdown from "react-markdown";
+import { SafeMarkdown } from "@/app/safe-markdown";
 import { type Announcement, safeAnnouncementUrl } from "@/lib/announcements";
 import { AnnouncementMetadata } from "./metadata";
 
@@ -27,18 +27,7 @@ export function AnnouncementContent({ announcement, imageUrl, onFollowLink, show
           <img alt={announcement.image_alt ?? ""} className="block h-auto w-auto max-w-full max-h-[min(11rem,24dvh)] rounded-md object-contain sm:max-h-44" src={imageUrl} />
         </div>
       ) : null}
-      <div className="space-y-3 text-sm leading-6 text-[var(--pf-text)] [&_li]:ml-5 [&_ol]:list-decimal [&_strong]:font-bold [&_ul]:list-disc">
-        <Markdown
-          skipHtml
-          allowedElements={["p", "strong", "em", "ul", "ol", "li", "a", "br"]}
-          unwrapDisallowed
-          urlTransform={(url) => safeAnnouncementUrl(url) ?? ""}
-          components={{ a: ({ href, children }) => {
-            const safe = safeAnnouncementUrl(href);
-            return safe ? <Link className="font-semibold text-[var(--pf-brand-blue-hover)] underline underline-offset-2" href={safe} onClick={(event) => follow(event, safe)}>{children}</Link> : <span>{children}</span>;
-          } }}
-        >{announcement.body}</Markdown>
-      </div>
+      <SafeMarkdown onFollowLink={onFollowLink}>{announcement.body}</SafeMarkdown>
       {cta && announcement.cta_label ? <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--pf-brand-blue)] px-4 py-2.5 text-sm font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-brand-blue-hover)]" href={cta} onClick={(event) => follow(event, cta)}>{announcement.cta_label}</Link> : null}
     </article>
   );

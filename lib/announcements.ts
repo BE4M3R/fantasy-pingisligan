@@ -48,9 +48,7 @@ export function safeAnnouncementUrl(value: string | null | undefined): string | 
   }
 }
 
-// No dedicated local competition pages exist yet. Publishers may supply a
-// verified external competition destination; never substitute an unrelated page.
 export function safeBannerUrl(value: string | null) {
   const safe = safeAnnouncementUrl(value);
-  return safe?.startsWith("https://") ? safe : undefined;
+  return safe && (safe.startsWith("https://") || /^\/competitions\/(season|gameweek\/(?:[1-9][0-9]*|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))$/i.test(safe)) ? safe : undefined;
 }

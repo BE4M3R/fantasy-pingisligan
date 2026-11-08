@@ -1,4 +1,4 @@
-import { getGlobalLeaderboard, initialGlobalRows } from "@/lib/leaderboard";
+import { StandingsPanel } from "@/app/dashboard/leagues/standings-panel";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
@@ -22,7 +22,7 @@ export default async function LeaguePage({
   searchParams,
 }: {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{ message?: string; view?: string; gameweek?: string }>;
 }) {
   const { leagueId } = await params;
   const query = await searchParams;
@@ -37,7 +37,7 @@ export default async function LeaguePage({
   }
 
   const initialResult = isGlobalLeague
-    ? await getGlobalLeaderboard()
+    ? { data: [], error: null }
     : await supabase.rpc("get_my_private_leagues");
 
   const selectedLeague = isGlobalLeague
@@ -92,6 +92,10 @@ export default async function LeaguePage({
         ) : null}
 
         <section className="table-panel min-w-0 rounded-lg border p-4 sm:p-6">
+          {isGlobalLeague ? <>
+            <h1 className="sr-only">Leagues</h1>
+            <StandingsPanel userId={userId} view={query.view} gameweek={query.gameweek} basePath="/dashboard/leagues/global" />
+          </> : <>
           <div className="flex items-start justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
@@ -121,12 +125,10 @@ export default async function LeaguePage({
           ) : (
             <LeagueTable
               currentUserId={userId}
-              initialRowCount={isGlobalLeague ? 10 : undefined}
-              rows={isGlobalLeague ? initialGlobalRows(leagueTable, userId) : leagueTable}
-              searchable={isGlobalLeague}
-              totalRowCount={isGlobalLeague ? leagueTable.length : undefined}
+              rows={leagueTable}
             />
           )}
+          </>}
         </section>
       </section>
     </main>

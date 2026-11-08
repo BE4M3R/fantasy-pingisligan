@@ -1,7 +1,9 @@
+import { competitionsEnabled } from "@/lib/competition-publication";
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/seo";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const enabled = await competitionsEnabled();
   return {
     rules: {
       userAgent: "*",
@@ -15,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         "/reset-password",
         "/signup",
         "/test-supabase",
+        ...(!enabled ? ["/competitions"] : []),
       ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

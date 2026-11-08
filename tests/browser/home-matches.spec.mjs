@@ -304,7 +304,12 @@ test("home matches go live at kickoff and stay live across Stockholm midnight", 
     await expect(lists.nth(0).getByText("LIVE", { exact: true })).toBeVisible();
     await expect(lists.nth(1).getByText("LIVE", { exact: true })).toHaveCount(0);
     await page.clock.fastForward(30 * 60_000);
-    await expect(lists.nth(1).getByText("LIVE", { exact: true })).toHaveCount(1);
+    // The preceding clock jump can leave a refresh in flight. Keep advancing
+    // the normal polling cadence until the kickoff update reaches the UI.
+    await expect.poll(async () => {
+      await page.clock.fastForward(60_000);
+      return lists.nth(1).getByText("LIVE", { exact: true }).count();
+    }).toBe(1);
   } finally {
     await cleanupFixture(fixture);
   }

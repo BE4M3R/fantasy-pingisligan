@@ -13,7 +13,7 @@ function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolea
   const [failed, setFailed] = useState(false);
   const locked = slide.state === "upcoming";
   const showLogo = Boolean(!locked && slide.imageUrl && !failed);
-  const headline = locked ? null : slide.cta_label ?? (linked ? "Discover prize" : null);
+  const headline = locked ? null : slide.cta_label ?? (linked && (slide.sponsor || slide.description || slide.imageUrl) ? "Discover prize" : null);
   const description = locked ? null : slide.description;
   const status = locked ? "Locked · Coming soon"
     : slide.state === "previous" ? "Awaiting winner confirmation"

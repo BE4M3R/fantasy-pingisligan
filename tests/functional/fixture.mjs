@@ -44,9 +44,10 @@ export function checked(result, context) {
 
 const minutes = (amount) => new Date(Date.now() + amount * 60000).toISOString();
 
-export async function createFixture({ gameweeks = 1 } = {}) {
+export async function createFixture({ gameweeks = 1, competitions = false } = {}) {
   const { admin, anonKey, url } = await localClients();
   await assertCleanDatabase(admin);
+  checked(await admin.from("competition_publication").update({ enabled: competitions }).eq("id", true), "Set disposable competition publication");
   const id = randomUUID();
   const email = `functional-${id}@example.invalid`;
   const roundBase = randomInt(100000000, 1900000000);
@@ -93,6 +94,7 @@ export async function cleanupFixture(fixture) {
   checked(await admin.from("players").delete().in("id", players.map((player) => player.id)), "Remove test players");
   checked(await admin.from("clubs").delete().in("id", clubs.map((club) => club.id)), "Remove test clubs");
   if (userId) checked(await admin.auth.admin.deleteUser(userId), "Remove test user");
+  checked(await admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Restore unpublished feature");
 }
 
 export function squad(players, { captain = 0 } = {}) {

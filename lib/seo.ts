@@ -59,7 +59,7 @@ export function socialMetadata(
 // Use absolute URLs without metadataBase: Next.js 16 otherwise strips the
 // trailing slash from the homepage canonical and Open Graph URL.
 export function publicPageMetadata(
-  path: "/" | "/en" | "/about" | "/rules",
+  path: "/" | "/en" | "/about" | "/rules" | `/competitions/${string}`,
   title: string,
   description: string,
 ): Metadata {

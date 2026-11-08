@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PublicFooter } from "@/app/public-footer";
 import { getClaims } from "@/lib/supabase/server";
+import { Suspense } from "react";
+import { PublicCompetitionPromotions } from "@/app/competitions/public-promotions";
 import {
   HOME_SEO,
   type HomeLanguage,
@@ -152,6 +154,9 @@ export async function Homepage({ language }: { language: HomeLanguage }) {
               {copy.getStarted}
             </Link>
           </div>
+          <Suspense fallback={null}>
+            <PublicCompetitionPromotions language={language} />
+          </Suspense>
         </div>
 
         <div className="grid gap-4 sm:gap-6">
