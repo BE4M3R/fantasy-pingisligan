@@ -90,9 +90,16 @@ test("Home selects current on entry, preserves browsing, and supports secure wee
     await track.focus();
     await page.keyboard.press("End");
     await expect(status).toHaveText("Highlight 5 of 5: Season Competition");
-    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Locked · Coming soon", { exact: true })).toBeVisible();
-    await expect(carousel.getByRole("link")).toHaveCount(0);
-    await capture(page, carousel, 4, "home-season-locked-desktop-1440.png");
+    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Coming soon", { exact: true })).toBeVisible();
+    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Locked · Coming soon", { exact: true })).toHaveCount(0);
+    await expect(carousel.getByRole("link")).toHaveAttribute("href", "/competitions/season");
+    await capture(page, carousel, 4, "home-season-coming-soon-desktop-1440.png");
+    await carousel.getByRole("link").click();
+    await expect(page).toHaveURL(/\/competitions\/season$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Prize details coming soon");
+    expect(await page.content()).not.toContain("Embargoed season partner");
+    await page.getByRole("link", { name: "Back to Fantasy", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/overview$/);
     // Browser history entry also resets to current, rather than restoring season.
     await page.getByRole("link", { name: "Squad", exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);

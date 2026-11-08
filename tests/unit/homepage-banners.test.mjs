@@ -22,7 +22,8 @@ test("locked gameweek and season payloads stay generic, while revealed editorial
       cta_label: "Secret headline", cta_url: "https://example.com/secret" });
     const [card] = buildHomepageCards([secret]);
     assert.equal(card.title, kind === "season" ? "Season Competition" : "The Weekly Smash");
-    for (const field of ["description", "sponsor", "image_path", "image_alt", "cta_label", "cta_url"]) assert.equal(card[field], null);
+    for (const field of ["description", "sponsor", "image_path", "image_alt", "cta_label"]) assert.equal(card[field], null);
+    assert.equal(card.cta_url, kind === "season" ? "/competitions/season" : null);
     assert.equal(secret.sponsor, "Secret partner", "Inputs are never modified");
     const [revealed] = buildHomepageCards([{ ...secret, state: "revealed" }]);
     assert.equal(revealed.title, "Secret title");

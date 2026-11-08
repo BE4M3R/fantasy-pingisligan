@@ -11,11 +11,12 @@ function slideName(slide: HomepageSlide) {
 
 function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolean; linked: boolean }) {
   const [failed, setFailed] = useState(false);
-  const locked = slide.state === "upcoming";
-  const showLogo = Boolean(!locked && slide.imageUrl && !failed);
-  const headline = locked ? null : slide.cta_label ?? (linked && (slide.sponsor || slide.description || slide.imageUrl) ? "Discover prize" : null);
-  const description = locked ? null : slide.description;
-  const status = locked ? "Locked · Coming soon"
+  const upcoming = slide.state === "upcoming";
+  const locked = upcoming && slide.kind === "gameweek";
+  const showLogo = Boolean(!upcoming && slide.imageUrl && !failed);
+  const headline = upcoming ? null : slide.cta_label ?? (linked && (slide.sponsor || slide.description || slide.imageUrl) ? "Discover prize" : null);
+  const description = upcoming ? null : slide.description;
+  const status = upcoming ? (locked ? "Locked · Coming soon" : "Coming soon")
     : slide.state === "previous" ? "Awaiting winner confirmation"
       : slide.state === "refreshing" ? "Updating results"
         : slide.state === "live" ? "Entries closed" : null;
@@ -113,7 +114,7 @@ export function SponsoredCarousel({ slides }: { slides: HomepageSlide[] }) {
           }}
         >
           {slides.map((slide, index) => {
-            const locked = slide.state === "upcoming";
+            const locked = slide.state === "upcoming" && slide.kind === "gameweek";
             const destination = locked ? undefined : safeBannerUrl(slide.cta_url);
             const season = slide.kind === "season";
             const content = <>
