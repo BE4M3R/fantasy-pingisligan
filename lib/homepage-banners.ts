@@ -26,7 +26,7 @@ export function buildHomepageCards(rows: HomepageCompetition[]) {
     ...(row.state === "upcoming" ? {
       title: row.kind === "season" ? "Season Competition" : "The Weekly Smash",
       description: null, sponsor: null, image_path: null, image_alt: null,
-      cta_label: null, cta_url: null,
+      cta_label: null, cta_url: row.kind === "season" ? "/competitions/season" : null,
     } : {}),
     gameweekLabel: gameweek_number === null ? undefined : `GW ${gameweek_number}`,
   }));

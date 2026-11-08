@@ -89,7 +89,7 @@ insert, update or delete content or upload artwork.
    Lifecycle status shares this information area. Public competition pages show
    the complete summary and optional long-form content.
 7. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
-   revealed season banners link to `/competitions/season`. No URL entry is needed.
+   season banners, including Coming soon teasers, link to `/competitions/season`. No URL entry is needed.
    Existing UUID links redirect when their number is unambiguous. Reused numbers
    retain UUID links until season-aware URLs are introduced. The unused stored `cta_url`
    column has been removed; RPC destinations remain generated.
@@ -127,8 +127,10 @@ Season uses the existing independent publication controls:
 - `content_ready` has no effect on season content.
 
 Before publication, after withdrawal, or without a season row, Home still shows
-a generic locked Season Competition **as the final slide**. It never counts
-against the two-gameweek teaser limit. Once published, its reveal is independent
+a generic **Coming soon** Season Competition as the final slide. It links to the
+same public season placeholder page used by signed-out visitors; unpublished
+prize content remains protected. Upcoming Gameweek cards retain their locks.
+The season slide never counts against the two-gameweek teaser limit. Once published, its reveal is independent
 of weekly transfer locks. A custom season title is hidden until publication.
 
 ## Authorization, payload and loading
