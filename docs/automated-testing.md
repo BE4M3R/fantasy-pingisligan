@@ -85,6 +85,9 @@ Next output and TypeScript configuration; the usual `.next/` and `tsconfig.json`
 are untouched. The runner restores `next-env.d.ts` when it still points at its
 temporary output. Browser journeys continue to use the existing dev server;
 the production build is a separate compile/type validation step.
+Disposable listener ports are selected below common ephemeral client ranges,
+with availability checks retained, so functional requests are less likely to
+consume the browser server's selected port before it starts.
 
 Before lint/build and functional scenarios, the runner also executes
 `scripts/check-schema-upgrade.mjs` against that disposable stack. Its populated

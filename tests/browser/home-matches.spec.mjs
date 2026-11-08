@@ -226,14 +226,19 @@ test("home fixtures refresh from the selected gameweek and change state at kicko
     expect(requests).toBe(1);
 
     // The scheduled start alone makes the fixture live, even with no score.
+    const kickoffRefresh = page.waitForResponse((response) => response.url().includes("/api/home-matches?") && response.ok());
     await page.clock.fastForward(181_000);
+    await (await kickoffRefresh).finished();
+    // The unchanged 0–0 text can be visible before this response's React update
+    // resets the polling effect. Let that update settle before the next minute.
+    await page.clock.runFor(1_000);
     await expect(card.getByText("LIVE", { exact: true })).toHaveCount(1);
     await expect(card).toContainText("0–0");
     expect(requests).toBe(2);
 
     // A fifth club win ends LIVE even if the imported status still says in progress.
     updatedMatch = { ...updatedMatch, status: "in_progress", home_score: 5 };
-    await page.clock.fastForward(61_000);
+    await page.clock.runFor(61_000);
     await expect(card).toContainText("5–0");
     await expect(card.getByText("LIVE", { exact: true })).toHaveCount(0);
     expect(requests).toBe(3);
@@ -299,7 +304,12 @@ test("home matches go live at kickoff and stay live across Stockholm midnight", 
     await expect(lists.nth(0).getByText("LIVE", { exact: true })).toBeVisible();
     await expect(lists.nth(1).getByText("LIVE", { exact: true })).toHaveCount(0);
     await page.clock.fastForward(30 * 60_000);
-    await expect(lists.nth(1).getByText("LIVE", { exact: true })).toHaveCount(1);
+    // The preceding clock jump can leave a refresh in flight. Keep advancing
+    // the normal polling cadence until the kickoff update reaches the UI.
+    await expect.poll(async () => {
+      await page.clock.fastForward(60_000);
+      return lists.nth(1).getByText("LIVE", { exact: true }).count();
+    }).toBe(1);
   } finally {
     await cleanupFixture(fixture);
   }

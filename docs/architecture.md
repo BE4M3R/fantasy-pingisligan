@@ -149,6 +149,56 @@ completion run only after successful persistence.
 
 ## Trust boundaries
 
+Competition routes, discovery and public competition APIs share the default-off
+`competition_publication` database flag. Restrictive policies additionally protect
+direct banner/rules reads and artwork; the public competition standings RPC checks
+the same switch. Signed-in Fantasy Gameweek standings and lifecycle metadata are
+independent of publication; competition links in Leagues still require launch. Missing/failed configuration disables the feature. Disabled
+routes return 404/noindex, and competitions are absent from sitemaps. See
+[launch controls](competition-launch.md).
+
+Home's streamed sponsored carousel uses the authenticated, security-invoker
+`get_homepage_competitions()` RPC. A shared SQL calculation follows the existing
+transfer lock and `data_refreshed_at`; RLS protects weekly content readiness and
+independent season publication, including direct table and Storage access.
+Opted-in historical rounds, current, the next two selected future teasers and a final season
+card are returned without creating content rows. One batch signs readable artwork.
+`fantasy_gameweeks.weekly_smash_enabled` defaults false and controls prize-round
+selection without affecting Fantasy scoring or signed-in standings. Hidden rounds
+have no public page, promotion or prize/artwork disclosure.
+Home entry selects current (or latest completed) without interrupting browsing.
+No privileged client, publication job or winner calculation is involved.
+See [homepage highlights](homepage-banners.md).
+
+Public `/competitions/gameweek/[number]` and `/competitions/season` pages use
+an anonymous client with fresh reads. Their content/Storage reads share the
+carousel reveal rules; social metadata never reads draft content. Weekly pages load five public standings rows server-side, with bounded incremental
+loading through the same existing RPC. Leagues adds Season/Gameweek controls and
+left/right round navigation, defaulting to the latest started round. Both modes
+reuse the existing interactive `LeagueTable`; the authenticated weekly projection
+uses the same scoring entry helper as public competitions. Public competition
+search continues to return only names, ranks and points. Private league
+authorization stays unchanged.
+Season keeps its winner notice. Prize product
+links are optional HTTPS URLs separate from generated internal destinations. Locked
+squads remain private. Operator-only provisional review derives
+raw effective-captain tie-breaks; confirmation and announcements are deferred.
+See [competition pages and provisional results](competitions.md).
+
+Legacy UUID links redirect to an unambiguous number; repeated numbers retain UUID
+links rather than guessing a season. No season mapping is introduced. Approved
+`competition_rules` document versions are immutable and bound once to each prize
+row; drafts and future-only versions remain private. Public landing pages stream
+two compact promotions through the same reveal-protected detail projection. The
+dashboard carousel and announcement delivery remain independent.
+
+Dashboard announcements use a persistent layout controller and the existing
+Supabase clients/Server Actions. A compact per-user summary supplies popup
+candidates and unread count; inbox history and content load on demand. Database
+publication policies also guard private artwork. Individual dismissals persist
+per user across devices without snoozing, polling or publication jobs. See
+[announcements](announcements.md) for publishing and reader behavior.
+
 Public Supabase URL and anonymous keys may be used by the web app. The service
 role key bypasses RLS and is restricted to local/server import jobs. Scraping,
 source parsing and service-role writes belong in `scripts/`, a scheduled GitHub

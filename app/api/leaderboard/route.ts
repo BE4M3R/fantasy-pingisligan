@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isGameweekId } from "@/lib/competitions";
 import { getGlobalLeaderboard } from "@/lib/leaderboard";
 
 export async function GET(request: Request) {
@@ -14,6 +15,17 @@ export async function GET(request: Request) {
   const search = params.get("search")?.trim() ?? "";
   if (search.length > 80) {
     return NextResponse.json({ error: "Search is too long" }, { status: 400 });
+  }
+  const gameweekId = params.get("gameweek");
+  if (gameweekId) {
+    if (!isGameweekId(gameweekId) || offset > 2147483647) {
+      return NextResponse.json({ error: "Invalid Gameweek request." }, { status: 400 });
+    }
+    const { data: standings, error } = await supabase.rpc("get_gameweek_leaderboard", {
+      p_gameweek_id: gameweekId, p_search: search, p_offset: offset, p_limit: 50,
+    });
+    if (error) return NextResponse.json({ error: "Gameweek standings could not be loaded." }, { status: 503 });
+    return NextResponse.json(standings, { headers: { "Cache-Control": "private, no-store" } });
   }
   if (search) {
     const { data: matches, error } = await supabase.rpc("search_global_leaderboard", {

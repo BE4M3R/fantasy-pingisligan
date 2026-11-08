@@ -88,9 +88,66 @@ user and league membership.
 
 Leaderboard totals and per-team gameweek history use the same visibility rule:
 a gameweek appears when its first fixture starts. Its score is live and may
-change as result imports arrive. It becomes final only after the post-gameweek
-refresh succeeds and records `fantasy_gameweeks.data_refreshed_at`. Stored
-points for a future gameweek are excluded from totals and rankings.
+change as result imports arrive. A successful post-gameweek refresh records
+`fantasy_gameweeks.data_refreshed_at` and completes Fantasy's unlock processing;
+postponed fixtures and later corrections can still change the scores. This is not
+prize confirmation. Stored points for a future gameweek are excluded from totals
+and rankings.
+
+## Homepage banners and announcements
+
+`competition_publication` contains one operator-controlled launch flag, initially
+false. `competitions_enabled()` shares that state between app/server routes,
+restrictive RLS, artwork authorization and competition RPC guards. Ordinary users
+can read the non-sensitive flag but cannot change it. Rule approval and prize
+readiness never override this switch.
+
+`fantasy_gameweeks.weekly_smash_enabled` is a separate operator-only prize opt-in,
+default false for existing and newly imported rounds. Only selected rounds have
+competition routes/cards/promotions and readable prize content. Excluding a round
+preserves its content/rule history and never affects Fantasy standings or scoring.
+Schedule upserts preserve this editorial selection.
+
+`homepage_banners` stores one optional content row per gameweek plus one season
+row. Weekly `content_ready` and derived Fantasy lifecycle gate public editorial reads;
+season retains independent `published`/publication/expiry controls. Legacy weekly
+publication values are preserved but no longer control visibility. All writes are
+operator-only. `homepage_gameweek_states()` shares lifecycle between RLS and the
+security-invoker `get_homepage_competitions()` RPC, which returns all history,
+current, two generic future teasers and season last. Artwork follows the same RLS
+through the private announcement bucket. See [homepage highlights](homepage-banners.md).
+
+The same rows hold long-form prize descriptions, prize-specific notes and separate
+prize artwork for public competition pages. Legacy per-banner rules/eligibility text
+is preserved as private shared-document drafts; the unused columns, stored CTA URL
+and manual sort order are removed by the forward cleanup migration. `get_public_competition` uses the shared
+RLS gate. `get_competition_standings` exposes only rank, team name and stored points;
+weekly detail pages request five initial rows and fetch more on demand. Search is applied after ranking so matches retain their tied ranks. An
+authenticated-only `get_gameweek_leaderboard` projection adds the existing team
+preview identifiers/display names for Leagues, using the same scored entries.
+It and signed-in round metadata remain available with competitions disabled;
+public prize/content/standings RPCs retain the launch gate.
+Snapshot tables remain private. `get_weekly_competition_review` is operator-only,
+applying the raw effective-captain tie-break without awarding prizes. There is no
+confirmation table in Phases 1/2. See [competitions](competitions.md).
+
+`competition_rules` stores shared Weekly Smash/Season Markdown documents with
+operator approval and immutable versions. A banner's `rules_version_id` binds its
+historical terms once; new approved versions never rewrite an existing binding.
+`prize_value_sek` is an editorial approximate value, with no tax logic. Optional
+`prize_product_url` stores an HTTPS external product link, independent of carousel
+destinations and protected by the existing banner publication gate. Public RLS
+reveals approved documents only through visible competitions. Numeric URL and
+compact public-promotion RPCs reuse the same Fantasy numbers and visibility gates.
+
+`announcements` stores scheduled, database-driven English content.
+`announcement_user_state` stores private read/dismissal timestamps keyed by user
+and announcement. The legacy `announcement_user_preferences` table and snooze
+RPC remain unused; the app ignores snooze values. Ordinary users cannot modify
+content or directly rewrite interaction state. Authenticated RPCs provide a
+compact summary and irreversible interaction writes. Published due content remains
+in the inbox after popup expiry; drafts/future content and their private Storage
+artwork are protected by RLS. See [publishing](announcements.md).
 
 ## Player statistics
 

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
+import { isGameweekId } from "../../lib/competitions.ts";
 
 // Run the actual server loader with a bounded PostgREST transport. No hosted
 // database or credentials are needed for these regression checks.
@@ -19,6 +20,7 @@ async function loadLeaderboard({ rows = [], failAt = -1 } = {}) {
     process: { env: { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-public-key" } },
     require(name) {
       if (name === "server-only") return {};
+      if (name === "@/lib/supabase/server") return { createClient: () => { throw new Error("Global read must not load an authenticated client"); } };
       if (name === "@supabase/supabase-js") return { createClient: () => ({
         rpc: () => ({ range: async (start, end) => {
           calls.push([start, end]);
@@ -90,6 +92,8 @@ async function loadRoute(userId) {
     exports, URL,
     require(name) {
       if (name === "next/server") return { NextResponse: { json: Response.json } };
+      if (name === "@/lib/competitions") return { isGameweekId };
+      if (name === "@/lib/competition-publication") return { competitionsEnabled: async () => true };
       if (name === "@/lib/supabase/server") return { createClient: async () => ({
         auth: { getClaims: async () => ({ data: { claims: { sub: userId } } }) },
         rpc: async (functionName, { p_search, p_offset, p_limit }) => {

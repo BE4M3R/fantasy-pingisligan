@@ -1,11 +1,7 @@
-import { getGlobalLeaderboard, initialGlobalRows } from "@/lib/leaderboard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
-import {
-  LeagueTable,
-  type LeagueTableRow,
-} from "@/app/dashboard/league-table";
+import { StandingsPanel } from "@/app/dashboard/leagues/standings-panel";
 import { joinPrivateLeague } from "@/app/dashboard/leagues/actions";
 import { LeagueActions } from "@/app/dashboard/leagues/league-actions";
 import { createClient, getClaims } from "@/lib/supabase/server";
@@ -30,6 +26,8 @@ export default async function LeaguesPage({
     invite?: string;
     league?: string;
     message?: string;
+    view?: string;
+    gameweek?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -56,13 +54,9 @@ export default async function LeaguesPage({
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
-  const [globalResult, privateLeaguesResult] = await Promise.all([
-    getGlobalLeaderboard(),
-    supabase.rpc("get_my_private_leagues"),
-  ]);
+  const privateLeaguesResult = await supabase.rpc("get_my_private_leagues");
 
   const privateLeagues = (privateLeaguesResult.data ?? []) as PrivateLeague[];
-  const globalLeagueTable = (globalResult.data ?? []) as LeagueTableRow[];
   const privateMigrationMissing = Boolean(privateLeaguesResult.error);
   const leagueLinkClass =
     "flex items-center justify-between gap-3 rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-3 text-sm text-[var(--pf-text)] transition hover:border-[var(--pf-brand-blue-border)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]";
@@ -152,30 +146,7 @@ export default async function LeaguesPage({
         </section>
 
         <section className="table-panel mt-5 min-w-0 rounded-lg border p-4 sm:p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--pf-brand-blue)]">
-            Overall
-          </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight text-[var(--pf-text)]">
-            Global league
-          </h2>
-          <p className="mt-1 text-sm text-[var(--pf-text-muted)]">
-            Fantasy teams sorted by total points.
-          </p>
-
-          {globalResult.error ? (
-            <div className="mt-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-              The database schema is out of date. Deploy pending Supabase
-              migrations to enable the league table.
-            </div>
-          ) : (
-            <LeagueTable
-              currentUserId={userId}
-              initialRowCount={10}
-              rows={initialGlobalRows(globalLeagueTable, userId)}
-              searchable
-              totalRowCount={globalLeagueTable.length}
-            />
-          )}
+          <StandingsPanel userId={userId} view={params.view} gameweek={params.gameweek} />
         </section>
       </section>
     </main>
