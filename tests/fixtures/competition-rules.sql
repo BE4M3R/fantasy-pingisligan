@@ -12,6 +12,12 @@ values
    now() + interval '1 hour', now() + interval '2 days', now() + interval '3 hours', now() + interval '1 day'),
   ('00000000-0000-0000-0000-000000004002', -1999999500, -1999999502, 'Rules test 2', 4002,
    now() + interval '3 days', now() + interval '5 days', now() + interval '4 days', now() + interval '4 days');
+do $test$ begin
+  if exists (select 1 from public.fantasy_gameweeks where weekly_smash_enabled) then
+    raise exception 'Prize Gameweeks must be opt-in by default'; end if;
+end; $test$;
+update public.fantasy_gameweeks set weekly_smash_enabled = true where id in
+  ('00000000-0000-0000-0000-000000004001', '00000000-0000-0000-0000-000000004002');
 insert into public.competition_rules (id, kind, version, title, body) values
   ('00000000-0000-0000-0000-000000004101', 'gameweek', 4001, 'Weekly rules v1', 'First approved weekly terms');
 insert into public.homepage_banners (id, gameweek_id, content_ready, sponsor)

@@ -1,4 +1,3 @@
-import { competitionsEnabled } from "@/lib/competition-publication";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isGameweekId } from "@/lib/competitions";
@@ -19,7 +18,6 @@ export async function GET(request: Request) {
   }
   const gameweekId = params.get("gameweek");
   if (gameweekId) {
-    if (!await competitionsEnabled()) return NextResponse.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
     if (!isGameweekId(gameweekId) || offset > 2147483647) {
       return NextResponse.json({ error: "Invalid Gameweek request." }, { status: 400 });
     }

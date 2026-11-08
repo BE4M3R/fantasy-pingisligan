@@ -102,6 +102,12 @@ restrictive RLS, artwork authorization and competition RPC guards. Ordinary user
 can read the non-sensitive flag but cannot change it. Rule approval and prize
 readiness never override this switch.
 
+`fantasy_gameweeks.weekly_smash_enabled` is a separate operator-only prize opt-in,
+default false for existing and newly imported rounds. Only selected rounds have
+competition routes/cards/promotions and readable prize content. Excluding a round
+preserves its content/rule history and never affects Fantasy standings or scoring.
+Schedule upserts preserve this editorial selection.
+
 `homepage_banners` stores one optional content row per gameweek plus one season
 row. Weekly `content_ready` and derived Fantasy lifecycle gate public editorial reads;
 season retains independent `published`/publication/expiry controls. Legacy weekly
@@ -119,6 +125,8 @@ RLS gate. `get_competition_standings` exposes only rank, team name and stored po
 weekly detail pages request five initial rows and fetch more on demand. Search is applied after ranking so matches retain their tied ranks. An
 authenticated-only `get_gameweek_leaderboard` projection adds the existing team
 preview identifiers/display names for Leagues, using the same scored entries.
+It and signed-in round metadata remain available with competitions disabled;
+public prize/content/standings RPCs retain the launch gate.
 Snapshot tables remain private. `get_weekly_competition_review` is operator-only,
 applying the raw effective-captain tie-break without awarding prizes. There is no
 confirmation table in Phases 1/2. See [competitions](competitions.md).
