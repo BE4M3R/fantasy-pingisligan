@@ -17,16 +17,20 @@ When disabled:
 
 - Public homepage promotions and the signed-in carousel return no cards or links.
   There is no competition loading placeholder or fallback discovery link.
-- Leagues keeps its existing global/private tables. The new Season/Gameweek controls
-  and competition links are absent; a forced `view=gameweek` uses the global table.
+- Signed-in Leagues keeps Season/Gameweek standings, search, pagination, round
+  arrows and team previews. Only its links to competition pages are hidden.
+  These ordinary Fantasy standings do not require competition publication.
 - Numeric and UUID competition URLs and the season page return 404 with noindex
-  metadata. Competition APIs return 404; the authenticated weekly API also checks
-  the switch. Competition routes are disallowed in robots.txt while disabled. They
-  are never added to the sitemap, regardless of this flag.
+  metadata. Competition APIs return 404; the signed-in weekly league API requires
+  authentication independently of this switch. Competition routes are disallowed
+  in robots.txt while disabled. They are never added to the sitemap, regardless
+  of this flag.
 - Restrictive RLS ANDs the switch with existing banner/rules visibility policies.
   Even approved rules and ready/published prizes cannot be read by visitors or
-  ordinary managers. Public detail/discovery/route/state RPCs return no rows.
-  Security-definer weekly standings RPCs refuse requests with SQLSTATE 42501.
+  ordinary managers. Prize detail/discovery/route RPCs return no rows. Anonymous
+  lifecycle reads return no rows, while signed-in managers retain round metadata.
+  The public competition standings RPC refuses requests with SQLSTATE 42501; the
+  authenticated Fantasy Gameweek leaderboard stays available.
 - Banner artwork cannot be newly signed or downloaded through the existing
   banner-reference policy. Existing announcement publication/dismissal behavior,
   global Fantasy scoring, squads, snapshots, transfers and private leagues remain.
@@ -34,6 +38,24 @@ When disabled:
 Unapproved rule versions remain hidden when the switch is on too. Future/unready
 weekly prizes and independently unpublished season content retain their existing
 RLS and artwork restrictions. This switch does not approve terms or confirm a winner.
+
+## Enable or disable competitions
+
+Open Supabase Studio for the intended project, then **Table Editor →
+`competition_publication`**. Its single row has `id = true`. Change `enabled` to
+`true` to publish the competition feature, or `false` to hide it. This is a
+database setting, not a Vercel environment variable. Each environment has its own
+row: changing local does not change staging or production.
+
+First choose prize Gameweeks in `fantasy_gameweeks` using
+`weekly_smash_enabled = true`. Existing and new rounds default to false; keep
+unconfirmed past/upcoming rounds excluded. Excluded weeks have no prize page,
+banner, promotion or competition link, while their Fantasy standings remain.
+
+Setting the global switch to true enables selected competition pages, cards and
+links for everyone in that environment. Banner readiness/publication and approved-rule restrictions
+still apply. Follow the separately authorized staging/production launch steps
+below. Leave it false when only enabling ordinary signed-in Gameweek standings.
 
 ## Local development and verification
 

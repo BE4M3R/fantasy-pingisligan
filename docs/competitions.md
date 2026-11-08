@@ -15,9 +15,14 @@ random draw execution, award storage or automatic winner announcement.
 
 ## Publication and local preview
 
-The entire feature is **disabled by default**. The single operator-managed row in
-`competition_publication` gates routes, metadata, APIs, cards, the weekly Leagues
-mode, database projections, direct banner/rule reads and competition artwork.
+Public competition pages and prizes are **disabled by default**. The single operator-managed row in
+`competition_publication` gates competition routes, metadata, public competition
+APIs, cards, prize projections, direct banner/rule reads and competition artwork.
+Signed-in Season/Gameweek Leagues standings remain available independently; only
+their links to competition pages require publication and an opted-in prize round.
+`fantasy_gameweeks.weekly_smash_enabled` is the per-round opt-in, default false.
+Excluded rounds have no prize page, carousel card or public promotion; their
+Fantasy results and Gameweek numbers stay unchanged.
 Read [launch and rollback instructions](competition-launch.md) before enabling it.
 Local preview is an explicit opt-in in the local database, not an automatic
 hostname, environment or authentication bypass. Hosted deployments never inherit
@@ -49,6 +54,10 @@ scroll storage is introduced. This referral hint changes navigation only, never
 authorization or the public data projection.
 
 ## Enter a new Weekly Smash prize in Supabase
+
+First opt the chosen round in with `fantasy_gameweeks.weekly_smash_enabled = true`.
+Keep unconfirmed prize rounds false; no banner row is required just to choose a
+round. Then prepare its optional prize content below.
 
 Use local Supabase for development. Hosted content publishing is a deliberate human
 operator action; hosted schema changes use reviewed migrations and GitHub Actions.

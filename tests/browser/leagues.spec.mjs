@@ -46,7 +46,7 @@ async function createGuest(f) {
 
 test.describe.serial("private league journey", () => {
   test.beforeAll(async () => {
-    fixture = await createFixture({ gameweeks: 2, competitions: true });
+    fixture = await createFixture({ gameweeks: 2, prizeGameweeks: true });
     guest = await createGuest(fixture);
     for (const [id, display_name] of [[fixture.userId, ownerDisplayName], [guest.userId, guestDisplayName]]) {
       checked(await fixture.admin.from("profiles").update({ display_name }).eq("id", id), "Set manager display name");
@@ -184,6 +184,10 @@ test.describe.serial("private league journey", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator(".md\\:hidden").getByText(guestDisplayName, { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("gameweek-league-mobile-390.png"), fullPage: true });
+    await expect(page.locator('a[href^="/competitions/"]')).toHaveCount(0);
+    expect(checked(await fixture.admin.rpc("competitions_enabled"), "Standings work with competitions off")).toBe(false);
+    checked(await fixture.admin.from("competition_publication").update({ enabled: true }).eq("id", true), "Enable competition links explicitly");
+    await page.reload();
     const competitionLink = page.getByRole("link", { name: "View this Weekly Smash competition →", exact: true });
     await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/1");
     const leaguesUrl = page.url();
@@ -197,6 +201,7 @@ test.describe.serial("private league journey", () => {
     await expect(page.getByRole("navigation", { name: "Standings Gameweeks" })).toHaveCount(0);
     const own = page.locator(".md\\:hidden").getByRole("button").filter({ hasText: `Functional ${fixture.id}` });
     await expect(own.getByText("35", { exact: true })).toBeVisible();
+    checked(await fixture.admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Restore unpublished competitions");
   });
 
   test("owner creates a private league and receives an invitation code", async ({ page }) => {

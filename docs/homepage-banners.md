@@ -1,8 +1,10 @@
 # The Weekly Smash and Season Competition
 
 Home (`/dashboard/overview`) derives competitions from `fantasy_gameweeks`.
-No content row is needed for a gameweek to exist in the carousel, and schedule
-imports need no competition writes. `homepage_banners` supplies optional content,
+Only Gameweeks explicitly opted in with `fantasy_gameweeks.weekly_smash_enabled`
+appear as prize competitions. No content row is needed for an opted-in Gameweek
+to exist in the carousel. Existing and newly imported rounds default to excluded,
+and schedule refreshes preserve your selection. `homepage_banners` supplies optional content,
 with at most one row per gameweek and one season row. Announcements, inbox
 history and dismissals remain separate.
 
@@ -21,8 +23,8 @@ complete it: `data_refreshed_at` must be set by the successful Fantasy refresh.
 Other unresolved locked gameweeks remain accessible too; any outstanding Fantasy
 lock prevents revealing the next future round. No competition state is stored.
 
-The carousel contains all history/locked rounds in deadline order, the current
-competition, **only the next two** upcoming gameweek teasers, and finally the
+The carousel contains opted-in history/locked rounds in deadline order, the
+opted-in current competition, **only the next two opted-in** upcoming teasers, and finally the
 Season Competition. Numbers come from `round_order`, falling back to chronological
 position. Schedule changes follow Fantasy's existing rules: future deadlines can
 move, locked boundaries remain frozen, and postponed fixtures keep their original
@@ -40,6 +42,25 @@ Fantasy has completed its post-unlock processing, not that upstream scores can
 never change. Public competition pages and provisional standings are available;
 confirmation and winner announcements remain deferred. There is no new scoring
 system or winner field. See [competitions](competitions.md).
+
+## Choose which Gameweeks have prizes
+
+In Supabase Studio, open `fantasy_gameweeks` and set **`weekly_smash_enabled =
+true`** only for rounds that will have a Weekly Smash prize. Leave it **false**
+for unconfirmed past/upcoming rounds. Change it back to false to exclude a round.
+All existing and new rounds start false; the migration never guesses a launch
+week or assumes that an already configured prize will be awarded.
+
+Excluded rounds have no carousel card (including generic teasers), public
+competition page, promotion or competition link in Leagues. Their prize/rules
+and artwork stay protected. Fantasy scoring, squads, Gameweek numbers and all
+signed-in Leagues standings remain available. The next two teaser slots skip
+excluded rounds; hiding GW1 does not renumber GW2. Prize content and historical
+rule bindings are preserved for later opt-in.
+
+The global `competition_publication.enabled` switch must also be true to publish
+competitions. Choose prize rounds first; enable the global switch separately
+when ready to launch. These controls are independent of `content_ready` below.
 
 ## Weekly content in Supabase
 

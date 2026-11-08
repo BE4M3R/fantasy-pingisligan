@@ -149,10 +149,11 @@ completion run only after successful persistence.
 
 ## Trust boundaries
 
-Competition routes, discovery, weekly league mode and APIs share the default-off
+Competition routes, discovery and public competition APIs share the default-off
 `competition_publication` database flag. Restrictive policies additionally protect
-direct banner/rules reads and artwork; security-definer standings RPCs explicitly
-check the same switch. Missing/failed configuration disables the feature. Disabled
+direct banner/rules reads and artwork; the public competition standings RPC checks
+the same switch. Signed-in Fantasy Gameweek standings and lifecycle metadata are
+independent of publication; competition links in Leagues still require launch. Missing/failed configuration disables the feature. Disabled
 routes return 404/noindex, and competitions are absent from sitemaps. See
 [launch controls](competition-launch.md).
 
@@ -160,8 +161,11 @@ Home's streamed sponsored carousel uses the authenticated, security-invoker
 `get_homepage_competitions()` RPC. A shared SQL calculation follows the existing
 transfer lock and `data_refreshed_at`; RLS protects weekly content readiness and
 independent season publication, including direct table and Storage access.
-All historical rounds, current, two future generic teasers and a final season
+Opted-in historical rounds, current, the next two selected future teasers and a final season
 card are returned without creating content rows. One batch signs readable artwork.
+`fantasy_gameweeks.weekly_smash_enabled` defaults false and controls prize-round
+selection without affecting Fantasy scoring or signed-in standings. Hidden rounds
+have no public page, promotion or prize/artwork disclosure.
 Home entry selects current (or latest completed) without interrupting browsing.
 No privileged client, publication job or winner calculation is involved.
 See [homepage highlights](homepage-banners.md).
@@ -169,7 +173,7 @@ See [homepage highlights](homepage-banners.md).
 Public `/competitions/gameweek/[number]` and `/competitions/season` pages use
 an anonymous client with fresh reads. Their content/Storage reads share the
 carousel reveal rules; social metadata never reads draft content. Weekly pages load five public standings rows server-side, with bounded incremental
-loading through the same existing RPC. Leagues adds Global/Gameweek controls and
+loading through the same existing RPC. Leagues adds Season/Gameweek controls and
 left/right round navigation, defaulting to the latest started round. Both modes
 reuse the existing interactive `LeagueTable`; the authenticated weekly projection
 uses the same scoring entry helper as public competitions. Public competition

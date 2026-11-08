@@ -17,7 +17,8 @@ export async function generateMetadata({ params }: Props) {
   if (!await competitionsEnabled()) return { title: "Not found", robots: { index: false, follow: false } };
   const { gameweekId: value } = await params;
   const id = await resolve(value);
-  const { competition } = await getCompetition(id);
+  const { competition, error } = await getCompetition(id);
+  if (!competition && !error) notFound();
   return publicPageMetadata(competition?.public_path ?? `/competitions/gameweek/${value}`,
     `${competition?.title ?? "The Weekly Smash"}${competition ? ` · Gameweek ${competition.gameweek_number}` : ""} | Pingisligan Fantasy`,
     competition?.description ?? "Follow The Weekly Smash prizes and winner announcements on Pingisligan Fantasy.");
@@ -27,7 +28,8 @@ export default async function Page({ params }: Props) {
   if (!await competitionsEnabled()) notFound();
   const { gameweekId: value } = await params;
   const id = await resolve(value);
-  const { competition } = await getCompetition(id);
+  const { competition, error } = await getCompetition(id);
+  if (!competition && !error) notFound();
   if (isGameweekId(value) && competition && competition.public_path !== `/competitions/gameweek/${value}`) {
     permanentRedirect(competition.public_path);
   }
