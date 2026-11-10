@@ -71,6 +71,42 @@ test("Stupa refreshes a live fixture before its first completed singles without 
   assert.deepEqual(rows.submatches, []);
 });
 
+test("explicit resets/deletions retract results while missing and unknown statuses preserve them", () => {
+  for (const status of ["NOT_STARTED", "IN_PROGRESS", "SCORED", "UNKNOWN", undefined]) {
+    for (const deleted of [false, true]) {
+      const parent = stupaParent(stupaDetail());
+      Object.assign(parent.sub_matches[0], { status, is_deleted: deleted });
+      const rows = buildImportRows([parent], new Map([[100, { id: "match", fantasy_gameweek_id: "week" }]]), new Map(), new Map());
+      const retracted = deleted || ["NOT_STARTED", "IN_PROGRESS"].includes(status);
+      assert.equal(rows.retractedSubmatches.length, retracted ? 1 : 0);
+      assert.equal(rows.submatches.length, !deleted && status === "SCORED" ? 1 : 0);
+      if (retracted) assert.deepEqual(rows.retractedSubmatches[0], {
+        stupa_submatch_id: 101, match_id: "match", match_order: 1, is_golden_match: false,
+      });
+      // Retractions only trigger scoring if persistence actually removes a row.
+      if (retracted) assert.deepEqual(rows.gameweekIds, []);
+    }
+  }
+  const rows = buildImportRows([{ ...stupaParent(stupaDetail()), sub_matches: [] }],
+    new Map([[100, { id: "match" }]]), new Map(), new Map());
+  assert.deepEqual(rows.retractedSubmatches, []);
+});
+
+test("golden child resets and deleted golden parents reach result reconciliation", () => {
+  const parent = stupaParent(stupaDetail());
+  for (const is_deleted of [false, true]) {
+    const [merged] = attachGoldenSubmatches([parent], [{
+      id: 200, meta: { source_match_id: 100 }, is_deleted,
+      sub_matches: [{ id: 201, order: 1, status: is_deleted ? "SCORED" : "NOT_STARTED" }],
+    }]);
+    const rows = buildImportRows([merged], new Map([[100, { id: "match" }]]), new Map(), new Map());
+    assert.deepEqual(rows.retractedSubmatches, [{
+      stupa_submatch_id: 201, match_id: "match", match_order: 1, is_golden_match: true,
+    }]);
+    assert.equal(rows.submatches.length, 1, "the singles at order 1 remains scored");
+  }
+});
+
 test("Stupa resolves a player through a historical license alias", () => {
   const rows = stupaRows(stupaDetail(), { id: "player" }, null);
 

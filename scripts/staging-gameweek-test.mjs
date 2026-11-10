@@ -651,6 +651,8 @@ export async function nextIndividualMatch(supabase, scenario, definition) {
   await advanceRoundTime(supabase, context, event.at);
   const fixtureRows = buildResultRows({ ...definition, fixtures: [event.fixture] }, scenario.roleIds)[0];
   const submatch = fixtureRows.submatches.find((row) => row.stupa_submatch_id === event.match.submatchId);
+  // An incremental observation has no withdrawals; the shared RPC preserves
+  // all other positions, just as it does for partial production responses.
   await persistStupaResults(supabase, [{
     ...submatch, match_id: event.parent.id,
     raw_payload: { ...submatch.raw_payload, local_scoring_pending: true },

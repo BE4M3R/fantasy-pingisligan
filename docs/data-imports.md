@@ -160,7 +160,15 @@ participant lists in one transaction before scoring. Singles order 1 and golden
 doubles order 1 are separate positions. Missing positions or fixtures are
 preserved so a partial live response cannot clear unrelated results. Duplicate
 incoming IDs or positions fail the import instead of guessing which is current.
-The synthetic local/staging lifecycle harness uses the same persistence RPC.
+An explicitly observed child reset to `NOT_STARTED` or `IN_PROGRESS`, or marked
+`is_deleted`, withdraws its stored result and player rows at that fixture/kind/order.
+For example, a sixth singles reset after a corrected 6–0 → 5–0 result must stop
+contributing both a club win and fantasy points. Deleted scored children are
+not imported as wins. Golden child resets/deletions use the same rules; deleting
+a golden parent also withdraws its observed children. Unknown statuses and rows
+omitted entirely are preserved because they do not establish a withdrawal.
+The synthetic local/staging lifecycle harness uses the same persistence RPC;
+incremental single-result writes continue to preserve other positions.
 
 Deploy migration `20261009000000_reconcile_replaced_stupa_results.sql` before
 running the updated importer. There is no append-only fallback if the RPC is
@@ -170,6 +178,20 @@ stage import removes existing duplicates at observed positions and recalculates
 affected player and locked-team points, including previously completed rounds.
 No manual hosted SQL cleanup, snapshot changes, repricing or budget changes are
 needed. The import log reports how many superseded submatches were replaced.
+
+Explicit withdrawals additionally require migration
+`20261110210000_reconcile_withdrawn_stupa_results.sql`. It adds a service-role-only
+three-argument RPC while retaining the old two-argument function for deployment
+compatibility. The shared persistence helper always calls the new overload,
+including for local synthetic results, and fails if it is unavailable. Withdrawals
+and scored replacements are transactional. The RPC reports gameweeks where a
+stored result was removed or derived statistics still need refreshing after a
+failed scoring attempt. Those weeks are rescored even when no scored children
+remain; unplayed fixtures alone do not trigger scoring.
+After staging verification and normal promotion to `main`, a full run of
+**Import Pingisligan results** repairs these explicit resets and recalculates
+player statistics, clincher bonuses and locked-team totals. Repeated runs are
+safe. No direct production SQL or snapshot changes are needed.
 
 Results polls also persist each known parent fixture's status before its first
 completed submatch. Only gameweeks with completed results enter scoring. Home

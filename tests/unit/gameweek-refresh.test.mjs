@@ -50,7 +50,7 @@ function createSupabase({
     client: {
       async rpc(name, args) {
         calls.push(["rpc", name, args]);
-        if (name === "persist_stupa_results") return { data: 0, error: persistenceError };
+        if (name === "persist_stupa_results") return { data: { removed_count: 0, retracted_gameweek_ids: [] }, error: persistenceError };
         if (name === "calculate_fantasy_gameweek_points") {
           return { error: scoringError };
         }
@@ -198,6 +198,25 @@ test("ordinary result imports do not complete a gameweek", async () => {
   const { client, calls } = createSupabase({});
   await persistScoreAndComplete(client, rows);
   assert.deepEqual(calls.map(([operation]) => operation), ["rpc"]);
+});
+
+test("a retraction-only import rescores only gameweeks whose stored results were removed", async () => {
+  for (const affected of [[], ["withdrawn-week"]]) {
+    const calls = [];
+    const retractedSubmatches = [{ stupa_submatch_id: 101, match_id: "match", match_order: 6, is_golden_match: false }];
+    const client = {
+      async rpc(name, args) {
+        calls.push([name, args]);
+        return { data: { removed_count: affected.length, retracted_gameweek_ids: affected }, error: null };
+      },
+    };
+    const count = await persistScoreAndComplete(client, { ...rows, gameweekIds: [], retractedSubmatches });
+    assert.equal(count, affected.length);
+    assert.deepEqual(calls[0], ["persist_stupa_results", {
+      p_submatches: [], p_player_results: [], p_retracted_submatches: retractedSubmatches,
+    }]);
+    assert.deepEqual(calls.slice(1), affected.map((id) => ["calculate_fantasy_gameweek_points", { target_gameweek_id: id }]));
+  }
 });
 
 test("unmatched players are stored unlinked while known players score and the gameweek completes", async () => {
