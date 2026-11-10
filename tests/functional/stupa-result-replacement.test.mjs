@@ -6,6 +6,8 @@ import { buildImportRows, persistScoreAndComplete } from "../../scripts/import-s
 import { persistStupaResults } from "../../scripts/persist-stupa-results.mjs";
 import { addMatch, addResult, checked, cleanupFixture, createFixture, lock, save, squad } from "./fixture.mjs";
 
+const lineupColumns = "fantasy_team_id, fantasy_gameweek_id, player_id, position, is_captain, price_at_lock, club_id_at_lock, player_first_name_at_lock, player_last_name_at_lock, club_name_at_lock, lineup_order, created_at";
+
 async function setup(t) {
   const f = await createFixture({ gameweeks: 2 });
   t.after(() => cleanupFixture(f));
@@ -65,7 +67,6 @@ async function state(f, game) {
 
 test("STUPA replacement IDs preserve 5–4 and fantasy scores, repair existing 10–8, and remain idempotent", async (t) => {
   const { f, game, other, rows } = await setup(t);
-  const lineupColumns = "fantasy_team_id, fantasy_gameweek_id, player_id, position, is_captain, price_at_lock, club_id_at_lock, player_first_name_at_lock, player_last_name_at_lock, club_name_at_lock, lineup_order, created_at";
   const snapshots = checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
     .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read original locked squad");
   const unrelated = await state(f, other);
@@ -185,7 +186,7 @@ test("STUPA resets a sixth singles: 6–0 becomes 5–0 and fantasy points match
   const build = (value) => buildImportRows([value], new Map([[sourceId, game.match]]), new Map(),
     new Map(f.players.map((p) => [String(p.stupa_user_role_id), p])));
   const unrelated = await state(f, other);
-  const snapshots = checked(await f.admin.from("fantasy_team_gameweek_players").select("*")
+  const snapshots = checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
     .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read locked squad");
 
   await persistScoreAndComplete(f.admin, build({ ...parent, sub_matches: parent.sub_matches.slice(0, 5) }));
@@ -214,7 +215,7 @@ test("STUPA resets a sixth singles: 6–0 becomes 5–0 and fantasy points match
   assert.deepEqual(otherAfter.results, unrelated.results);
   assert.deepEqual(otherAfter.stats, unrelated.stats);
   assert.deepEqual(otherAfter.score, unrelated.score);
-  assert.deepEqual(checked(await f.admin.from("fantasy_team_gameweek_players").select("*")
+  assert.deepEqual(checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
     .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read preserved squad"), snapshots);
 });
 
