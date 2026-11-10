@@ -72,6 +72,11 @@ rewriting that snapshot.
 Points are calculated from completed individual matches and then added together
 for the gameweek.
 
+Unfinished individual matches do not contribute set or match points, even if
+their source report already contains set scores. A team fixture ends when either
+club wins five individual matches; results after that deciding win are excluded.
+A deciding golden doubles after 4–4 counts as the fifth win.
+
 | Event | Points |
 | --- | ---: |
 | Win an individual match | +4 |
