@@ -6,6 +6,8 @@ import { buildImportRows, persistScoreAndComplete } from "../../scripts/import-s
 import { persistStupaResults } from "../../scripts/persist-stupa-results.mjs";
 import { addMatch, addResult, checked, cleanupFixture, createFixture, lock, save, squad } from "./fixture.mjs";
 
+const lineupColumns = "fantasy_team_id, fantasy_gameweek_id, player_id, position, is_captain, price_at_lock, club_id_at_lock, player_first_name_at_lock, player_last_name_at_lock, club_name_at_lock, lineup_order, created_at";
+
 async function setup(t) {
   const f = await createFixture({ gameweeks: 2 });
   t.after(() => cleanupFixture(f));
@@ -44,7 +46,7 @@ async function setup(t) {
   const rows = (offset) => buildImportRows([source(offset)],
     new Map([[sourceId, game.match]]), new Map(),
     new Map(f.players.map((p) => [String(p.stupa_user_role_id), p])));
-  return { f, game, other, rows };
+  return { f, game, other, rows, source, sourceId };
 }
 
 async function state(f, game) {
@@ -65,7 +67,6 @@ async function state(f, game) {
 
 test("STUPA replacement IDs preserve 5–4 and fantasy scores, repair existing 10–8, and remain idempotent", async (t) => {
   const { f, game, other, rows } = await setup(t);
-  const lineupColumns = "fantasy_team_id, fantasy_gameweek_id, player_id, position, is_captain, price_at_lock, club_id_at_lock, player_first_name_at_lock, player_last_name_at_lock, club_name_at_lock, lineup_order, created_at";
   const snapshots = checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
     .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read original locked squad");
   const unrelated = await state(f, other);
@@ -118,14 +119,14 @@ test("partial and empty result batches preserve unobserved positions; golden ord
   const replacement = rows(100);
   const submatches = replacement.submatches.filter((s) => s.match_order === 1);
   const results = replacement.playerResults.filter((r) => submatches.some((s) => s.stupa_submatch_id === r.stupa_submatch_id));
-  assert.equal(await persistStupaResults(f.admin, submatches, results), 2);
+  assert.equal((await persistStupaResults(f.admin, submatches, results)).removedCount, 2);
   let current = await state(f, game);
   assert.deepEqual(current.score, [5, 4]);
   assert.equal(current.submatches.length, 9);
   assert.equal(current.results.length, 20);
   assert.equal(current.submatches.filter((s) => s.match_order === 1).length, 2);
   const before = current;
-  assert.equal(await persistStupaResults(f.admin, [], []), 0);
+  assert.deepEqual(await persistStupaResults(f.admin, [], []), { removedCount: 0, retractedGameweekIds: [] });
   current = await state(f, game);
   assert.deepEqual(current, before);
 });
@@ -171,4 +172,156 @@ test("ordinary clients cannot invoke trusted Stupa result reconciliation", async
     await assert.rejects(persistStupaResults(client, batch.submatches, batch.playerResults), /permission denied/i);
   }
   assert.equal((await state(f, game)).submatches.length, 0);
+});
+
+test("STUPA resets a sixth singles: 6–0 becomes 5–0 and fantasy points match the corrected five results", async (t) => {
+  const { f, game, other, source, sourceId } = await setup(t);
+  const parent = source(0);
+  parent.sub_matches = parent.sub_matches.slice(0, 6).map((child, index) => ({
+    ...child, winner: game.homeId,
+    participants: parent.sub_matches[index === 5 ? 1 : 0].participants.map((side, sideIndex) => ({
+      ...side, sets_won: sideIndex === 0 ? 3 : 0, sets_lost: sideIndex === 0 ? 0 : 3,
+    })),
+  }));
+  const build = (value) => buildImportRows([value], new Map([[sourceId, game.match]]), new Map(),
+    new Map(f.players.map((p) => [String(p.stupa_user_role_id), p])));
+  const unrelated = await state(f, other);
+  const snapshots = checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
+    .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read locked squad");
+
+  await persistScoreAndComplete(f.admin, build({ ...parent, sub_matches: parent.sub_matches.slice(0, 5) }));
+  const expected = await state(f, game);
+  assert.deepEqual(expected.score, [5, 0]);
+  // Emulate the previous importer, which accepted the sixth win. The current
+  // importer and shared persistence function must refuse to create this state.
+  const sixth = build({ ...parent, sub_matches: [parent.sub_matches[5]] });
+  checked(await f.admin.rpc("persist_stupa_results", {
+    p_submatches: sixth.submatches, p_player_results: sixth.playerResults,
+  }), "Emulate legacy sixth win");
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score legacy sixth win");
+  const incorrect = await state(f, game);
+  assert.deepEqual(incorrect.score, [6, 0]);
+  assert.ok(Number(incorrect.totals[0].points) > Number(expected.totals[0].points));
+
+  parent.sub_matches[5] = { ...parent.sub_matches[5], status: "NOT_STARTED", winner: null };
+  const corrected = build(parent);
+  await persistScoreAndComplete(f.admin, corrected);
+  const actual = await state(f, game);
+  assert.deepEqual(actual.score, [5, 0]);
+  assert.equal(actual.submatches.length, 5);
+  assert.equal(actual.results.length, 10);
+  assert.deepEqual(actual.stats, expected.stats, "remove obsolete player stats and move the clincher bonus");
+  assert.deepEqual(actual.totals, expected.totals);
+  assert.equal(checked(await f.admin.from("player_submatch_results").select("id")
+    .eq("stupa_submatch_id", parent.sub_matches[5].id), "Read withdrawn player results").length, 0);
+  await persistScoreAndComplete(f.admin, corrected);
+  assert.deepEqual(await state(f, game), actual, "retry keeps the corrected results and points");
+  const otherAfter = await state(f, other);
+  assert.deepEqual(otherAfter.submatches, unrelated.submatches);
+  assert.deepEqual(otherAfter.results, unrelated.results);
+  assert.deepEqual(otherAfter.stats, unrelated.stats);
+  assert.deepEqual(otherAfter.score, unrelated.score);
+  assert.deepEqual(checked(await f.admin.from("fantasy_team_gameweek_players").select(lineupColumns)
+    .eq("fantasy_gameweek_id", f.weeks[0].id).order("player_id"), "Read preserved squad"), snapshots);
+});
+
+test("withdrawing every result rescores the gameweek even with no remaining scored source rows", async (t) => {
+  const { f, game, rows } = await setup(t);
+  const original = rows(0);
+  await persistScoreAndComplete(f.admin, original);
+  const retractions = original.submatches.map(({ stupa_submatch_id, match_id, match_order, is_golden_match }) =>
+    ({ stupa_submatch_id, match_id, match_order, is_golden_match }));
+  const withdrawn = {
+    ...original, submatches: [], playerResults: [], gameweekIds: [], retractedSubmatches: retractions,
+  };
+  const failingScorer = {
+    from: f.admin.from.bind(f.admin),
+    rpc(name, args) {
+      return name === "calculate_fantasy_gameweek_points"
+        ? Promise.resolve({ error: { message: "Scoring temporarily unavailable" } })
+        : f.admin.rpc(name, args);
+    },
+  };
+  await assert.rejects(persistScoreAndComplete(failingScorer, withdrawn), /Scoring temporarily unavailable/);
+  const failed = await state(f, game);
+  assert.equal(failed.submatches.length, 0, "the withdrawal committed before the scoring failure");
+  assert.ok(failed.stats.length > 0, "retry must refresh the stale statistics");
+  assert.equal(await persistScoreAndComplete(f.admin, withdrawn), 1);
+  const empty = await state(f, game);
+  assert.deepEqual(empty.score, [0, 0]);
+  assert.deepEqual(empty.submatches, []);
+  assert.deepEqual(empty.results, []);
+  assert.deepEqual(empty.stats, []);
+  assert.equal(Number(empty.totals[0].points), 0);
+  assert.equal(await persistScoreAndComplete(f.admin, {
+    ...original, submatches: [], playerResults: [], gameweekIds: [], retractedSubmatches: retractions,
+  }), 0, "a never-played/reset child does not repeatedly score a gameweek");
+});
+
+test("retractions remove superseded IDs at that position and keep golden order 1 separate", async (t) => {
+  const { f, game, rows } = await setup(t);
+  const original = rows(0);
+  await persistScoreAndComplete(f.admin, original);
+  const replacement = rows(100);
+  const retracted = replacement.submatches.find((s) => s.match_order === 1 && !s.is_golden_match);
+  checked(await f.admin.from("stupa_submatches").upsert([retracted]), "Emulate historical duplicate ID");
+  const result = await persistStupaResults(f.admin, [], [], [retracted]);
+  assert.equal(result.removedCount, 2);
+  assert.deepEqual(result.retractedGameweekIds, [f.weeks[0].id]);
+  const current = await state(f, game);
+  assert.equal(current.submatches.some((s) => s.match_order === 1 && !s.is_golden_match), false);
+  assert.equal(current.submatches.filter((s) => s.match_order === 1 && s.is_golden_match).length, 1);
+});
+
+test("shared persistence caps SCORED results at the fifth win and removes obsolete later positions from partial refreshes", async (t) => {
+  const { f, game, rows } = await setup(t);
+  const original = rows(0);
+  await persistScoreAndComplete(f.admin, original);
+  assert.deepEqual((await state(f, game)).score, [5, 4], "4–4 plus golden doubles remains valid");
+  const singles = original.submatches.filter((s) => !s.is_golden_match).slice(0, 6)
+    .map((s) => ({ ...s, winning_team_stupa_id: game.homeId }));
+  const results = original.playerResults.filter((r) => singles.some((s) => s.stupa_submatch_id === r.stupa_submatch_id))
+    .map((r) => ({ ...r, won: r.team_stupa_participant_id === game.homeId,
+      sets_won: r.team_stupa_participant_id === game.homeId ? 3 : 0,
+      sets_lost: r.team_stupa_participant_id === game.homeId ? 0 : 3,
+    }));
+  // Direct callers use the same safeguard even without source-parser filtering.
+  // Old positions 7, 8 and golden 1 are absent from this partial observation.
+  const result = await persistStupaResults(f.admin, singles, results);
+  assert.equal(result.removedCount, 4);
+  assert.deepEqual(result.retractedGameweekIds, [f.weeks[0].id]);
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score capped results");
+  const current = await state(f, game);
+  assert.deepEqual(current.score, [5, 0]);
+  assert.equal(current.submatches.length, 5);
+  assert.equal(current.results.length, 10);
+  assert.ok(current.submatches.every((s) => !s.is_golden_match && s.match_order <= 5));
+  assert.equal((await persistStupaResults(f.admin, [], [], [])).removedCount, 0);
+});
+
+test("invalid or conflicting retractions and failed replacements roll back withdrawals", async (t) => {
+  const { f, game, other, rows } = await setup(t);
+  const original = rows(0);
+  await persistScoreAndComplete(f.admin, original);
+  const before = await state(f, game);
+  const retracted = original.submatches[0];
+  for (const invalid of [
+    { ...retracted, match_id: other.match.id },
+    { ...retracted, match_order: null },
+    { ...retracted, is_golden_match: true },
+  ]) {
+    await assert.rejects(persistStupaResults(f.admin, [], [], [invalid]));
+    assert.deepEqual(await state(f, game), before);
+  }
+  await assert.rejects(persistStupaResults(f.admin, original.submatches, original.playerResults, [retracted]), /Ambiguous/);
+  await assert.rejects(persistStupaResults(f.admin, [], [], [retracted, retracted]), /Ambiguous/);
+  const replacement = rows(100);
+  const submatches = replacement.submatches.filter((s) => s.match_order !== 1 || s.is_golden_match);
+  const results = replacement.playerResults.filter((r) => submatches.some((s) => s.stupa_submatch_id === r.stupa_submatch_id));
+  results[0].player_id = randomUUID();
+  await assert.rejects(persistScoreAndComplete(f.admin, {
+    ...replacement, submatches, playerResults: results, retractedSubmatches: [retracted],
+  }, { complete: true, refreshStartedAt: new Date().toISOString(), stageId: f.weeks[0].stupa_stage_id }), /foreign key/i);
+  assert.deepEqual(await state(f, game), before);
+  assert.equal(checked(await f.user.rpc("current_transfer_lock"), "Read transfers after failure")[0].is_locked, true);
 });

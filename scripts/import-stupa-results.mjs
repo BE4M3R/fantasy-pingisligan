@@ -42,6 +42,30 @@ function getParticipant(match, order) {
   );
 }
 
+function scoredResultsBeforeClincher(parent) {
+  const scored = (parent.sub_matches ?? []).filter(
+    (submatch) => submatch?.status === "SCORED" && submatch?.id && submatch.is_deleted !== true,
+  ).sort((a, b) => Number(Boolean(a.is_golden_match)) - Number(Boolean(b.is_golden_match)) ||
+    integer(a.order) - integer(b.order));
+  const wins = new Map((parent.participants ?? []).map((side) => [integer(side.participant_id, null), 0]));
+  const counted = [];
+  const excess = [];
+  let finished = false;
+  for (const submatch of scored) {
+    if (finished) {
+      excess.push(submatch);
+      continue;
+    }
+    counted.push(submatch);
+    const winner = integer(submatch.winner, null);
+    if (winner !== null && wins.has(winner)) {
+      wins.set(winner, wins.get(winner) + 1);
+      finished = wins.get(winner) === 5;
+    }
+  }
+  return { counted, excess };
+}
+
 async function fetchStage(stageId) {
   const stageUrl = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
   stageUrl.searchParams.set("stage_id", String(stageId));
@@ -109,10 +133,10 @@ function attachGoldenSubmatches(parentMatches, goldenMatches) {
   );
 
   for (const goldenMatch of goldenMatches) {
-    const completedSubmatches = (goldenMatch?.sub_matches ?? []).filter(
-      (submatch) => submatch?.status === "SCORED" && submatch?.id,
+    const observedSubmatches = (goldenMatch?.sub_matches ?? []).filter(
+      (submatch) => submatch?.id,
     );
-    if (completedSubmatches.length === 0) continue;
+    if (observedSubmatches.length === 0) continue;
 
     const sourceMatchId = integer(goldenMatch?.meta?.source_match_id, null);
     const sourceMatch = parentsById.get(sourceMatchId);
@@ -126,10 +150,13 @@ function attachGoldenSubmatches(parentMatches, goldenMatches) {
     const existingSubmatchIds = new Set(
       sourceMatch.sub_matches.map((submatch) => integer(submatch?.id, null)),
     );
-    for (const submatch of completedSubmatches) {
+    for (const submatch of observedSubmatches) {
       const submatchId = integer(submatch.id, null);
       if (existingSubmatchIds.has(submatchId)) continue;
-      sourceMatch.sub_matches.push({ ...submatch, is_golden_match: true });
+      sourceMatch.sub_matches.push({
+        ...submatch, is_golden_match: true,
+        is_deleted: goldenMatch.is_deleted === true || submatch.is_deleted === true,
+      });
       existingSubmatchIds.add(submatchId);
     }
   }
@@ -184,6 +211,7 @@ function buildImportRows(
   const matchUpdates = [];
   const gameweekIds = new Set();
   const submatches = [];
+  const retractedSubmatches = [];
   const playerResults = [];
   const unmatchedPlayers = new Map();
   const identityConflicts = new Map();
@@ -192,9 +220,21 @@ function buildImportRows(
 
   for (const parent of parentMatches) {
     const databaseMatch = matchesByStupaId.get(integer(parent.id));
-    const completedSubmatches = (parent.sub_matches ?? []).filter(
-      (submatch) => submatch?.status === "SCORED" && submatch?.id,
-    );
+    const { counted: completedSubmatches, excess } = scoredResultsBeforeClincher(parent);
+    // Missing rows are not deletions. An explicitly reset/deleted child is
+    // evidence that its previously imported score must stop contributing.
+    if (databaseMatch) {
+      const withdrawn = (parent.sub_matches ?? []).filter((submatch) => submatch?.id &&
+        (submatch.is_deleted === true || ["NOT_STARTED", "IN_PROGRESS"].includes(submatch.status)));
+      for (const submatch of [...withdrawn, ...excess]) {
+        retractedSubmatches.push({
+          stupa_submatch_id: integer(submatch.id),
+          match_id: databaseMatch.id,
+          match_order: integer(submatch.order, null),
+          is_golden_match: Boolean(submatch.is_golden_match),
+        });
+      }
+    }
 
     if (completedSubmatches.length > 0 && !databaseMatch) {
       missingParentMatches.add(integer(parent.id));
@@ -342,6 +382,7 @@ function buildImportRows(
     gameweekIds: [...gameweekIds],
     matchUpdates,
     submatches,
+    retractedSubmatches,
     playerResults,
     unmatchedPlayers: [...unmatchedPlayers.values()],
     identityConflicts: [...identityConflicts.values()],
@@ -498,8 +539,10 @@ async function persistRows(supabase, rows) {
     if (error) throw new Error(`Could not update parent matches: ${error.message}`);
   }
 
-  const removed = await persistStupaResults(supabase, rows.submatches, rows.playerResults);
-  if (removed) console.log(`Replaced ${removed} superseded Stupa submatches and their player results.`);
+  const { removedCount, retractedGameweekIds } = await persistStupaResults(
+    supabase, rows.submatches, rows.playerResults, rows.retractedSubmatches,
+  );
+  if (removedCount) console.log(`Removed ${removedCount} superseded or withdrawn Stupa submatches and their player results.`);
 
   if (rows.playerResults.length > 0) {
     const identityRows = rows.playerResults
@@ -519,6 +562,7 @@ async function persistRows(supabase, rows) {
 
     await persistPlayerIdentities(supabase, rows.playerResults);
   }
+  return retractedGameweekIds;
 }
 
 async function scoreAffectedGameweeks(supabase, gameweekIds) {
@@ -544,8 +588,10 @@ export async function persistScoreAndComplete(supabase, rows, { complete = false
   if (complete && rows.missingParentMatches.length) {
     throw new Error("Missing scheduled parent matches; import the schedule before completing a gameweek.");
   }
-  await persistRows(supabase, rows);
-  const scored = await scoreAffectedGameweeks(supabase, rows.gameweekIds);
+  const retractedGameweekIds = await persistRows(supabase, rows);
+  const scored = await scoreAffectedGameweeks(supabase, [...new Set([
+    ...rows.gameweekIds, ...retractedGameweekIds,
+  ])]);
   if (complete) await completeOldestUnlockedGameweek(supabase, refreshStartedAt, { stageId });
   return scored;
 }
