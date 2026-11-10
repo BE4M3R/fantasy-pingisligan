@@ -158,7 +158,8 @@ parent fixture, singles/golden kind, and match order. It removes superseded
 IDs and their player results, writes the current results, and replaces corrected
 participant lists in one transaction before scoring. Singles order 1 and golden
 doubles order 1 are separate positions. Missing positions or fixtures are
-preserved so a partial live response cannot clear unrelated results. Duplicate
+preserved unless a fixture has already reached five club wins, so a partial live
+response cannot clear unrelated results. Duplicate
 incoming IDs or positions fail the import instead of guessing which is current.
 An explicitly observed child reset to `NOT_STARTED` or `IN_PROGRESS`, or marked
 `is_deleted`, withdraws its stored result and player rows at that fixture/kind/order.
@@ -170,6 +171,16 @@ omitted entirely are preserved because they do not establish a withdrawal.
 The synthetic local/staging lifecycle harness uses the same persistence RPC;
 incremental single-result writes continue to preserve other positions.
 
+Only children marked `SCORED` contribute results or sets; a `NOT_STARTED` or
+`IN_PROGRESS` child cannot score even if STUPA includes set scores or a stale
+winner. In fixture order, either club's fifth individual win ends the fixture.
+The importer excludes all later scored children and the shared persistence RPC
+also removes later stored children before scoring, including obsolete positions
+omitted from a partial refresh. Golden order 1 follows the singles, so a genuine
+4–4 plus deciding doubles result remains 5–4. Stored ambiguous duplicate
+positions must be refreshed before applying the limit; the RPC fails rather
+than choosing a winner from contradictory historical rows.
+
 Deploy migration `20261009000000_reconcile_replaced_stupa_results.sql` before
 running the updated importer. There is no append-only fallback if the RPC is
 missing or fails. After staging validation and promotion to production, run the
@@ -179,7 +190,7 @@ affected player and locked-team points, including previously completed rounds.
 No manual hosted SQL cleanup, snapshot changes, repricing or budget changes are
 needed. The import log reports how many superseded submatches were replaced.
 
-Explicit withdrawals additionally require migration
+Explicit withdrawals and the five-win limit require migration
 `20261110210000_reconcile_withdrawn_stupa_results.sql`. It adds a service-role-only
 three-argument RPC while retaining the old two-argument function for deployment
 compatibility. The shared persistence helper always calls the new overload,

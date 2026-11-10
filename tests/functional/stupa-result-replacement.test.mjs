@@ -192,7 +192,13 @@ test("STUPA resets a sixth singles: 6–0 becomes 5–0 and fantasy points match
   await persistScoreAndComplete(f.admin, build({ ...parent, sub_matches: parent.sub_matches.slice(0, 5) }));
   const expected = await state(f, game);
   assert.deepEqual(expected.score, [5, 0]);
-  await persistScoreAndComplete(f.admin, build(parent));
+  // Emulate the previous importer, which accepted the sixth win. The current
+  // importer and shared persistence function must refuse to create this state.
+  const sixth = build({ ...parent, sub_matches: [parent.sub_matches[5]] });
+  checked(await f.admin.rpc("persist_stupa_results", {
+    p_submatches: sixth.submatches, p_player_results: sixth.playerResults,
+  }), "Emulate legacy sixth win");
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score legacy sixth win");
   const incorrect = await state(f, game);
   assert.deepEqual(incorrect.score, [6, 0]);
   assert.ok(Number(incorrect.totals[0].points) > Number(expected.totals[0].points));
@@ -257,14 +263,40 @@ test("retractions remove superseded IDs at that position and keep golden order 1
   const original = rows(0);
   await persistScoreAndComplete(f.admin, original);
   const replacement = rows(100);
-  checked(await f.admin.from("stupa_submatches").upsert(replacement.submatches), "Emulate historical duplicate IDs");
   const retracted = replacement.submatches.find((s) => s.match_order === 1 && !s.is_golden_match);
+  checked(await f.admin.from("stupa_submatches").upsert([retracted]), "Emulate historical duplicate ID");
   const result = await persistStupaResults(f.admin, [], [], [retracted]);
   assert.equal(result.removedCount, 2);
   assert.deepEqual(result.retractedGameweekIds, [f.weeks[0].id]);
   const current = await state(f, game);
   assert.equal(current.submatches.some((s) => s.match_order === 1 && !s.is_golden_match), false);
-  assert.equal(current.submatches.filter((s) => s.match_order === 1 && s.is_golden_match).length, 2);
+  assert.equal(current.submatches.filter((s) => s.match_order === 1 && s.is_golden_match).length, 1);
+});
+
+test("shared persistence caps SCORED results at the fifth win and removes obsolete later positions from partial refreshes", async (t) => {
+  const { f, game, rows } = await setup(t);
+  const original = rows(0);
+  await persistScoreAndComplete(f.admin, original);
+  assert.deepEqual((await state(f, game)).score, [5, 4], "4–4 plus golden doubles remains valid");
+  const singles = original.submatches.filter((s) => !s.is_golden_match).slice(0, 6)
+    .map((s) => ({ ...s, winning_team_stupa_id: game.homeId }));
+  const results = original.playerResults.filter((r) => singles.some((s) => s.stupa_submatch_id === r.stupa_submatch_id))
+    .map((r) => ({ ...r, won: r.team_stupa_participant_id === game.homeId,
+      sets_won: r.team_stupa_participant_id === game.homeId ? 3 : 0,
+      sets_lost: r.team_stupa_participant_id === game.homeId ? 0 : 3,
+    }));
+  // Direct callers use the same safeguard even without source-parser filtering.
+  // Old positions 7, 8 and golden 1 are absent from this partial observation.
+  const result = await persistStupaResults(f.admin, singles, results);
+  assert.equal(result.removedCount, 4);
+  assert.deepEqual(result.retractedGameweekIds, [f.weeks[0].id]);
+  checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score capped results");
+  const current = await state(f, game);
+  assert.deepEqual(current.score, [5, 0]);
+  assert.equal(current.submatches.length, 5);
+  assert.equal(current.results.length, 10);
+  assert.ok(current.submatches.every((s) => !s.is_golden_match && s.match_order <= 5));
+  assert.equal((await persistStupaResults(f.admin, [], [], [])).removedCount, 0);
 });
 
 test("invalid or conflicting retractions and failed replacements roll back withdrawals", async (t) => {

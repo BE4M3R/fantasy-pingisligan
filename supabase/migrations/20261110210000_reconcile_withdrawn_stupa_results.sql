@@ -14,6 +14,8 @@ as $$
 declare
   removed_count integer;
   replaced_count integer;
+  capped_count integer;
+  capped_gameweek_ids uuid[];
   retracted_gameweek_ids uuid[];
 begin
   if jsonb_typeof(p_submatches) is distinct from 'array'
@@ -81,6 +83,51 @@ begin
   into removed_count, retracted_gameweek_ids
   from removed join public.matches m on m.id = removed.match_id;
 
+  -- Any validation/write failure here rolls back the withdrawals as well.
+  replaced_count := public.persist_stupa_results(p_submatches, p_player_results);
+
+  if exists (
+    select 1 from public.stupa_submatches s
+    where s.match_id in (
+      select i.match_id from jsonb_populate_recordset(null::public.stupa_submatches, p_submatches) i
+      union
+      select r.match_id from jsonb_populate_recordset(null::public.stupa_submatches, p_retracted_submatches) r
+    )
+    group by s.match_id, s.is_golden_match, s.match_order having count(*) > 1
+  ) then
+    raise exception 'Ambiguous stored Stupa results: refresh all duplicate fixture positions';
+  end if;
+
+  -- Five club wins ends the fixture. Ignore every later individual result,
+  -- even if STUPA marks it SCORED or omits an obsolete stored result. Golden
+  -- order 1 follows all singles, so legitimate 4-4 deciding doubles still count.
+  with ordered as (
+    select s.stupa_submatch_id, s.match_id,
+      row_number() over w as position,
+      count(*) filter (where s.winning_team_stupa_id = m.home_team_stupa_participant_id) over w as home_wins,
+      count(*) filter (where s.winning_team_stupa_id = m.away_team_stupa_participant_id) over w as away_wins
+    from public.stupa_submatches s join public.matches m on m.id = s.match_id
+    where upper(s.status) = 'SCORED' and s.match_id in (
+      select i.match_id from jsonb_populate_recordset(null::public.stupa_submatches, p_submatches) i
+      union
+      select r.match_id from jsonb_populate_recordset(null::public.stupa_submatches, p_retracted_submatches) r
+    )
+    window w as (partition by s.match_id order by s.is_golden_match, s.match_order, s.stupa_submatch_id
+      rows between unbounded preceding and current row)
+  ), clinchers as (
+    select match_id, min(position) filter (where home_wins >= 5 or away_wins >= 5) as position
+    from ordered group by match_id
+  ), removed as (
+    delete from public.stupa_submatches stored using ordered o, clinchers c
+    where stored.stupa_submatch_id = o.stupa_submatch_id and o.match_id = c.match_id
+      and o.position > c.position
+    returning stored.match_id
+  )
+  select count(*)::integer,
+    coalesce(array_agg(distinct m.fantasy_gameweek_id) filter (where m.fantasy_gameweek_id is not null), '{}'::uuid[])
+  into capped_count, capped_gameweek_ids
+  from removed join public.matches m on m.id = removed.match_id;
+
   -- Scoring is a subsequent RPC. If it failed after a withdrawal committed,
   -- a retry must still rescore stale derived statistics even with no children
   -- left to delete. Never-played fixtures have no statistics to refresh.
@@ -88,6 +135,8 @@ begin
   into retracted_gameweek_ids
   from (
     select unnest(retracted_gameweek_ids) as id
+    union
+    select unnest(capped_gameweek_ids)
     union
     select m.fantasy_gameweek_id
     from public.matches m
@@ -99,10 +148,8 @@ begin
       and exists (select 1 from public.player_match_stats stats where stats.match_id = m.id)
   ) weeks;
 
-  -- Any validation/write failure here rolls back the withdrawals as well.
-  replaced_count := public.persist_stupa_results(p_submatches, p_player_results);
   return jsonb_build_object(
-    'removed_count', removed_count + replaced_count,
+    'removed_count', removed_count + replaced_count + capped_count,
     'retracted_gameweek_ids', retracted_gameweek_ids
   );
 end;

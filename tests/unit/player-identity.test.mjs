@@ -107,6 +107,38 @@ test("golden child resets and deleted golden parents reach result reconciliation
   }
 });
 
+test("five club wins excludes every later scored singles or golden result in fixture order", () => {
+  for (const winners of [
+    [10, 10, 10, 10, 10, 20],
+    [10, 20, 10, 20, 10, 20, 10, 10, 20],
+    [10, 20, 10, 20, 10, 20, 10, 20, 10],
+  ]) {
+    const parent = stupaParent(stupaDetail());
+    const child = parent.sub_matches[0];
+    parent.sub_matches = winners.map((winner, index) => ({
+      ...child, id: 101 + index, winner,
+      order: index === 8 ? 1 : index + 1, is_golden_match: index === 8,
+    })).reverse();
+    const rows = buildImportRows([parent], new Map([[100, { id: "match" }]]), new Map(), new Map());
+    const expected = winners.length === 6 ? 5 : winners[7] === 10 ? 8 : 9;
+    assert.equal(rows.submatches.length, expected);
+    assert.equal(rows.playerResults.length, expected, "excess sets and player results do not enter scoring");
+    assert.deepEqual(rows.retractedSubmatches.map((row) => row.stupa_submatch_id),
+      Array.from({ length: winners.length - expected }, (_, index) => 101 + expected + index));
+  }
+});
+
+test("unfinished singles with set scores and even a stale winner never count", () => {
+  const parent = stupaParent(stupaDetail());
+  for (const status of ["NOT_STARTED", "IN_PROGRESS"]) {
+    parent.sub_matches[0].status = status;
+    const rows = buildImportRows([parent], new Map([[100, { id: "match" }]]), new Map(), new Map());
+    assert.deepEqual(rows.submatches, []);
+    assert.deepEqual(rows.playerResults, []);
+    assert.equal(rows.retractedSubmatches.length, 1);
+  }
+});
+
 test("Stupa resolves a player through a historical license alias", () => {
   const rows = stupaRows(stupaDetail(), { id: "player" }, null);
 

@@ -42,6 +42,30 @@ function getParticipant(match, order) {
   );
 }
 
+function scoredResultsBeforeClincher(parent) {
+  const scored = (parent.sub_matches ?? []).filter(
+    (submatch) => submatch?.status === "SCORED" && submatch?.id && submatch.is_deleted !== true,
+  ).sort((a, b) => Number(Boolean(a.is_golden_match)) - Number(Boolean(b.is_golden_match)) ||
+    integer(a.order) - integer(b.order));
+  const wins = new Map((parent.participants ?? []).map((side) => [integer(side.participant_id, null), 0]));
+  const counted = [];
+  const excess = [];
+  let finished = false;
+  for (const submatch of scored) {
+    if (finished) {
+      excess.push(submatch);
+      continue;
+    }
+    counted.push(submatch);
+    const winner = integer(submatch.winner, null);
+    if (winner !== null && wins.has(winner)) {
+      wins.set(winner, wins.get(winner) + 1);
+      finished = wins.get(winner) === 5;
+    }
+  }
+  return { counted, excess };
+}
+
 async function fetchStage(stageId) {
   const stageUrl = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
   stageUrl.searchParams.set("stage_id", String(stageId));
@@ -196,15 +220,13 @@ function buildImportRows(
 
   for (const parent of parentMatches) {
     const databaseMatch = matchesByStupaId.get(integer(parent.id));
-    const completedSubmatches = (parent.sub_matches ?? []).filter(
-      (submatch) => submatch?.status === "SCORED" && submatch?.id && submatch.is_deleted !== true,
-    );
+    const { counted: completedSubmatches, excess } = scoredResultsBeforeClincher(parent);
     // Missing rows are not deletions. An explicitly reset/deleted child is
     // evidence that its previously imported score must stop contributing.
     if (databaseMatch) {
-      for (const submatch of parent.sub_matches ?? []) {
-        if (!submatch?.id || !(submatch.is_deleted === true ||
-            ["NOT_STARTED", "IN_PROGRESS"].includes(submatch.status))) continue;
+      const withdrawn = (parent.sub_matches ?? []).filter((submatch) => submatch?.id &&
+        (submatch.is_deleted === true || ["NOT_STARTED", "IN_PROGRESS"].includes(submatch.status)));
+      for (const submatch of [...withdrawn, ...excess]) {
         retractedSubmatches.push({
           stupa_submatch_id: integer(submatch.id),
           match_id: databaseMatch.id,
