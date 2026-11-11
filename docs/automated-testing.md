@@ -368,7 +368,10 @@ does not edit rulesets or branch protection settings.
 The normal jobs retain their coverage: `code-and-unit` runs `npm run check`;
 `functional-and-browser` starts a fresh local Supabase stack, checks populated
 schema upgrades, lints the database, builds the app, and runs functional/browser
-tests. Logs, JUnit summaries and Playwright artifacts remain available for jobs
+tests. This job pins `ubuntu-24.04` to keep browser dependency installation stable
+during the `ubuntu-latest` rollout to 26.04. The full Playwright system dependency
+installation remains required; runner DNS/download failures still fail CI.
+Logs, JUnit summaries and Playwright artifacts remain available for jobs
 that run. Documentation-only runs perform no dependency installation or database
 startup. `tests/unit/ci-validation.test.mjs` covers selection, real Git diffs,
 renames/deletions, gate failure/cancellation/skip cases and workflow wiring offline.

@@ -96,17 +96,21 @@ and rankings.
 
 ## Homepage banners and announcements
 
-`competition_publication` contains one operator-controlled launch flag, initially
-false. `competitions_enabled()` shares that state between app/server routes,
-restrictive RLS, artwork authorization and competition RPC guards. Ordinary users
-can read the non-sensitive flag but cannot change it. Rule approval and prize
-readiness never override this switch.
+`competition_publication` centralizes enable controls in rows: `global` is the
+master switch, `season` opts in the season prize, and `gameweek:<uuid>` rows link
+individual Fantasy rounds through a unique `gameweek_id`. Each row has a readable
+`name` and one `enabled` boolean. New gameweeks automatically receive disabled
+rows; schedule upserts update labels while preserving choices. Deleting a round
+cascades to its switch. No column is added for a new round or season.
 
-`fantasy_gameweeks.weekly_smash_enabled` is a separate operator-only prize opt-in,
-default false for existing and newly imported rounds. Only selected rounds have
-competition routes/cards/promotions and readable prize content. Excluding a round
-preserves its content/rule history and never affects Fantasy standings or scoring.
-Schedule upserts preserve this editorial selection.
+`competitions_enabled()` reads global; `season_competition_enabled()` requires
+global plus season. Public gameweek routes, prizes, terms, artwork and standings
+require global plus their matching enabled gameweek row, with existing reveal and
+readiness checks. Missing rows fail closed. Ordinary users can read these harmless
+settings but cannot edit them. Fantasy scoring, entry deadlines, results refresh
+and ordinary league standings remain independent. Centralization preserves all
+existing choices and replaces the old per-gameweek column and season singleton
+column without resetting data.
 
 `homepage_banners` stores one optional content row per gameweek plus one season
 row. Weekly `content_ready` and derived Fantasy lifecycle gate public editorial reads;
@@ -122,22 +126,30 @@ prize artwork for public competition pages. Legacy per-banner rules/eligibility 
 is preserved as private shared-document drafts; the unused columns, stored CTA URL
 and manual sort order are removed by the forward cleanup migration. `get_public_competition` uses the shared
 RLS gate. `get_competition_standings` exposes only rank, team name and stored points;
-weekly detail pages request five initial rows and fetch more on demand. Search is applied after ranking so matches retain their tied ranks. An
+weekly detail pages request five initial rows and fetch more on demand.
+`private.weekly_competition_rankings()` orders entries by net Gameweek points,
+raw captain points and cumulative season points through the selected round's
+deadline. Later rounds are excluded. Complete ties share a rank and require a
+manual draw. Search is applied after ranking so matches retain their competition ranks. An
 authenticated-only `get_gameweek_leaderboard` projection adds the existing team
 preview identifiers/display names for Leagues, using the same scored entries.
 It and signed-in round metadata remain available with competitions disabled;
 public prize/content/standings RPCs retain the launch gate.
 Snapshot tables remain private. `get_weekly_competition_review` is operator-only,
-applying the raw effective-captain tie-break without awarding prizes. There is no
+applying the same captain/season comparisons without awarding prizes. There is no
 confirmation table in Phases 1/2. See [competitions](competitions.md).
 
-`competition_rules` stores shared Weekly Smash/Season Markdown documents with
+`competition_rules` stores shared Gameweek competition/Season Markdown documents with
 operator approval and immutable versions. A banner's `rules_version_id` binds its
 historical terms once; new approved versions never rewrite an existing binding.
 `prize_value_sek` is an editorial approximate value, with no tax logic. Optional
 `prize_product_url` stores an HTTPS external product link, independent of carousel
 destinations and protected by the existing banner publication gate. Public RLS
-reveals approved documents only through visible competitions. Numeric URL and
+reveals approved documents only through visible competitions. The separate
+`get_current_competition_rules()` security-definer projection returns the latest
+approved shared policy per enabled kind without requiring a banner reference.
+Global and season switches still apply, and no draft or prize data is returned.
+Numeric URL and
 compact public-promotion RPCs reuse the same Fantasy numbers and visibility gates.
 
 `announcements` stores scheduled, database-driven English content.

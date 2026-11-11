@@ -5,7 +5,7 @@ import { addMatch, addResult, checked, cleanupFixture, complete, createFixture, 
 
 test("shared competition page protects drafts and supports top-five search, prize links, terms and dashboard return", async ({ page }, testInfo) => {
   test.setTimeout(120000);
-  const f = await createFixture({ gameweeks: 3, competitions: true });
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const seasonId = randomUUID();
   const competitors = [];
   const paths = [`${f.id}/competition-logo.png`, `${f.id}/competition-prize.png`];
@@ -22,7 +22,7 @@ test("shared competition page protects drafts and supports top-five search, priz
         onboarding_completed: true, created_at: new Date(Date.now() - 3600000).toISOString() }), "Create competitor team");
       // Each competitor saves through the normal authenticated squad function.
       const { createClient } = await import("@supabase/supabase-js");
-      const client = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+      const client = createClient(f.url, f.anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       checked(await client.auth.signInWithPassword({ email, password: f.password }), "Sign in competitor");
       checked(await save({ ...f, user: client }, squad(players)), "Save competitor squad");
     }
@@ -34,23 +34,27 @@ test("shared competition page protects drafts and supports top-five search, priz
     for (const path of paths) checked(await f.admin.storage.from("announcement-artwork").upload(path,
       await readFile(new URL("../../public/branding/pingisligan-fantasy-logo.png", import.meta.url)), { contentType: "image/png" }), "Upload competition artwork");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Smash Test Partner", cta_label: "The training collection",
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Smash Test Partner", description: "The training collection",
         image_path: paths[0], image_alt: "Test sponsor logo", prize_image_path: paths[1], prize_image_alt: "Test prize artwork",
         prize_value_sek: 500, prize_product_url: "https://shop.example.invalid/training-collection",
         prize_description: "A premium **training collection** for your next session.\n\n- Competition shirt\n- Training accessories",
         details_markdown: "Delivery within Sweden.\n\n<script>window.competitionUnsafe = true</script>" },
       { gameweek_id: f.weeks[2].id, content_ready: true, title: "Embargoed title", sponsor: "Embargoed sponsor", prize_description: "Embargoed prize", prize_product_url: "https://shop.example.invalid/embargoed" },
-      { id: seasonId, kind: "season", published: true, title: "The Season Competition", cta_label: "Season training kit",
+      { id: seasonId, kind: "season", published: true, title: "The Season Competition", description: "Season training kit",
         sponsor: "Season Partner", prize_description: "A season to remember.", prize_image_path: paths[1], prize_image_alt: "Season prize artwork" },
     ], { defaultToNull: false }), "Prepare public competitions");
     const route = "/competitions/gameweek/1";
-    const legacy = await page.request.get(`/competitions/gameweek/${f.weeks[0].id}`, { maxRedirects: 0 });
+    const legacy = await page.request.get(`/competitions/gameweek/${f.weeks[0].id}`, { maxRedirects: 0, timeout: 30000 });
     expect(legacy.status()).toBe(308);
     expect(legacy.headers().location).toBe(route);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(route);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("The training collection");
-    await expect(page.getByText("Gameweek ended", { exact: true })).toBeVisible();
+    await expect(page.getByText("Awaiting winner confirmation", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Competition leaderboard", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Winner announcement", exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Gameweek points including captains/)).toHaveCount(0);
+    await expect(page.locator('header img[src*="wordmark-transparent-v2"]')).toBeVisible();
     await expect(page.getByText(/Sponsored by Smash Test Partner/)).toBeVisible();
     await expect(page.getByAltText("Test sponsor logo")).toHaveCount(0);
     await expect(page.getByText(/Approximate value:.*500/)).toBeVisible();
@@ -86,7 +90,7 @@ test("shared competition page protects drafts and supports top-five search, priz
     await expect(page.locator("tbody tr")).toHaveCount(7);
     await page.route("**/api/competitions/**/standings?*", (request) => request.fulfill({ status: 503, json: { error: "Temporary test failure" } }), { times: 1 });
     await page.getByLabel("Search team name").fill("COMPETITION TEAM 06");
-    await expect(page.getByRole("alert").filter({ hasText: "Standings could not be loaded" })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "leaderboard could not be loaded" })).toBeVisible();
     await page.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(page.locator("tbody tr")).toHaveCount(1);
     await expect(page.getByRole("cell", { name: "Competition team 06", exact: true })).toBeVisible();
@@ -95,11 +99,17 @@ test("shared competition page protects drafts and supports top-five search, priz
     await expect(page.getByText("No teams found.", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear team search" }).click();
     await expect(page.locator("tbody tr")).toHaveCount(7);
-    await page.getByText("Prize Delivery", { exact: true }).click();
-    await expect(page.getByText("Delivery within Sweden.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Competition rules and policy" })).toHaveAttribute("href", "/rules#competition-rules");
+    await page.getByRole("link", { name: "Competition rules and policy" }).click();
+    await expect(page).toHaveURL(/\/rules#competition-rules$/);
+    await expect(page.getByRole("heading", { name: "Competition rules and policy", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Prize-specific information" })).toHaveCount(0);
+    await expect(page.getByText("Delivery within Sweden.", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Rules and practical information" })).toHaveCount(0);
     expect(await page.evaluate(() => window.competitionUnsafe)).toBeUndefined();
-    expect(await page.locator('link[rel="canonical"]').getAttribute("href")).toContain(route);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/competitions\/gameweek\/1$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`${route}$`));
     await page.goto(`/competitions/gameweek/${f.weeks[2].id}`);
     await expect(page.getByText("Upcoming", { exact: true })).toBeVisible();
     expect(await page.content()).not.toContain("Embargoed");
@@ -107,10 +117,10 @@ test("shared competition page protects drafts and supports top-five search, priz
     await expect(page.getByLabel("Search team name")).toBeDisabled();
     await page.goto("/competitions/season");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Season training kit");
-    await expect(page.getByRole("heading", { name: "Season winner" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Season winner" })).toHaveCount(0);
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /View product/ })).toHaveCount(0);
-    await expect(page.locator('section[aria-labelledby="terms-heading"] details')).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Competition rules and policy" })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: testInfo.outputPath("competition-season-mobile-390.png"), fullPage: true });
     expect((await page.context().cookies()).filter((cookie) => cookie.name.includes("auth-token"))).toEqual([]);
@@ -148,20 +158,23 @@ test("shared competition page protects drafts and supports top-five search, priz
 });
 
 test("public homepage promotes two competitions and approved shared terms remain accessible in the compact page", async ({ page }, testInfo) => {
-  const f = await createFixture({ gameweeks: 3, competitions: true });
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const seasonId = randomUUID();
   const rulesId = randomUUID();
+  const seasonRulesId = randomUUID();
   const version = randomInt(100000, 1900000000);
   try {
     checked(await f.admin.from("competition_rules").insert({ id: rulesId, kind: "gameweek", version,
-      title: "Weekly Smash test terms", body: "## Participation\n\nFree automatic participation with a valid locked squad.\n\nFollow the [Fantasy scoring rules](/rules).\n\n## How the winner is selected\n\nSynthetic scoring terms.\n\n## Winner announcement & claiming\n\n**Claiming and delivery:** contact the organiser. These are test terms.\n\n<script>window.unsafeTerms = true</script>\n\n## Prize delivery\n\nSynthetic delivery terms.\n\n## Taxation\n\nCheck the applicable tax rules.",
+      title: "Gameweek competition test terms", body: "## Participation\n\nFree automatic participation with a valid locked squad.\n\nFollow the [Fantasy scoring rules](/rules).\n\n## How the winner is selected\n\nSynthetic scoring terms.\n\n## Winner announcement & claiming\n\n**Claiming and delivery:** contact the organiser. These are test terms.\n\n<script>window.unsafeTerms = true</script>\n\n## Prize delivery\n\nSynthetic delivery terms.\n\n## Taxation\n\nCheck the applicable tax rules.",
       approved_at: new Date().toISOString() }), "Approve synthetic test terms");
+    checked(await f.admin.from("competition_rules").insert({ id: seasonRulesId, kind: "season", version,
+      title: "Season competition test terms", body: "## Participation\n\nSeason participation terms." }), "Prepare synthetic season draft");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current test partner", cta_label: "Training bag",
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current test partner", description: "Training bag",
         prize_description: "A **training bag** for your next session.", prize_value_sek: 500 },
       { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Unrevealed weekly partner", description: "Unrevealed weekly prize" },
       { id: seasonId, kind: "season", published: true, publish_at: new Date(Date.now() + 3600000).toISOString(),
-        sponsor: "Unrevealed season partner", prize_value_sek: 16000, cta_label: "Table tennis table" },
+        sponsor: "Unrevealed season partner", prize_value_sek: 16000, description: "Table tennis table" },
     ], { defaultToNull: false }), "Prepare landing promotions");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/en");
@@ -181,33 +194,45 @@ test("public homepage promotes two competitions and approved shared terms remain
     await page.screenshot({ path: testInfo.outputPath("public-promotions-mobile-390.png"), fullPage: true });
     await promotions.getByRole("link").first().click();
     await expect(page).toHaveURL(/\/competitions\/gameweek\/1$/);
-    await expect(page.locator("main > div > section")).toHaveCount(3);
-    const accordions = page.locator('section[aria-labelledby="terms-heading"] details');
-    await expect(accordions).toHaveCount(5);
-    await expect(page.locator('section[aria-labelledby="terms-heading"] details[open]')).toHaveCount(0);
+    await expect(page.locator("main > div > section")).toHaveCount(2);
+    await page.getByRole("link", { name: "Competition rules and policy" }).click();
+    await expect(page).toHaveURL(/\/rules#competition-rules$/);
+    const accordions = page.locator('#competition-rules details');
+    await expect(accordions).toHaveCount(4);
+    await expect(page.locator('#competition-rules details[open]')).toHaveCount(0);
+    await expect(page.locator("#competition-rules").getByRole("heading", { name: "Season competition" })).toHaveCount(0);
     await expect(page.getByText("Claiming and delivery:", { exact: true })).not.toBeVisible();
     await page.getByText("Participation", { exact: true }).click();
     await page.getByText("Winner Announcement & Claiming", { exact: true }).click();
-    await expect(page.locator('section[aria-labelledby="terms-heading"] details[open]')).toHaveCount(2);
-    await expect(page.getByText(new RegExp(`Version ${version}`))).toBeVisible();
+    await expect(page.locator('#competition-rules details[open]')).toHaveCount(2);
+    await expect(page.getByText(new RegExp(`Version ${version}`))).toHaveCount(0);
     await expect(page.getByText("Claiming and delivery:", { exact: true })).toBeVisible();
+    await expect(page.getByText("Synthetic delivery terms.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Prize Delivery", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Fantasy scoring rules", exact: true })).toHaveAttribute("href", "/rules");
-    const participation = page.locator('section[aria-labelledby="terms-heading"] summary').filter({ hasText: "Participation" });
+    const participation = page.locator('#competition-rules summary').filter({ hasText: "Participation" });
     await participation.focus();
     await page.keyboard.press("Enter");
-    await expect(page.locator('section[aria-labelledby="terms-heading"] details[open]')).toHaveCount(1);
+    await expect(page.locator('#competition-rules details[open]')).toHaveCount(1);
     await expect(page.getByText("Claiming and delivery:", { exact: true })).toBeVisible();
     await page.keyboard.press("Space");
-    await expect(page.locator('section[aria-labelledby="terms-heading"] details[open]')).toHaveCount(2);
+    await expect(page.locator('#competition-rules details[open]')).toHaveCount(2);
     expect(await page.evaluate(() => window.unsafeTerms)).toBeUndefined();
     await page.screenshot({ path: testInfo.outputPath("competition-approved-terms-mobile-390.png"), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: testInfo.outputPath("competition-approved-terms-desktop-1440.png"), fullPage: true });
     checked(await f.admin.from("homepage_banners").update({ publish_at: new Date(Date.now() - 60000).toISOString() }).eq("id", seasonId), "Reveal season prize");
+    checked(await f.admin.from("competition_rules").update({ approved_at: new Date().toISOString() }).eq("id", seasonRulesId), "Publish shared season policy");
+    await page.reload();
+    await expect(page.locator("#competition-rules").getByRole("heading", { name: "Season competition" })).toBeVisible();
+    await page.locator('#competition-rules section[aria-label^="Season competition rules"] summary').click();
+    await expect(page.getByText("Season participation terms.", { exact: true })).toBeVisible();
     await page.goto("/en");
     await expect(promotions.getByText("Table tennis table", { exact: true })).toBeVisible();
     await expect(promotions.getByText(/16,000/)).toBeVisible();
     await promotions.getByRole("link").last().click();
     await expect(page).toHaveURL(/\/competitions\/season$/);
-    await expect(page.getByRole("heading", { name: "Season winner" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Season winner" })).toHaveCount(0);
     await expect(page.getByText(/Approximate value:.*16,000/)).toBeVisible();
     expect(await page.content()).not.toContain("tax-free");
   } finally {

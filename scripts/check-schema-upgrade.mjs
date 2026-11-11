@@ -115,7 +115,7 @@ const publicCompetitionMigration = (await readFile(path.join(root,
   .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 for (const duplicate of [null, "gameweek", "season"]) {
   const sql = `begin;
-    update public.competition_publication set enabled = true where id;
+    update public.competition_publication set enabled = true where id = 'global';
     drop policy "Only approved rules for revealed competitions are readable" on public.competition_rules;
     drop policy "Revealed homepage competition artwork is readable" on storage.objects;
     drop function public.get_public_competition(uuid);
@@ -191,10 +191,12 @@ const contentCleanup = (await readFile(path.join(root,
   .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 for (const oversized of [false, true]) {
   const sql = `begin;
-    update public.competition_publication set enabled = true where id;
-    alter table public.homepage_banners add column rules_markdown text,
+    update public.competition_publication set enabled = true where id = 'global';
+    alter table public.homepage_banners add column cta_label text,
+      add column rules_markdown text,
       add column eligibility_markdown text, add column cta_url text,
       add column sort_order integer not null default 0;
+    grant select (cta_label) on public.homepage_banners to anon;
     drop index public.homepage_banners_publication_idx;
     create index homepage_banners_publication_idx on public.homepage_banners (kind, sort_order, publish_at desc, id) where published;
     insert into public.fantasy_gameweeks (id, stupa_stage_id, stupa_round_id, name, round_order, lock_at, unlock_at, first_match_starts_at, last_match_ends_at)
@@ -238,4 +240,55 @@ for (const oversized of [false, true]) {
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `Competition content cleanup (${oversized ? "rollback" : "preservation"}): ${result.stderr}`);
   console.log(`Competition content cleanup passed: ${oversized ? "oversized-content rollback" : "private draft and prize preservation"}`);
+}
+
+// An older banner's only prize text survives removal of the duplicate label.
+// Descriptions already written by editors must retain their original wording.
+const removeBannerLabel = (await readFile(path.join(root,
+  "supabase/migrations/20261110230000_remove_banner_cta_label.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const removeBannerLabelSql = `begin;
+  alter table public.homepage_banners add column cta_label text;
+  insert into public.fantasy_gameweeks (id, stupa_stage_id, stupa_round_id, name, round_order, lock_at, unlock_at, first_match_starts_at, last_match_ends_at)
+    values
+    ('00000000-0000-0000-0000-000000004511', -1999999511, -1999999512, 'Label upgrade 1', 4511, now() + interval '1 hour', now() + interval '2 days', now() + interval '2 hours', now() + interval '1 day'),
+    ('00000000-0000-0000-0000-000000004521', -1999999521, -1999999522, 'Label upgrade 2', 4521, now() + interval '1 hour', now() + interval '2 days', now() + interval '2 hours', now() + interval '1 day');
+  insert into public.homepage_banners (gameweek_id, content_ready, title, description, cta_label)
+    values ('00000000-0000-0000-0000-000000004511', false, 'Old headline only', null, 'Preserved headline'),
+      ('00000000-0000-0000-0000-000000004521', false, 'Existing description', 'Authoritative description', 'Discarded headline');
+  ${removeBannerLabel}
+  do $test$ begin
+    if exists (select 1 from information_schema.columns where table_schema = 'public'
+      and table_name = 'homepage_banners' and column_name = 'cta_label') then
+      raise exception 'Banner CTA label column remains'; end if;
+    if (select description from public.homepage_banners where title = 'Old headline only') <> 'Preserved headline'
+      or (select description from public.homepage_banners where title = 'Existing description') <> 'Authoritative description' then
+      raise exception 'Banner description was not preserved'; end if;
+  end; $test$;
+  rollback;`;
+const removeBannerLabelResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: removeBannerLabelSql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (removeBannerLabelResult.error) throw removeBannerLabelResult.error;
+assert.equal(removeBannerLabelResult.status, 0, `Banner label removal: ${removeBannerLabelResult.stderr}`);
+console.log("Banner label removal passed: fallback text and existing descriptions preserved");
+
+// Centralization must preserve populated switches, immutable rules and lifecycle
+// state, both with an existing draft and when a replacement draft is needed.
+const publicationMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261110223000_centralize_gameweek_competitions.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const publicationFixture = await readFile(path.join(root, "tests/fixtures/gameweek-competition-upgrade.sql"), "utf8");
+for (const withDraft of [false, true]) {
+  const sql = publicationFixture.replaceAll("__GLOBAL__", withDraft ? "false" : "true")
+    .replaceAll("__SEASON__", withDraft ? "true" : "false")
+    .replace("__DRAFT__", withDraft ? `insert into public.competition_rules (kind, version, title, body)
+      values ('gameweek', 6002, 'Weekly Smash draft rules', 'The Weekly Smash editable draft');` : "")
+    .replace("__MIGRATION__", () => publicationMigration);
+  const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+    "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `Competition publication upgrade (${withDraft ? "existing draft" : "new draft"}): ${result.stderr}`);
+  console.log(`Competition publication upgrade passed: preserved choices, timing, bindings and ${withDraft ? "existing" : "new unapproved"} draft`);
 }

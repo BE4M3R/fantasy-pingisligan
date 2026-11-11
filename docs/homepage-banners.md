@@ -1,7 +1,7 @@
-# The Weekly Smash and Season Competition
+# Gameweek competition and Season Competition
 
 Home (`/dashboard/overview`) derives competitions from `fantasy_gameweeks`.
-Only Gameweeks explicitly opted in with `fantasy_gameweeks.weekly_smash_enabled`
+Only Gameweeks with an enabled linked row in `competition_publication`
 appear as prize competitions. No content row is needed for an opted-in Gameweek
 to exist in the carousel. Existing and newly imported rounds default to excluded,
 and schedule refreshes preserve your selection. `homepage_banners` supplies optional content,
@@ -25,14 +25,14 @@ lock prevents revealing the next future round. No competition state is stored.
 
 The carousel contains opted-in history/locked rounds in deadline order, the
 opted-in current competition, **only the next two opted-in** upcoming teasers, and finally the
-Season Competition. Numbers come from `round_order`, falling back to chronological
+Season Competition when the `season` publication row is enabled. Numbers come from `round_order`, falling back to chronological
 position. Schedule changes follow Fantasy's existing rules: future deadlines can
 move, locked boundaries remain frozen, and postponed fixtures keep their original
 gameweek. Reordering a future gameweek can return its content to embargo;
 previously downloaded information cannot be recalled.
 
 On each Home entry, select current; if none exists, select the latest completed
-gameweek. With no gameweeks, show season alone. Entry positioning does not depend
+gameweek. With no gameweeks, show season alone if opted in; otherwise hide the carousel. Entry positioning does not depend
 on the currently selected slide or refreshed props and never interrupts browsing.
 Swipe, pagination, desktop arrows, Left/Right and Home/End remain manual, without
 autoplay. Arrows are hidden below 640px; reduced motion is respected.
@@ -45,11 +45,11 @@ system or winner field. See [competitions](competitions.md).
 
 ## Choose which Gameweeks have prizes
 
-In Supabase Studio, open `fantasy_gameweeks` and set **`weekly_smash_enabled =
-true`** only for rounds that will have a Weekly Smash prize. Leave it **false**
-for unconfirmed past/upcoming rounds. Change it back to false to exclude a round.
-All existing and new rounds start false; the migration never guesses a launch
-week or assumes that an already configured prize will be awarded.
+In Supabase Studio, open `competition_publication` and change `enabled` on the
+row named **Gameweek <number> competition**. Its `gameweek_id` links the real round.
+Enable only rounds that have a prize. New rounds receive disabled rows
+automatically; existing choices are preserved by migration and schedule refreshes.
+The `global` row must also be enabled. No per-gameweek columns need to be added.
 
 Excluded rounds have no carousel card (including generic teasers), public
 competition page, promotion or competition link in Leagues. Their prize/rules
@@ -70,7 +70,7 @@ insert, update or delete content or upload artwork.
 
 1. In `homepage_banners`, create a row. `kind` defaults to `gameweek`; select an
    existing `gameweek_id`. Do not create a separate teaser or reveal row.
-2. Optional `title` overrides “The Weekly Smash” **after reveal** (100 characters).
+2. Optional `title` overrides “Gameweek <number> competition” **after reveal** (100 characters).
    Future teasers always use the generic title and gameweek number.
 3. Optional `sponsor` retains the name (80 characters) for branding metadata and
    accessible image fallback text. No “Sponsored by …” line is displayed.
@@ -80,21 +80,18 @@ insert, update or delete content or upload artwork.
    The carousel contains the image without cropping, on a compact light tile.
    Bold information lines sit beside the image; no text is placed below it.
    Information remains readable when the image is absent or fails to load.
-5. Optional `cta_label` is the short prize headline (40 characters). It defaults
-   to “Discover prize” when a valid destination exists. A headline can also be
-   supplied without a destination.
-6. Optional `description` is the concise prize summary (240 characters), shown
-   as a smaller bold information line beside the logo, below the headline. Each
-   information line is limited to one visual line to keep the banner compact.
+5. Optional `description` is the concise prize summary (240 characters), shown
+   as a bold information line beside the logo. The line is limited to one visual
+   line to keep the banner compact.
    Lifecycle status shares this information area. Public competition pages show
    the complete summary and optional long-form content.
-7. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
+6. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
    season banners, including Coming soon teasers, link to `/competitions/season`. No URL entry is needed.
    Existing UUID links redirect when their number is unambiguous. Reused numbers
    retain UUID links until season-aware URLs are introduced. The unused stored `cta_url`
    column has been removed; RPC destinations remain generated.
    Linked banners retain the plain gold chevron at the right.
-8. Set `content_ready = true` after reviewing the content. You can do this well
+7. Set `content_ready = true` after reviewing the content. You can do this well
    before the gameweek: database and Storage authorization prevent early access.
    Set it false to withdraw content on subsequent reads. The generic competition
    card remains; revealed cards without content show “Competition details coming soon”.
@@ -106,14 +103,22 @@ no weekly publication dates or manually maintained current/previous kinds.
 
 ## Season Competition in Supabase
 
+The `season` row in `competition_publication` defaults to disabled. Existing
+season choices are preserved by the centralization migration. Leave it off for this weekly-only
+season. The carousel omits the entire season card, including its generic teaser.
+Enabling it alongside the `global` row restores the existing season card
+and publication rules without changing saved content. The season page, public
+homepage promotion, direct prize/rule reads and artwork share this gate. Ordinary
+Fantasy season standings are independent. See [launch controls](competition-launch.md).
+
 Create or edit the single row with `kind = season` and `gameweek_id = null`.
-Use the same optional title, sponsor, image, headline and description
-fields, plus the [detail-page content](competitions.md#enter-a-new-weekly-smash-prize-in-supabase). Its default title is “Season Competition”. A crown, longer gold accent
+Use the same optional title, sponsor, image and description
+fields, plus the [detail-page content](competitions.md#enter-a-new-gameweek-competition-prize-in-supabase). Its default title is “Season Competition”. A crown, longer gold accent
 and subtle gold court treatment distinguish it without changing the palette.
 
 Enter approximate prize values with `prize_value_sek`; put any prize choices in
 `prize_description`. Shared terms now live in versioned `competition_rules`
-documents, separately for Weekly Smash and Season Competition. Approval and
+documents, separately for Gameweek competition and Season Competition. Approval and
 automatic version assignment are described in [the content guide](competitions.md).
 Do not repeat rules/eligibility on each weekly row or assume any prize is tax-free.
 
@@ -126,7 +131,8 @@ Season uses the existing independent publication controls:
   An optional later expiry or `published = false` withdraws it.
 - `content_ready` has no effect on season content.
 
-Before publication, after withdrawal, or without a season row, Home still shows
+When season competition is opted in, before publication, after withdrawal, or
+without a season row, Home still shows
 a generic **Coming soon** Season Competition as the final slide. It links to the
 same public season placeholder page used by signed-out visitors; unpublished
 prize content remains protected. Upcoming Gameweek cards retain their locks.

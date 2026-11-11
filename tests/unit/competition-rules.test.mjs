@@ -8,7 +8,8 @@ test("rules split at their section headings without losing links, lists or condi
   assert.deepEqual(sections.map(({ title }) => title), [...competitionRuleSections]);
   assert.ok(sections[1].body.includes("1. Net points.\n2. Raw captain points."));
   assert.ok(sections[2].body.includes("**five calendar days**"));
-  assert.ok(sections[4].body.includes("[official guidance](https://www.skatteverket.se/)"));
+  assert.ok(sections[2].body.includes("Only necessary delivery data is shared."));
+  assert.ok(sections[3].body.includes("[official guidance](https://www.skatteverket.se/)"));
 });
 
 test("legacy text, preambles and unknown headings remain available", () => {
@@ -24,12 +25,12 @@ test("legacy text, preambles and unknown headings remain available", () => {
 
 test("headings inside fenced Markdown are preserved as content", () => {
   const sections = splitCompetitionRules("## Participation\nExample:\n```text\n## Taxation\nNot a section.\n```\n## Prize delivery\nDelivery terms.");
-  assert.deepEqual(sections.map(({ title }) => title), ["Participation", "Prize Delivery"]);
+  assert.deepEqual(sections.map(({ title }) => title), ["Participation", "Winner Announcement & Claiming"]);
   assert.ok(sections[0].body.includes("```text\n## Taxation\nNot a section.\n```"));
 });
 
-test("both prepared shared documents provide all five sections with every condition retained", async () => {
-  for (const name of ["weekly-smash", "season-competition"]) {
+test("both prepared shared documents provide all four sections with every condition retained", async () => {
+  for (const name of ["gameweek-competition", "season-competition"]) {
     const body = await readFile(new URL(`../../docs/competition-rules/${name}.md`, import.meta.url), "utf8");
     const sections = splitCompetitionRules(body);
     assert.deepEqual(sections.map(({ title }) => title), [...competitionRuleSections]);

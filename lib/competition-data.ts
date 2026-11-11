@@ -10,8 +10,8 @@ export const getCompetition = cache(async (gameweekId: string | null) => {
   if (!await competitionsEnabled()) return { competition: null, error: false };
   const { data, error } = await createPublicClient({ fresh: true }).rpc("get_public_competition", {
     p_gameweek_id: gameweekId,
-  });
-  return { competition: (data?.[0] ?? null) as Competition | null, error: Boolean(error) };
+  }).select("gameweek_number,state,content_available,title,description,sponsor,image_path,image_alt,prize_image_path,prize_image_alt,prize_description,prize_product_url,prize_value_sek,public_path");
+  return { competition: ((data as unknown as Competition[] | null)?.[0] ?? null), error: Boolean(error) };
 });
 
 export const resolveCompetitionGameweek = cache(async (number: string) => {
