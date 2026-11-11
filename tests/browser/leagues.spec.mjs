@@ -186,9 +186,9 @@ test.describe.serial("private league journey", () => {
     await page.screenshot({ path: testInfo.outputPath("gameweek-league-mobile-390.png"), fullPage: true });
     await expect(page.locator('a[href^="/competitions/"]')).toHaveCount(0);
     expect(checked(await fixture.admin.rpc("competitions_enabled"), "Standings work with competitions off")).toBe(false);
-    checked(await fixture.admin.from("competition_publication").update({ enabled: true }).eq("id", true), "Enable competition links explicitly");
+    checked(await fixture.admin.from("competition_publication").update({ enabled: true }).eq("id", "global"), "Enable competition links explicitly");
     await page.reload();
-    const competitionLink = page.getByRole("link", { name: "View this Weekly Smash competition →", exact: true });
+    const competitionLink = page.getByRole("link", { name: "View Gameweek 1 competition →", exact: true });
     await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/1");
     const leaguesUrl = page.url();
     await competitionLink.scrollIntoViewIfNeeded();
@@ -201,7 +201,7 @@ test.describe.serial("private league journey", () => {
     await expect(page.getByRole("navigation", { name: "Standings Gameweeks" })).toHaveCount(0);
     const own = page.locator(".md\\:hidden").getByRole("button").filter({ hasText: `Functional ${fixture.id}` });
     await expect(own.getByText("35", { exact: true })).toBeVisible();
-    checked(await fixture.admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Restore unpublished competitions");
+    checked(await fixture.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Restore unpublished competitions");
   });
 
   test("owner creates a private league and receives an invitation code", async ({ page }) => {

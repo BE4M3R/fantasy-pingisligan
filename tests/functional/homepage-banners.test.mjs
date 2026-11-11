@@ -11,8 +11,8 @@ const cards = async (f) => checked(await f.user.rpc("get_homepage_competitions")
 
 // Exercise ordinary direct table/RPC/storage requests as well as Fantasy's
 // actual lock, scoring and completion helpers on a disposable database.
-test("Weekly Smash follows transfer availability and successful refresh, with exactly two secure teasers", async () => {
-  const f = await createFixture({ gameweeks: 5, competitions: true });
+test("Gameweek competition follows transfer availability and successful refresh, with exactly two secure teasers", async () => {
+  const f = await createFixture({ gameweeks: 5, competitions: true, seasonCompetitions: true });
   const ids = Array.from({ length: 6 }, () => randomUUID());
   const paths = ids.map((id) => `${f.id}/${id}.png`);
   const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
@@ -31,14 +31,13 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, null]);
     assert.deepEqual(rows.map((r) => r.state), ["open", "upcoming", "upcoming", "upcoming"]);
     assert.equal(rows[0].is_current, true);
-    assert.equal(rows[0].title, "The Weekly Smash");
+    assert.equal(rows[0].title, "Gameweek 1 competition");
     assert.equal(rows[0].sponsor, "Partner 0");
     for (const r of rows.slice(1)) {
       assert.equal(r.sponsor, null);
       assert.equal(r.description, null);
       assert.equal(r.image_path, null);
       assert.equal(r.image_alt, null);
-      assert.equal(r.cta_label, null);
       assert.equal(r.cta_url, null);
       assert.ok(!r.title.includes("Secret"));
     }
@@ -89,7 +88,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
 
     checked(await f.admin.from("homepage_banners").update({ content_ready: false }).eq("id", ids[4]), "Withdraw weekly content");
     rows = await cards(f);
-    assert.equal(rows.find((r) => r.is_current).title, "The Weekly Smash");
+    assert.equal(rows.find((r) => r.is_current).title, "Gameweek 5 competition");
     assert.equal(rows.find((r) => r.is_current).sponsor, null);
     assert.ok((await signing(4)).error);
     checked(await f.admin.from("homepage_banners").update({ publish_at: minutes(-1) }).eq("id", ids[5]), "Reveal season independently");
@@ -109,11 +108,11 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
 });
 
 test("no content rows are required, completed history is retained, and no gameweeks still yields season", async () => {
-  const f = await createFixture({ gameweeks: 5, competitions: true });
+  const f = await createFixture({ gameweeks: 5, competitions: true, seasonCompetitions: true });
   try {
     let rows = await cards(f);
     assert.equal(rows.length, 4);
-    assert.equal(rows[0].title, "The Weekly Smash");
+    assert.equal(rows[0].title, "Gameweek 1 competition");
     for (const week of f.weeks) {
       checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(-10), unlock_at: minutes(-1) }).eq("id", week.id), "Pass test deadline");
       await complete(f, week);
@@ -131,7 +130,7 @@ test("no content rows are required, completed history is retained, and no gamewe
 });
 
 test("overlapping pending gameweeks keep the next competition and its artwork locked until both refreshes complete", async () => {
-  const f = await createFixture({ gameweeks: 3, competitions: true });
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const id = randomUUID();
   const artwork = `${f.id}/next-competition.png`;
   const nextId = `gameweek:${f.weeks[2].id}`;
@@ -171,7 +170,7 @@ test("overlapping pending gameweeks keep the next competition and its artwork lo
 });
 
 test("weekly readiness overrides legacy publication dates while season uses its own publication controls", async () => {
-  const f = await createFixture({ competitions: true });
+  const f = await createFixture({ competitions: true, seasonCompetitions: true });
   const weeklyId = randomUUID();
   const seasonId = randomUUID();
   try {

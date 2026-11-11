@@ -2,7 +2,7 @@
 
 Announcements provide rare, important English in-app news for signed-in dashboard
 users: major updates, rule changes and service disruptions. Recurring gameweek
-competitions, sponsors and prizes belong in the Weekly Smash carousel.
+competitions, sponsors and prizes belong in the Gameweek competition carousel.
 Content is shared; read/dismissal state belongs to each user. There is
 no admin interface, email/push delivery, polling, realtime subscription or
 publication cron.
@@ -20,7 +20,7 @@ credentials in the application or run local scripts against production.
    *emphasis*, lists and links. HTML and Markdown images are disabled. Put images
    in the dedicated artwork field instead.
 3. Use `category`: `news` (default). Existing `sponsor` content remains readable;
-   publish recurring promotions through the Weekly Smash carousel. Artwork retains
+   publish recurring promotions through the Gameweek competition carousel. Artwork retains
    its original background; transparent images use the navy surround. Priority
    is separate: `normal` (default) or `high`. Reserve High for
    rare urgent operational notices.

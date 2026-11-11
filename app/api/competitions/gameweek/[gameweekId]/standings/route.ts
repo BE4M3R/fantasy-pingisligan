@@ -15,8 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ game
   if (!isGameweekId(gameweekId) || !Number.isSafeInteger(offset) || offset < 0 || offset > 2147483647 || search.length > 80) {
     return NextResponse.json({ error: "Invalid standings request." }, { status: 400, headers });
   }
-  const { data: selected, error } = await createPublicClient({ fresh: true }).from("fantasy_gameweeks")
-    .select("id").eq("id", gameweekId).eq("weekly_smash_enabled", true).maybeSingle();
+  const { data: selected, error } = await createPublicClient({ fresh: true }).from("competition_publication")
+    .select("id").eq("gameweek_id", gameweekId).eq("enabled", true).maybeSingle();
   if (error) return NextResponse.json({ error: "Standings are temporarily unavailable." }, { status: 503, headers });
   if (!selected) return NextResponse.json({ error: "Not found" }, { status: 404, headers });
   const standings = await getCompetitionStandings(gameweekId, offset, offset === 0 && !search ? 5 : 25, search);

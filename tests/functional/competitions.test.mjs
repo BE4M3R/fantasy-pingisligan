@@ -11,12 +11,12 @@ const selection = (f) => squad([f.players[0], f.players[2], f.players[4], f.play
 const score = async (f) => checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score using Fantasy");
 
 test("numbered routes reject ambiguity and public promotions select only revealed current content", async () => {
-  const f = await createFixture({ gameweeks: 3, competitions: true });
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const seasonId = randomUUID();
   try {
     const anon = anonymous(f);
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current partner", cta_label: "A bag", prize_value_sek: 500 },
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current partner", description: "A bag", prize_value_sek: 500 },
       { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Future secret", prize_value_sek: 9999 },
       { id: seasonId, kind: "season", published: true, publish_at: new Date(Date.now() + 3600000).toISOString(),
         sponsor: "Season secret", prize_value_sek: 16000 },
@@ -47,7 +47,7 @@ test("numbered routes reject ambiguity and public promotions select only reveale
 });
 
 test("public competition metadata and artwork share the existing reveal gate without granting writes or announcement access", async () => {
-  const f = await createFixture({ gameweeks: 2, competitions: true });
+  const f = await createFixture({ gameweeks: 2, competitions: true, seasonCompetitions: true });
   const anon = anonymous(f);
   const paths = [0, 1, 2].map((i) => `${f.id}/competition-${i}.png`);
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
@@ -134,7 +134,8 @@ for (const chip of [null, "triple_captain", "bench_boost", "wildcard"]) {
       assert.equal(inspected.award_enabled, false);
       assert.equal(inspected.status, "awaiting_refresh");
       await complete(f);
-      assert.equal((await review(f)).status, "provisional_leader");
+      const completed = await review(f);
+      assert.equal(completed.status, "provisional_leader", JSON.stringify(completed));
       checked(await f.admin.from("matches").update({ status: "postponed" }).eq("id", game.match.id), "Outstanding fixture despite completion");
       assert.equal((await read(anon, f.weeks[0].id)).outstanding_fixtures, 1);
       assert.equal((await review(f)).status, "awaiting_results");
@@ -152,8 +153,8 @@ for (const chip of [null, "triple_captain", "bench_boost", "wildcard"]) {
   });
 }
 
-test("tied standings retain shared ranks while operator review compares raw captain scores then requires a draw", async () => {
-  const f = await createFixture({ competitions: true });
+test("competition ranks compare raw captain and historical season points, retaining a manual draw for complete ties", async () => {
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const users = [];
   try {
     checked(await save(f, selection(f), "triple_captain"), "Save Triple Captain");
@@ -197,11 +198,38 @@ test("tied standings retain shared ranks while operator review compares raw capt
     assert.equal(first.rows[0].rank, 1);
     assert.equal(second.rows[0].rank, 1);
     assert.notEqual(first.rows[0].team_name, second.rows[0].team_name);
-    checked(await f.admin.from("fantasy_team_gameweek_points").update({ points: 79 }).eq("fantasy_team_id", extra[1]), "One fewer net point");
+    const ago = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: ago(60),
+      first_match_starts_at: ago(50), last_match_ends_at: ago(40), unlock_at: ago(30),
+      data_refreshed_at: ago(29) }).eq("id", f.weeks[1].id), "Prepare earlier season scores");
+    checked(await f.admin.from("fantasy_team_gameweek_points").insert([
+      { fantasy_team_id: extra[0], fantasy_gameweek_id: f.weeks[1].id, points: 50 },
+      { fantasy_team_id: extra[1], fantasy_gameweek_id: f.weeks[1].id, points: 40 },
+      { fantasy_team_id: f.teamId, fantasy_gameweek_id: f.weeks[1].id, points: 1000 },
+    ]), "Set season totals before the competition");
+    inspected = await review(f);
+    assert.equal(inspected.status, "provisional_leader");
+    assert.equal(inspected.draw_required, false);
+    assert.equal(inspected.prize_candidates[0].team_id, extra[0]);
+    assert.equal(inspected.prize_candidates[0].season_points, 130);
+    assert.deepEqual((await read(anon, f.weeks[0].id)).rows.map((r) => r.rank), [1, 2, 3]);
+    // A subsequently completed round must not change this competition's order.
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: ago(5),
+      first_match_starts_at: ago(4), last_match_ends_at: ago(3), unlock_at: ago(2),
+      data_refreshed_at: ago(1) }).eq("id", f.weeks[2].id), "Prepare later season scores");
+    checked(await f.admin.from("fantasy_team_gameweek_points").insert({ fantasy_team_id: extra[1],
+      fantasy_gameweek_id: f.weeks[2].id, points: 10000 }), "Later season leader");
+    assert.equal((await review(f)).prize_candidates[0].team_id, extra[0]);
+    assert.equal((await read(anon, f.weeks[0].id, { p_search: "IDENTICAL" })).rows[0].rank, 2);
+    checked(await f.admin.from("fantasy_team_gameweek_points").update({ points: 50 })
+      .eq("fantasy_team_id", extra[1]).eq("fantasy_gameweek_id", f.weeks[1].id), "Equal historical season totals");
+    assert.equal((await review(f)).draw_required, true, "Complete ties require a manual draw");
+    checked(await f.admin.from("fantasy_team_gameweek_points").update({ points: 79 }).eq("fantasy_team_id", extra[1])
+      .eq("fantasy_gameweek_id", f.weeks[0].id), "One fewer net point");
     inspected = await review(f);
     assert.equal(inspected.status, "provisional_leader");
     assert.equal(inspected.prize_candidates[0].team_id, extra[0]);
-    assert.deepEqual((await read(anon, f.weeks[0].id)).rows.map((r) => r.rank), [1, 1, 3]);
+    assert.deepEqual((await read(anon, f.weeks[0].id)).rows.map((r) => r.rank), [1, 2, 3]);
     checked(await f.admin.from("fantasy_teams").update({ name: "Renamed after deadline" }).eq("id", f.teamId), "Rename team");
     assert.ok(!(await read(anon, f.weeks[0].id)).rows.some((r) => r.team_name === "Renamed after deadline"));
     const searched = await read(anon, f.weeks[0].id, { p_search: "IDENTICAL", p_limit: 1 });

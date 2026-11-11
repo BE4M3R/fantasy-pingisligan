@@ -2,7 +2,7 @@ import { competitionsEnabled } from "@/lib/competition-publication";
 import { notFound, permanentRedirect } from "next/navigation";
 import { LoadCompetitionPage } from "@/app/competitions/load-page";
 import { getCompetition, resolveCompetitionGameweek } from "@/lib/competition-data";
-import { isGameweekId } from "@/lib/competitions";
+import { gameweekCompetitionTitle, isGameweekId } from "@/lib/competitions";
 import { publicPageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ gameweekId: string }> };
@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: Props) {
   const { competition, error } = await getCompetition(id);
   if (!competition && !error) notFound();
   return publicPageMetadata(competition?.public_path ?? `/competitions/gameweek/${value}`,
-    `${competition?.title ?? "The Weekly Smash"}${competition ? ` · Gameweek ${competition.gameweek_number}` : ""} | Pingisligan Fantasy`,
-    competition?.description ?? "Follow The Weekly Smash prizes and winner announcements on Pingisligan Fantasy.");
+    `${competition?.title ?? "Gameweek competition"}${competition && competition.title !== gameweekCompetitionTitle(competition.gameweek_number) ? ` · Gameweek ${competition.gameweek_number}` : ""} | Pingisligan Fantasy`,
+    competition?.description ?? "Follow Gameweek competition prizes and winner announcements on Pingisligan Fantasy.");
 }
 
 export default async function Page({ params }: Props) {

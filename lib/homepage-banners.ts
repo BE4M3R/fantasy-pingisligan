@@ -10,7 +10,6 @@ export type HomepageCompetition = {
   image_path: string | null;
   image_alt: string | null;
   cta_url: string | null;
-  cta_label: string | null;
 };
 
 export type HomepageSlide = Omit<HomepageCompetition, "image_path" | "gameweek_number"> & {
@@ -21,15 +20,19 @@ export type HomepageSlide = Omit<HomepageCompetition, "image_path" | "gameweek_n
 // SQL owns ordering, the two-teaser limit and authorization. Keep locked client
 // payloads generic as additional defense, never as the disclosure boundary.
 export function buildHomepageCards(rows: HomepageCompetition[]) {
-  return rows.map(({ gameweek_number, ...row }) => ({
-    ...row,
-    ...(row.state === "upcoming" ? {
-      title: row.kind === "season" ? "Season Competition" : "The Weekly Smash",
-      description: null, sponsor: null, image_path: null, image_alt: null,
-      cta_label: null, cta_url: row.kind === "season" ? "/competitions/season" : null,
-    } : {}),
-    gameweekLabel: gameweek_number === null ? undefined : `GW ${gameweek_number}`,
-  }));
+  return rows.map(({ gameweek_number, ...row }) => {
+    const defaultTitle = row.kind === "season" ? "Season Competition" : `Gameweek ${gameweek_number} competition`;
+    return {
+      ...row,
+      ...(row.state === "upcoming" ? {
+        title: defaultTitle,
+        description: null, sponsor: null, image_path: null, image_alt: null,
+        cta_url: row.kind === "season" ? "/competitions/season" : null,
+      } : {}),
+      gameweekLabel: gameweek_number === null || row.title === defaultTitle || row.state === "upcoming"
+        ? undefined : `GW ${gameweek_number}`,
+    };
+  });
 }
 
 export function defaultHomepageSlideIndex(slides: Pick<HomepageSlide, "is_current" | "state">[]) {
@@ -38,4 +41,3 @@ export function defaultHomepageSlideIndex(slides: Pick<HomepageSlide, "is_curren
   const latestCompleted = slides.findLastIndex((slide) => slide.state === "previous");
   return Math.max(0, latestCompleted);
 }
-

@@ -2,7 +2,6 @@ export const competitionRuleSections = [
   "Participation",
   "Winner Selection",
   "Winner Announcement & Claiming",
-  "Prize Delivery",
   "Taxation",
 ] as const;
 
@@ -20,7 +19,9 @@ export function splitCompetitionRules(markdown: string) {
       continue;
     }
     const heading = !fence ? /^ {0,3}##\s+(.+?)(?:\s+#+)?\s*$/.exec(line)?.[1] : undefined;
-    const normalized = heading?.toLowerCase().replace(/&/g, "and").replace(/^how the winner is selected$/, "winner selection");
+    const normalized = heading?.toLowerCase().replace(/&/g, "and")
+      .replace(/^how the winner is selected$/, "winner selection")
+      .replace(/^prize delivery$/, "winner announcement and claiming");
     const index = sections.findIndex(({ title }) => title.toLowerCase().replace(/&/g, "and") === normalized);
     if (index >= 0) current = index;
     else sections[current].body += `${line}\n`;

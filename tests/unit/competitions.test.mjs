@@ -22,7 +22,7 @@ test("approximate prize values use configurable amounts rather than tax threshol
 });
 
 test("completed refresh does not imply settled competition results", () => {
-  assert.equal(competitionStatus({ state: "previous", gameweek_number: 1 }), "Gameweek ended");
+  assert.equal(competitionStatus({ state: "previous", gameweek_number: 1 }), "Awaiting winner confirmation");
   assert.equal(competitionStatus({ state: "refreshing", gameweek_number: 1 }), "Awaiting results");
   assert.equal(competitionStatus({ state: "live", gameweek_number: 1 }), "In progress");
   assert.equal(competitionStatus({ state: "open", gameweek_number: 1 }), "Open");

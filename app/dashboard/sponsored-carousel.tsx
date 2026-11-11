@@ -9,12 +9,11 @@ function slideName(slide: HomepageSlide) {
   return slide.gameweekLabel ? `${slide.title} ${slide.gameweekLabel}` : slide.title;
 }
 
-function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolean; linked: boolean }) {
+function Sponsor({ slide, first }: { slide: HomepageSlide; first: boolean }) {
   const [failed, setFailed] = useState(false);
   const upcoming = slide.state === "upcoming";
   const locked = upcoming && slide.kind === "gameweek";
   const showLogo = Boolean(!upcoming && slide.imageUrl && !failed);
-  const headline = upcoming ? null : slide.cta_label ?? (linked && (slide.sponsor || slide.description || slide.imageUrl) ? "Discover prize" : null);
   const description = upcoming ? null : slide.description;
   const status = upcoming ? (locked ? "Locked · Coming soon" : "Coming soon")
     : slide.state === "previous" ? "Awaiting winner confirmation"
@@ -30,13 +29,12 @@ function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolea
       }} className="max-h-8 w-auto max-w-full object-contain" /></span>
     ) : null}
     <div className="min-w-0 flex-1 space-y-0.5 text-sm font-bold leading-4 text-[var(--pf-text)]">
-      {headline ? <p className="sponsored-discover line-clamp-1 break-words">{headline}</p> : null}
       {description ? <p className="line-clamp-1 break-words">{description}</p> : null}
       {status ? <p className="flex items-center gap-1.5 text-xs">
         {locked ? <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5 shrink-0"><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5 7V5a3 3 0 0 1 6 0v2" /></svg> : null}
         <span className="line-clamp-1">{status}</span>
       </p> : null}
-      {!headline && !description && !status ? <p className="line-clamp-1 break-words">Competition details coming soon</p> : null}
+      {!description && !status ? <p className="line-clamp-1 break-words">Competition details coming soon</p> : null}
     </div>
   </div>;
 }
@@ -128,7 +126,7 @@ export function SponsoredCarousel({ slides }: { slides: HomepageSlide[] }) {
                     {slide.gameweekLabel ? <> <span className="shrink-0 whitespace-nowrap rounded-full border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-brand-blue-hover)]/10 px-2 text-[10px] font-bold leading-5 tracking-wide text-[var(--pf-text)]">{slide.gameweekLabel}</span></> : null}
                   </h2>
                 </div>
-                <Sponsor key={slide.imageUrl} slide={slide} first={index === defaultIndex} linked={Boolean(destination)} />
+                <Sponsor key={slide.imageUrl} slide={slide} first={index === defaultIndex} />
               </div>
               {destination ? <span className="sponsored-hint absolute right-4 top-1/2 flex h-11 w-8 -translate-y-1/2 items-center justify-center text-[var(--pf-logo-gold)] sm:right-6">
                 <span className="sr-only">View competition</span>

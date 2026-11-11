@@ -41,7 +41,7 @@ export async function StandingsPanel({ userId, view, gameweek, basePath = "/dash
             : <LeagueTable key={selected.gameweek_id} currentUserId={userId} gameweekId={selected.gameweek_id}
                 initialRowCount={10} rows={standings.rows} totalRowCount={standings.total} searchable
                 emptyMessage="No scored squads yet. Check back after Gameweek results are refreshed." />}
-          {published && route?.data?.public_path ? <Link className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--pf-brand-blue-hover)] underline underline-offset-2" href={route.data.public_path}>View this Weekly Smash competition →</Link> : null}
+          {published && route?.data?.public_path ? <Link className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--pf-brand-blue-hover)] underline underline-offset-2" href={route.data.public_path}>View Gameweek {selected.gameweek_number} competition →</Link> : null}
         </> : <p className="mt-4 text-sm text-[var(--pf-text-muted)]">No Gameweeks are available yet.</p>
         : globalResult?.error ? <p role="status" className="mt-4 text-sm text-[var(--pf-text-muted)]">Global standings are temporarily unavailable. Please try again.</p>
         : <LeagueTable key="global" currentUserId={userId} initialRowCount={10} rows={initialGlobalRows(globalResult?.data ?? [], userId)} searchable totalRowCount={globalResult?.data.length ?? 0} />}
