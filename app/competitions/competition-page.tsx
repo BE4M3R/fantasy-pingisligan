@@ -5,29 +5,27 @@ import { Suspense } from "react";
 import { getClaims } from "@/lib/supabase/server";
 import { PublicFooter } from "@/app/public-footer";
 import { SafeMarkdown } from "@/app/safe-markdown";
-import { competitionResult, competitionStatus, formatPrizeValue, type Competition, type CompetitionStandings as Standings } from "@/lib/competitions";
+import { formatPrizeValue, gameweekCompetitionTitle, type Competition, type CompetitionStandings as Standings, type CompetitionWinner } from "@/lib/competitions";
+import { WinnerAnnouncement } from "./winner";
 import { CompetitionArtwork as Artwork } from "./artwork";
 import { CompetitionStandings } from "./standings";
 import { CompetitionReturnLink } from "./return-link";
-import { CompetitionRules } from "./rules";
 
-export function CompetitionPage({ competition: c, artwork = {}, gameweekId, standings }: {
+export function CompetitionPage({ competition: c, artwork = {}, gameweekId, standings, winner = null, winnerError = false }: {
   competition: Competition; artwork?: Record<string, string | undefined>;
   gameweekId: string | null; standings: Standings | null;
+  winner?: CompetitionWinner | null; winnerError?: boolean;
 }) {
   const season = c.gameweek_number === null;
-  const status = competitionStatus(c);
-  const result = competitionResult(c);
   const prizeValue = formatPrizeValue(c.prize_value_sek);
-  const conditions = c.details_markdown?.trim();
   const panel = "min-w-0 rounded-2xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-5 sm:p-7";
   return <CompetitionShell>
+    {gameweekId && (winner || c.state === "previous") ? <WinnerAnnouncement winner={winner} error={winnerError} /> : null}
     <section className="overflow-hidden rounded-2xl border border-[var(--pf-logo-gold)]/35 bg-[var(--pf-navy)]" aria-labelledby="competition-heading">
       <div className={`sponsored-slide relative px-5 py-5 sm:px-8 sm:py-7 ${season ? "sponsored-slide-season" : ""}`}>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest">
-            <span className="flex min-w-0 items-center gap-2 text-[var(--pf-logo-gold)]"><CompetitionIcon season={season} /><span className="break-words">{c.title}{!season ? ` · Gameweek ${c.gameweek_number}` : ""}</span></span>
-            <span className="shrink-0 rounded-full border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-navy)]/60 px-3 py-1.5 text-[var(--pf-text)]">{status}</span>
+            <span className="flex min-w-0 items-center gap-2 text-[var(--pf-logo-gold)]"><CompetitionIcon season={season} /><span className="break-words">{c.title}{!season && c.title !== gameweekCompetitionTitle(c.gameweek_number) ? ` · Gameweek ${c.gameweek_number}` : ""}</span></span>
           </div>
           <h1 id="competition-heading" className={`mt-4 max-w-3xl break-words text-3xl font-black leading-tight tracking-tight sm:text-5xl ${season ? "text-[var(--pf-logo-gold)]" : ""}`}>{c.prize_title ?? "Prize details coming soon"}</h1>
           {c.sponsor ? <p className="mt-3 break-words text-sm text-[var(--pf-text-muted)]">Sponsored by <span className="font-bold text-[var(--pf-text)]">{c.sponsor}</span></p> : null}
@@ -40,32 +38,17 @@ export function CompetitionPage({ competition: c, artwork = {}, gameweekId, stan
           <div className="flex h-36 items-center justify-center rounded-xl bg-[var(--pf-navy-elevated)] text-[var(--pf-text-muted)] sm:h-64">
             <div className="text-center"><span aria-hidden="true" className="text-3xl text-[var(--pf-logo-gold)]">★</span><p className="mt-2 text-sm">Prize reveal coming soon</p></div>
           </div>}
-        {c.prize_description ? <SafeMarkdown>{c.prize_description}</SafeMarkdown> :
-          c.description ? <p className="text-sm leading-6 text-[var(--pf-text-muted)]">{c.description}</p> : null}
+        <div className="space-y-5">
+          {c.prize_description ? <SafeMarkdown>{c.prize_description}</SafeMarkdown> : null}
+          <Link href="/rules#competition-rules" className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--pf-brand-blue-hover)] underline underline-offset-2">Competition rules and policy</Link>
+        </div>
       </div>
     </section>
 
-    <section className={panel} aria-labelledby={gameweekId ? "standings-heading" : "result-heading"}>
-      {gameweekId ? <>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="standings-heading" className="text-xl font-bold sm:text-2xl">Gameweek standings</h2>
-          <span className="rounded-full border border-[var(--pf-logo-gold)]/25 bg-[var(--pf-logo-gold)]/10 px-3 py-1 text-xs font-bold text-[var(--pf-logo-gold)]">Provisional</span>
-        </div>
-        <p className="mt-2 text-sm leading-6 text-[var(--pf-text-muted)]">Gameweek points including captains, chips and transfer deductions. Equal scores share a rank.</p>
+    {gameweekId ? <section className={panel} aria-labelledby="standings-heading">
+        <h2 id="standings-heading" className="text-xl font-bold sm:text-2xl">Competition leaderboard</h2>
         <CompetitionStandings key={gameweekId} gameweekId={gameweekId} initial={standings} />
-        <div className="mt-4 border-t border-[var(--pf-card-border)] pt-4">
-          <h3 className="text-sm font-bold text-[var(--pf-logo-gold)]">Winner announcement</h3>
-          <p className="mt-1 text-sm leading-6 text-[var(--pf-text-muted)]">{result.message}</p>
-        </div>
-      </> : <>
-        <h2 id="result-heading" className="flex items-center gap-2 text-xl font-bold text-[var(--pf-logo-gold)]"><CompetitionIcon season />Season winner</h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--pf-text-muted)]">{result.message}</p>
-      </>}
-    </section>
-    <section className={panel} aria-labelledby="terms-heading">
-      <h2 id="terms-heading" className="text-lg font-bold">Rules and practical information</h2>
-      <CompetitionRules body={c.rules_markdown} title={c.rules_title} version={c.rules_version} conditions={conditions} />
-    </section>
+    </section> : null}
   </CompetitionShell>;
 }
 
@@ -75,7 +58,7 @@ function CompetitionIcon({ season }: { season: boolean }) {
   </svg>;
 }
 
-const navigationClassName = "shrink-0 rounded-lg bg-[var(--pf-logo-gold)] px-4 py-3 text-sm font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-logo-gold-hover)]";
+const navigationClassName = "inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-[var(--pf-logo-gold)] px-2.5 py-1.5 text-center text-xs font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-logo-gold-hover)] max-[360px]:max-w-[84px] sm:px-3";
 
 async function CompetitionNavigation() {
   // Only this small navigation action depends on auth. Public page reads and
@@ -95,14 +78,22 @@ async function CompetitionNavigation() {
 export function CompetitionShell({ children }: { children: React.ReactNode }) {
   return <main className="table-tennis-surface flex min-h-screen flex-col text-[var(--pf-text)]">
     <header className="border-b border-white/15 bg-[var(--pf-navy-deep)]/70">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-6">
-        <Link href="/" aria-label="Pingisligan Fantasy home" className="flex min-w-0 items-center gap-2">
-          <Image src="/branding/pingisligan-fantasy-mark-transparent-v2.png" width={40} height={40} alt="" unoptimized />
-          <span className="text-sm font-black sm:text-base">Pingisligan Fantasy</span>
-        </Link>
-        <Suspense fallback={<Link href="/dashboard/overview" className={navigationClassName}>Fantasy</Link>}>
-          <CompetitionNavigation />
-        </Suspense>
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-5">
+          <Link href="/" aria-label="Pingisligan Fantasy home" className="flex shrink-0 flex-col items-center gap-1">
+            <Image src="/branding/pingisligan-fantasy-mark-transparent-v2.png" width={40} height={40} alt="" className="h-8 w-8 sm:h-10 sm:w-10" unoptimized />
+            <Image src="/branding/pingisligan-fantasy-wordmark-transparent-v2.png" width={138} height={31} alt="" className="h-auto w-20 sm:w-28" unoptimized />
+          </Link>
+          {/* Clip the supplied PNG's transparent right/bottom padding without changing its artwork. */}
+          <span className="relative block aspect-[1766/337] w-24 shrink-0 overflow-hidden min-[360px]:w-28 sm:w-52">
+            <Image src="/branding/yasaka-www-grey.png" width={2210} height={754} alt="Yasaka" className="absolute left-0 top-0 h-auto w-[125.15%] max-w-none" unoptimized />
+          </span>
+        </div>
+        <div className="shrink-0">
+          <Suspense fallback={<Link href="/dashboard/overview" className={navigationClassName}>Fantasy</Link>}>
+            <CompetitionNavigation />
+          </Suspense>
+        </div>
       </nav>
     </header>
     <div className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-4 py-6 sm:px-6 sm:py-10">{children}</div>

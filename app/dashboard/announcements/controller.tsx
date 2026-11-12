@@ -28,7 +28,7 @@ function isPopupBackdrop(event: React.MouseEvent<HTMLDialogElement>) {
 export function AnnouncementBell() {
   const inbox = useContext(InboxContext);
   if (!inbox) return null;
-  return <button aria-label={`Open announcements${inbox.unread ? ` (${inbox.unread} unread)` : ""}`} className="relative flex h-10 w-10 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] focus-visible:outline-2 focus-visible:outline-[var(--pf-brand-blue)]" onClick={(event) => inbox.open(event.currentTarget)} type="button">
+  return <button aria-label={`Open announcements${inbox.unread ? ` (${inbox.unread} unread)` : ""}`} className="relative flex h-9 w-9 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] focus-visible:outline-2 focus-visible:outline-[var(--pf-brand-blue)] sm:h-10 sm:w-10" onClick={(event) => inbox.open(event.currentTarget)} type="button">
     <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
     {inbox.unread > 0 ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-[var(--pf-brand-blue)] px-1 text-[10px] font-black leading-5 text-[var(--pf-navy-deep)]">{inbox.unread > 99 ? "99+" : inbox.unread}</span> : null}
   </button>;

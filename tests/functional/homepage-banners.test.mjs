@@ -11,8 +11,8 @@ const cards = async (f) => checked(await f.user.rpc("get_homepage_competitions")
 
 // Exercise ordinary direct table/RPC/storage requests as well as Fantasy's
 // actual lock, scoring and completion helpers on a disposable database.
-test("Weekly Smash follows transfer availability and successful refresh, with exactly two secure teasers", async () => {
-  const f = await createFixture({ gameweeks: 5, competitions: true });
+test("all Gameweek cards share lifecycle, public teasers and secure prize/artwork gates", async () => {
+  const f = await createFixture({ gameweeks: 5, competitions: true, seasonCompetitions: true });
   const ids = Array.from({ length: 6 }, () => randomUUID());
   const paths = ids.map((id) => `${f.id}/${id}.png`);
   const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
@@ -20,7 +20,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     checked(await save(f, squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]])), "Save squad");
     checked(await f.admin.from("homepage_banners").insert([
       ...f.weeks.map((w, i) => ({ id: ids[i], gameweek_id: w.id, content_ready: true,
-        title: i ? `Secret ${i}` : null, sponsor: `Partner ${i}`, description: `Prize ${i}`,
+        title: i ? `Secret ${i}` : null, sponsor: `Partner ${i}`, prize_title: `Prize ${i}`,
         image_path: paths[i], image_alt: `Logo ${i}` })),
       { id: ids[5], kind: "season", published: true, publish_at: minutes(60), title: "Secret season",
         sponsor: "Season partner", image_path: paths[5], image_alt: "Season logo" },
@@ -28,17 +28,38 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     for (const path of paths) checked(await f.admin.storage.from("announcement-artwork").upload(path, png, { contentType: "image/png" }), "Upload artwork");
     const signing = (index) => f.user.storage.from("announcement-artwork").createSignedUrl(paths[index], 60);
     let rows = await cards(f);
-    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, null]);
-    assert.deepEqual(rows.map((r) => r.state), ["open", "upcoming", "upcoming", "upcoming"]);
+    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, 5, null]);
+    assert.deepEqual(rows.map((r) => r.state), ["open", "upcoming", "upcoming", "upcoming", "upcoming", "upcoming"]);
     assert.equal(rows[0].is_current, true);
-    assert.equal(rows[0].title, "The Weekly Smash");
+    assert.equal(rows[0].title, "Gameweek 1 competition");
     assert.equal(rows[0].sponsor, "Partner 0");
+    assert.equal(rows[0].description, "Prize 0");
+    const readTeasers = (client = anon) => client.rpc("get_public_gameweek_teasers");
+    const teasers = checked(await readTeasers(), "Read safe public teasers");
+    assert.equal(teasers.length, 5);
+    assert.ok(teasers.every((r) => Object.keys(r).sort().join() === "gameweek_id,teaser"));
+    checked(await f.admin.from("homepage_banners").update({ teaser: "A public surprise awaits 👀", content_ready: false })
+      .eq("id", ids[1]), "Edit future teaser independently of prize readiness");
+    assert.equal((await cards(f))[1].cta_label, "A public surprise awaits 👀");
+    assert.equal((await cards(f))[1].description, null, "A public teaser never reveals the prize headline");
+    for (const client of [anon, f.user]) {
+      assert.ok((await client.from("competition_publication").select("teaser")).error, "Teasers have moved off publication controls");
+      assert.ok((await client.from("homepage_banners").update({ teaser: "Unauthorized edit" }).eq("id", ids[1])).error);
+      assert.deepEqual(checked(await client.from("homepage_banners").select("teaser,prize_title").eq("id", ids[1]), "Future banner stays private"), []);
+    }
+    for (const teaser of [" ", "x".repeat(241)]) assert.ok((await f.admin.from("homepage_banners").update({ teaser }).eq("id", ids[1])).error);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true }).eq("id", ids[1]), "Restore ready prize");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[1].id), "Hide future competition");
+    assert.ok(!checked(await readTeasers(), "Excluded teaser hidden").some((r) => r.gameweek_id === f.weeks[1].id));
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("gameweek_id", f.weeks[1].id), "Restore future competition");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Hide all teasers");
+    assert.deepEqual(checked(await readTeasers(), "Launch gate protects teaser projection"), []);
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "global"), "Restore publication");
     for (const r of rows.slice(1)) {
       assert.equal(r.sponsor, null);
       assert.equal(r.description, null);
       assert.equal(r.image_path, null);
       assert.equal(r.image_alt, null);
-      assert.equal(r.cta_label, null);
       assert.equal(r.cta_url, null);
       assert.ok(!r.title.includes("Secret"));
     }
@@ -70,12 +91,13 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
     assert.ok((await signing(1)).error);
     await complete(f);
     rows = await cards(f);
-    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, null]);
+    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, 5, null]);
     assert.equal(rows[0].state, "previous");
     assert.equal(rows[0].sponsor, "Partner 0", "History keeps original content");
     assert.equal(rows[1].state, "open");
     assert.equal(rows[1].is_current, true);
     assert.equal(rows[1].sponsor, "Partner 1");
+    assert.equal(rows[1].cta_label, "A public surprise awaits 👀", "Lifecycle updates preserve teaser edits");
     assert.ok(checked(await signing(1), "Next reveal image").signedUrl);
 
     // Use the importer's boundary rule: future deadlines move, locked ones stay.
@@ -89,7 +111,7 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
 
     checked(await f.admin.from("homepage_banners").update({ content_ready: false }).eq("id", ids[4]), "Withdraw weekly content");
     rows = await cards(f);
-    assert.equal(rows.find((r) => r.is_current).title, "The Weekly Smash");
+    assert.equal(rows.find((r) => r.is_current).title, "Gameweek 5 competition");
     assert.equal(rows.find((r) => r.is_current).sponsor, null);
     assert.ok((await signing(4)).error);
     checked(await f.admin.from("homepage_banners").update({ publish_at: minutes(-1) }).eq("id", ids[5]), "Reveal season independently");
@@ -108,19 +130,22 @@ test("Weekly Smash follows transfer availability and successful refresh, with ex
   }
 });
 
-test("no content rows are required, completed history is retained, and no gameweeks still yields season", async () => {
-  const f = await createFixture({ gameweeks: 5, competitions: true });
+test("all fourteen default teasers work without banner rows, with retained history and a season-only fallback", async () => {
+  const f = await createFixture({ gameweeks: 14, competitions: true, seasonCompetitions: true });
   try {
     let rows = await cards(f);
-    assert.equal(rows.length, 4);
-    assert.equal(rows[0].title, "The Weekly Smash");
-    for (const week of f.weeks) {
+    assert.equal(rows.length, 15);
+    const defaults = rows.slice(0, -1).map((r) => r.cta_label);
+    assert.equal(new Set(defaults).size, 14);
+    assert.ok(defaults.every((value) => typeof value === "string" && value.trim().length));
+    assert.equal(rows[0].title, "Gameweek 1 competition");
+    for (const week of f.weeks.slice(0, 5)) {
       checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(-10), unlock_at: minutes(-1) }).eq("id", week.id), "Pass test deadline");
       await complete(f, week);
     }
     rows = await cards(f);
-    assert.equal(rows.length, 6, "All history stays browsable plus season");
-    assert.ok(rows.slice(0, -1).every((r) => r.state === "previous" && !r.is_current));
+    assert.equal(rows.length, 15, "All historical and future cards stay browsable plus season");
+    assert.ok(rows.slice(0, 5).every((r) => r.state === "previous" && !r.is_current));
     assert.equal(checked(await f.admin.from("homepage_banners").select("*"), "No generated content rows").length, 0);
     checked(await f.admin.from("fantasy_gameweeks").delete().in("id", f.weeks.map((w) => w.id)), "Remove this fixture's rounds");
     rows = await cards(f);
@@ -131,7 +156,7 @@ test("no content rows are required, completed history is retained, and no gamewe
 });
 
 test("overlapping pending gameweeks keep the next competition and its artwork locked until both refreshes complete", async () => {
-  const f = await createFixture({ gameweeks: 3, competitions: true });
+  const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const id = randomUUID();
   const artwork = `${f.id}/next-competition.png`;
   const nextId = `gameweek:${f.weeks[2].id}`;
@@ -171,7 +196,7 @@ test("overlapping pending gameweeks keep the next competition and its artwork lo
 });
 
 test("weekly readiness overrides legacy publication dates while season uses its own publication controls", async () => {
-  const f = await createFixture({ competitions: true });
+  const f = await createFixture({ competitions: true, seasonCompetitions: true });
   const weeklyId = randomUUID();
   const seasonId = randomUUID();
   try {
@@ -204,6 +229,85 @@ test("weekly readiness overrides legacy publication dates while season uses its 
     assert.deepEqual(checked(await f.user.from("homepage_banners").select("*").eq("id", seasonId), "Season publication guards direct reads"), []);
   } finally {
     checked(await f.admin.from("homepage_banners").delete().in("id", [weeklyId, seasonId]), "Remove independent content controls");
+    await cleanupFixture(f);
+  }
+});
+
+test("imports create editable banners whose schedule controls Home, detail and artwork without changing Fantasy locks", async () => {
+  const f = await createFixture({ gameweeks: 3, competitions: true, bannerDefaults: true });
+  const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+  const artwork = `${f.id}/scheduled-prize.png`;
+  const target = f.weeks[2];
+  const readBanner = async () => checked(await f.admin.from("homepage_banners").select("*")
+    .eq("gameweek_id", target.id).single(), "Read scheduled banner");
+  try {
+    const banners = checked(await f.admin.from("homepage_banners").select("gameweek_id,teaser,prize_reveal_at,content_ready"), "Read generated banners");
+    assert.equal(banners.length, 3);
+    for (const [i, week] of f.weeks.entries()) {
+      const b = banners.find((b) => b.gameweek_id === week.id);
+      assert.ok(b.teaser);
+      assert.equal(b.content_ready, false);
+      if (!i) assert.equal(b.prize_reveal_at, null);
+      else {
+        const dateParts = (value) => Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+        }).formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+        const previous = dateParts(f.weeks[i - 1].last_match_ends_at);
+        const nextDay = new Date(Date.UTC(Number(previous.year), Number(previous.month) - 1, Number(previous.day) + 1)).toISOString().slice(0, 10);
+        const reveal = dateParts(b.prize_reveal_at);
+        assert.equal(`${reveal.year}-${reveal.month}-${reveal.day}`, nextDay);
+        assert.equal(`${reveal.hour}:${reveal.minute}`, "18:00");
+      }
+    }
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[1].id), "Previous Fantasy round has no prize");
+    assert.equal(Date.parse((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).prize_reveal_at),
+      Date.parse(banners.find((b) => b.gameweek_id === target.id).prize_reveal_at), "Default uses the preceding Fantasy round even when it has no prize");
+    checked(await f.admin.storage.from("announcement-artwork").upload(artwork, png, { contentType: "image/png" }), "Upload scheduled prize");
+    const revealAt = minutes(45);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true, prize_reveal_at: revealAt,
+      prize_title: "Scheduled secret", teaser: "Schedule teaser", image_path: artwork, image_alt: "Scheduled artwork" })
+      .eq("gameweek_id", target.id), "Schedule actual prize reveal");
+    const banner = await readBanner();
+    const hidden = async () => {
+      const card = (await cards(f)).find((r) => r.id === `gameweek:${target.id}`);
+      assert.equal(card.state, "upcoming");
+      assert.equal(card.description, null);
+      assert.equal(card.image_path, null);
+      for (const client of [anon, f.user]) {
+        const schedule = checked(await client.rpc("get_public_gameweek_banner_schedule"), "Public date without prize");
+        const item = schedule.find((r) => r.gameweek_id === target.id);
+        assert.equal(item.prize_revealed, false);
+        assert.deepEqual(Object.keys(item).sort(), ["gameweek_id", "prize_reveal_at", "prize_revealed"]);
+        assert.deepEqual(checked(await client.from("homepage_banners").select("prize_title,prize_reveal_at").eq("id", banner.id), "Scheduled row private"), []);
+        assert.equal(checked(await client.rpc("get_public_competition", { p_gameweek_id: target.id }), "Scheduled detail")[0].content_available, false);
+        assert.ok((await client.storage.from("announcement-artwork").createSignedUrl(artwork, 60)).error);
+        assert.ok((await client.from("homepage_banners").update({ prize_reveal_at: minutes(-1) }).eq("id", banner.id)).error);
+      }
+    };
+    await hidden();
+    // Ordinary schedule refreshes must preserve custom dates/copy and IDs.
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(700) }).eq("id", target.id), "Move future deadline");
+    assert.deepEqual(await readBanner(), banner);
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: minutes(-1) }).eq("id", banner.id), "Reach custom reveal before normal opening");
+    assert.equal((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).description, "Scheduled secret");
+    for (const client of [anon, f.user]) {
+      const detail = checked(await client.rpc("get_public_competition", { p_gameweek_id: target.id }), "Revealed detail")[0];
+      assert.equal(detail.content_available, true);
+      assert.equal(detail.state, "open");
+      assert.equal(detail.prize_title, "Scheduled secret");
+      assert.ok(checked(await client.storage.from("announcement-artwork").createSignedUrl(artwork, 60), "Revealed artwork").signedUrl);
+    }
+    assert.equal(checked(await f.user.rpc("homepage_gameweek_states"), "Fantasy state unchanged").find((r) => r.gameweek_id === target.id).state, "upcoming");
+    checked(await f.admin.from("homepage_banners").update({ content_ready: false }).eq("id", banner.id), "Readiness still protects prize");
+    assert.equal((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).description, null);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true, prize_reveal_at: revealAt }).eq("id", banner.id), "Postpone previously visible prize");
+    await hidden();
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: null }).eq("id", banner.id), "Restore automatic lifecycle");
+    await hidden();
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Disable feature");
+    assert.deepEqual(checked(await anon.rpc("get_public_gameweek_banner_schedule"), "Schedule launch gate"), []);
+  } finally {
+    checked(await f.admin.storage.from("announcement-artwork").remove([artwork]), "Remove scheduled artwork");
     await cleanupFixture(f);
   }
 });

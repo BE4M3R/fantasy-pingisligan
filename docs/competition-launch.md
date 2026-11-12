@@ -1,120 +1,112 @@
 # Competition launch and rollback
 
-Weekly Smash and Season Competition are **unpublished by default**, including for
-signed-in managers. Merging this feature into `develop` or promoting it to `main`
-does not launch it. Rule approval and per-banner publication are separate controls.
+Competitions are unpublished by default. Merging code does not launch prizes.
+All enable switches live in **Supabase Studio → Table Editor →
+`competition_publication`**. Edit the `enabled` cell on the required row:
 
-## One shared publication switch
+| `id` | `name` | `enabled` |
+| --- | --- | --- |
+| `global` | All competitions | Master switch; false hides every prize competition |
+| `season` | Season competition | Independent season prize opt-in; false for this season |
+| `gameweek:<uuid>` | Gameweek 1 competition, Gameweek 2 competition, … | Opt each round in separately |
 
-Forward migration `20261101200000_gate_competition_publication.sql` creates one
-`competition_publication` row (`id = true`, `enabled = false`). Ordinary anonymous
-and authenticated API users have SELECT access to this harmless boolean only;
-only a trusted operator/service role can update it. Missing or failed reads are
-handled as disabled. There is no browser, header, cookie, hostname or public env
-variable that can enable the feature, and no privileged client is added to the app.
+The `gameweek_id` foreign key identifies the real Fantasy round, so repeated
+numbers in different seasons cannot share a switch. Imported rounds automatically
+receive disabled rows. Schedule refreshes update their names without changing
+`enabled`. Do not add columns or recreate these rows manually. Deleting a Fantasy
+round removes only its linked publication row.
 
-When disabled:
+For this weekly-only season, leave **global enabled**, **season disabled**, and
+enable only the selected gameweek rows. Season discovery, page, terms and artwork
+remain hidden. Ordinary Fantasy Season/Gameweek standings stay available.
 
-- Public homepage promotions and the signed-in carousel return no cards or links.
-  There is no competition loading placeholder or fallback discovery link.
-- Signed-in Leagues keeps Season/Gameweek standings, search, pagination, round
-  arrows and team previews. Only its links to competition pages are hidden.
-  These ordinary Fantasy standings do not require competition publication.
-- Numeric and UUID competition URLs and the season page return 404 with noindex
-  metadata. Competition APIs return 404; the signed-in weekly league API requires
-  authentication independently of this switch. Competition routes are disallowed
-  in robots.txt while disabled. They are never added to the sitemap, regardless
-  of this flag.
-- Restrictive RLS ANDs the switch with existing banner/rules visibility policies.
-  Even approved rules and ready/published prizes cannot be read by visitors or
-  ordinary managers. Prize detail/discovery/route RPCs return no rows. Anonymous
-  lifecycle reads return no rows, while signed-in managers retain round metadata.
-  The public competition standings RPC refuses requests with SQLSTATE 42501; the
-  authenticated Fantasy Gameweek leaderboard stays available.
-- Banner artwork cannot be newly signed or downloaded through the existing
-  banner-reference policy. Existing announcement publication/dismissal behavior,
-  global Fantasy scoring, squads, snapshots, transfers and private leagues remain.
+## Enabling does not control the clock
 
-Unapproved rule versions remain hidden when the switch is on too. Future/unready
-weekly prizes and independently unpublished season content retain their existing
-RLS and artwork restrictions. This switch does not approve terms or confirm a winner.
+A gameweek row opts a round into prize competition. Existing `lock_at`, fixture
+times, `current_transfer_lock()` and successful `data_refreshed_at` still control
+entry closing, live play, pending results and completion. Selecting a future round
+shows only a generic teaser, never its unrevealed prize. Passing the scheduled
+unlock time without successful scoring does not reveal the next round.
+History and the next two selected future teasers remain available as before.
 
-## Enable or disable competitions
+Prize preparation still uses `homepage_banners` (`content_ready` for gameweeks;
+independent publication dates for season). Shared `competition_rules` documents
+retain their separate approval/versioning. Enable switches are centralized;
+prize content and approved terms retain their existing tables and protections.
 
-Open Supabase Studio for the intended project, then **Table Editor →
-`competition_publication`**. Its single row has `id = true`. Change `enabled` to
-`true` to publish the competition feature, or `false` to hide it. This is a
-database setting, not a Vercel environment variable. Each environment has its own
-row: changing local does not change staging or production.
+## Disclosure and authorization
 
-First choose prize Gameweeks in `fantasy_gameweeks` using
-`weekly_smash_enabled = true`. Existing and new rounds default to false; keep
-unconfirmed past/upcoming rounds excluded. Excluded weeks have no prize page,
-banner, promotion or competition link, while their Fantasy standings remain.
+`competitions_enabled()` reads the `global` row. `season_competition_enabled()`
+requires both `global` and `season`. Gameweek routes, standings, promotions,
+carousel content, direct banner/rule reads and artwork require global plus the
+matching gameweek row, as well as their existing reveal/readiness gates.
+The shared Rules page uses `get_current_competition_rules()` separately: approval
+publishes the latest policy without requiring a prize row. Global must be enabled;
+Season policies also require the season switch. Draft rules remain private.
+Missing rows and failed configuration reads disable access. Anonymous and ordinary
+authenticated users can read non-sensitive switches but cannot edit them. There is
+no public environment variable, cookie, hostname bypass or privileged app client.
 
-Setting the global switch to true enables selected competition pages, cards and
-links for everyone in that environment. Banner readiness/publication and approved-rule restrictions
-still apply. Follow the separately authorized staging/production launch steps
-below. Leave it false when only enabling ordinary signed-in Gameweek standings.
+When global is off, competition pages return 404/noindex and competition APIs
+return 404. Competition links, public promotions and carousel placeholders are
+absent. Robots disallows competition routes. With only season off, its route is
+blocked separately. Competitions are never included in the sitemap.
+Authenticated Fantasy standings, squads, snapshots, transfers, chips and private
+leagues remain independent. No winner or announcement is automatically published.
 
 ## Local development and verification
 
-Use local Supabase only. After applying pending migrations locally, a developer can
-explicitly enable the existing local preview from local Studio's SQL editor:
+Apply migrations only to local Supabase during development. Each environment has
+its own rows; editing local never changes staging or production. A local operator
+can use Studio (normally `http://127.0.0.1:54323`) or its SQL editor:
 
 ```sql
-update public.competition_publication set enabled = true where id = true;
+update public.competition_publication set enabled = true where id = 'global';
+update public.competition_publication set enabled = false where id = 'season';
+-- Choose the row by its linked Fantasy gameweek UUID, not just its number.
+update public.competition_publication set enabled = true
+where gameweek_id = '<gameweek-uuid>'::uuid;
 ```
 
-Run this only against the intended local stack (normally Studio at
-`http://127.0.0.1:54323`), never as an inherited hosted command. The populated local
-demo has preview enabled intentionally. New databases and hosted migration runs
-start disabled; local data and this opt-in are not copied through Git deployment.
+Forward migration `20261110223000_centralize_gameweek_competitions.sql` preserves
+existing global, season and per-gameweek choices while moving them into rows. It
+replaces the earlier boolean-keyed singleton and removes the old per-round flag.
+Generic titles become `Gameweek <number> competition`. Editable prize copy and
+rule drafts are renamed. Approved terms and their historical bindings remain
+immutable; where necessary an unapproved renamed draft is prepared for review.
+Deployed migration files remain unchanged as schema history.
 
-The normal local pages retain their approved historical rule references. Current
-Git-authored review drafts are unapproved and cannot be bound to public pages.
-The schema guard is intentional: do not weaken it to preview private text.
-
-`npm run check:all` uses its own disposable database. Its migration checks verify
-the default is off; ordinary Fantasy fixtures keep it off. Competition-specific
-fixtures explicitly opt in and restore it to false during cleanup. Dedicated
-functional/browser checks use ready prizes and draft/approved rules to verify
-closed routes, metadata, APIs, direct reads, Storage and forbidden flag updates,
-then test an explicit local enable/disable cycle. The normal populated demo is
-never reset by this suite.
+`npm run check:all` uses a disposable database to test populated upgrades, settings
+and content preservation, default-off new rows, schedule upserts, RLS, direct
+Storage access, routes, search, unchanged scoring/lifecycle and browser navigation.
+It never resets the populated local stack. Test fixtures explicitly opt their
+required rows in and restore the global/season switches during cleanup.
 
 ## Staging and production release
 
-1. Keep the flag off. Human review/merge of the feature PR into `develop` lets the
-   existing GitHub Actions workflow deploy migrations to staging. Codex must not
-   merge, dispatch hosted writes, or change hosted configuration without approval.
-2. Complete legal and sponsor review using the [rule review guide](competition-rules/README.md).
-   Create shared draft rows from the Git-reviewed Markdown in staging; prepare
-   each banner's prize/sponsor/artwork/conditions without publishing the feature.
-3. Only with explicit authorization, an operator enables the flag in staging and
-   verifies public/signed-in navigation, standings, rules and hidden content. This
-   is an intentional staging publication, not a preview bypass. Disable again if
-   the staging feature must remain inaccessible after testing.
+1. Human review/merge into `develop` deploys pending migrations to staging through
+   the existing GitHub Actions workflow. Schema deployment preserves existing
+   choices; new databases start disabled. No migration publishes new prizes.
+2. Complete sponsor and [rule review](competition-rules/README.md); prepare prizes
+   and unapproved documents separately from enable switches.
+3. Only with explicit staging authorization, enable the required rows and verify
+   public/signed-in pages, timing, standings and hidden content. Withdraw again
+   if the staging competitions should remain inaccessible afterward.
 4. Promote the exact tested `develop` commit through a human-merged `develop` →
-   `main` PR. Production migrations start with the feature off. Prepare/review
-   production content separately; local/staging content is not automatically copied.
-5. At the separately approved launch, an authorized operator sets `enabled = true`
-   in the intended environment after checking terms, sponsor arrangements, prizes
-   and publication dates. No Vercel variable is required for this gate. Existing
-   per-banner and approved-rule policies still apply.
+   `main` PR. Production content is prepared separately; local/staging content is
+   never copied automatically. Codex never merges or dispatches hosted writes
+   without authorization.
+5. At the separately authorized launch, enable global and the selected gameweek
+   rows. Leave season disabled for this season. No Vercel variable is required.
 
-No hosted writes or launch are performed by merely preparing this branch. Hosted
-schema changes continue exclusively through the existing migration workflow.
+## Withdrawal
 
-## Disable or postpone launch
+Set `enabled = false` on global to hide everything, on season to hide its prize,
+or on a gameweek row to withdraw only that round. Saved prize content, standings
+and bound terms are preserved. Use per-banner readiness/publication to withdraw
+content while retaining a generic opted-in competition.
 
-An authorized operator sets `enabled = false` on the same row. App reads use
-request memoization without a persistent publication cache; new requests fail
-closed. Keep per-banner publication controls for withdrawing individual prizes.
-
-Previously downloaded public content cannot be recalled. Private artwork URLs
-already issued before disabling can remain usable for up to their five-minute
-expiry. Previously rendered browser history can retain an old view; new API/page
-requests are blocked. Use unique competition artwork paths, never reuse an object
-already exposed by a published announcement. These are limits of prior disclosure,
-not an exception permitting unpublished content on a fresh deployment.
+New reads take effect without a persistent publication cache. Already rendered
+browser history or downloaded content cannot be recalled. Previously signed
+artwork URLs may remain valid for their five-minute lifetime. Use unique artwork
+paths rather than sharing objects with separately published announcements.

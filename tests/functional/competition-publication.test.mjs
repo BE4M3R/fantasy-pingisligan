@@ -14,7 +14,7 @@ test("unlaunched competitions deny direct table, RPC and artwork access to visit
     checked(await f.admin.from("competition_rules").insert({ id: ruleId, kind: "gameweek", version: 1,
       title: "Private draft", body: "DRAFT_SECRET" }), "Prepare private rules");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, title: "UNLAUNCHED_SECRET", cta_label: "Secret prize",
+      { gameweek_id: f.weeks[0].id, content_ready: true, title: "UNLAUNCHED_SECRET", prize_title: "Secret prize",
         prize_image_path: path, prize_image_alt: "Secret artwork", prize_product_url: "https://example.invalid/secret" },
       { id: seasonId, kind: "season", published: true, title: "UNLAUNCHED_SEASON" },
     ], { defaultToNull: false }), "Prepare ready unpublished competitions");
@@ -31,7 +31,7 @@ test("unlaunched competitions deny direct table, RPC and artwork access to visit
       assert.equal((await client.rpc("get_competition_standings", { p_gameweek_id: f.weeks[0].id })).error?.code, "42501");
       assert.ok((await client.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
       assert.ok((await client.storage.from("announcement-artwork").download(path)).error);
-      assert.ok((await client.from("competition_publication").update({ enabled: true }).eq("id", true)).error);
+      assert.ok((await client.from("competition_publication").update({ enabled: true }).eq("id", "global")).error);
     }
     assert.deepEqual(checked(await f.user.rpc("get_homepage_competitions"), "No carousel cards"), []);
     assert.deepEqual(checked(await anon.rpc("homepage_gameweek_states"), "Anonymous lifecycle stays hidden"), []);
@@ -55,16 +55,74 @@ test("unlaunched competitions deny direct table, RPC and artwork access to visit
     assert.equal(checked(await weekly({ p_search: "FUNCTIONAL" }), "Weekly search").total, 1);
     assert.deepEqual(checked(await weekly({ p_offset: 1, p_limit: 1 }), "Weekly pagination").rows, []);
     assert.equal((await anon.rpc("get_competition_standings", { p_gameweek_id: f.weeks[0].id })).error?.code, "42501");
-    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", true), "Explicit local launch");
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "global"), "Explicit local launch");
     assert.equal(checked(await anon.rpc("get_public_competition", { p_gameweek_id: f.weeks[0].id }), "Ready preview")[0].title, "UNLAUNCHED_SECRET");
     assert.deepEqual(checked(await anon.from("competition_rules").select("id, body"), "Draft still hidden after launch"), []);
     assert.ok(checked(await anon.storage.from("announcement-artwork").createSignedUrl(path, 60), "Explicitly launched artwork").signedUrl);
-    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Disable feature again");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Disable feature again");
     assert.deepEqual(checked(await anon.rpc("get_public_competition", { p_gameweek_id: f.weeks[0].id }), "Immediate withdrawal"), []);
   } finally {
     checked(await f.admin.storage.from("announcement-artwork").remove([path]), "Remove private art");
     checked(await f.admin.from("homepage_banners").delete().eq("id", seasonId), "Remove season");
     checked(await f.admin.from("competition_rules").delete().eq("id", ruleId), "Remove private draft");
+    await cleanupFixture(f);
+  }
+});
+
+test("season opt-in hides all season disclosures independently and preserves content across toggle cycles", async () => {
+  const f = await createFixture({ competitions: true });
+  const seasonId = randomUUID();
+  const path = `${f.id}/season-prize.png`;
+  const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+  try {
+    checked(await f.admin.from("homepage_banners").insert([
+      { gameweek_id: f.weeks[0].id, content_ready: true, title: "Weekly prize" },
+      { id: seasonId, kind: "season", published: true, title: "Season prize", prize_image_path: path,
+        prize_image_alt: "Season artwork", prize_product_url: "https://example.com/season" },
+    ], { defaultToNull: false }), "Prepare independent competitions");
+    checked(await f.admin.storage.from("announcement-artwork").upload(path,
+      Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64"), { contentType: "image/png" }), "Upload season art");
+    const assertHidden = async () => {
+      for (const client of [anon, f.user]) {
+        assert.equal(checked(await client.rpc("season_competition_enabled"), "Season disabled"), false);
+        assert.deepEqual(checked(await client.rpc("get_public_competition"), "No season page"), []);
+        assert.deepEqual(checked(await client.from("homepage_banners").select("title, prize_product_url").eq("id", seasonId), "No season content"), []);
+        assert.equal((await client.rpc("get_competition_standings")).error?.code, "42501");
+        assert.ok((await client.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
+        assert.ok((await client.storage.from("announcement-artwork").download(path)).error);
+        assert.ok(checked(await client.rpc("get_public_competition_promotions"), "Weekly-only promotions")
+          .every((p) => p.kind === "gameweek"));
+        assert.equal(checked(await client.rpc("get_public_competition", { p_gameweek_id: f.weeks[0].id }), "Weekly prize stays available")[0].title, "Weekly prize");
+      }
+      assert.deepEqual(checked(await f.user.rpc("get_homepage_competitions"), "Weekly-only carousel").map((c) => c.kind), ["gameweek"]);
+      assert.ok(!((await f.user.rpc("get_global_leaderboard")).error), "Ordinary season standings stay available");
+    };
+    await assertHidden();
+    for (const client of [anon, f.user])
+      assert.ok((await client.from("competition_publication").update({ enabled: true }).eq("id", "season")).error);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "season"), "Opt season in");
+      for (const client of [anon, f.user]) {
+        assert.equal(checked(await client.rpc("season_competition_enabled"), "Season enabled"), true);
+        const season = checked(await client.rpc("get_public_competition"), "Season restored")[0];
+        assert.equal(season.title, "Season prize");
+        assert.equal(season.prize_product_url, "https://example.com/season");
+        assert.ok(checked(await client.rpc("get_competition_standings"), "Season prize standings").visible);
+        assert.ok(checked(await client.storage.from("announcement-artwork").createSignedUrl(path, 60), "Season art restored").signedUrl);
+        assert.deepEqual(checked(await client.rpc("get_public_competition_promotions"), "Both promotions").map((p) => p.kind), ["gameweek", "season"]);
+      }
+      assert.equal(checked(await f.user.rpc("get_homepage_competitions"), "Season carousel restored").at(-1).kind, "season");
+      checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "season"), "Withdraw season");
+      await assertHidden();
+    }
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "season"), "Keep season opted in");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Shared switch still takes precedence");
+    assert.equal(checked(await anon.rpc("season_competition_enabled"), "Shared gate"), false);
+    assert.deepEqual(checked(await anon.rpc("get_public_competition"), "Shared gate hides season"), []);
+    assert.deepEqual(checked(await f.user.rpc("get_homepage_competitions"), "Shared gate hides all cards"), []);
+  } finally {
+    checked(await f.admin.storage.from("announcement-artwork").remove([path]), "Remove season art");
+    checked(await f.admin.from("homepage_banners").delete().eq("id", seasonId), "Remove season content");
     await cleanupFixture(f);
   }
 });

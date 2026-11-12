@@ -44,10 +44,11 @@ export function checked(result, context) {
 
 const minutes = (amount) => new Date(Date.now() + amount * 60000).toISOString();
 
-export async function createFixture({ gameweeks = 1, competitions = false, prizeGameweeks = competitions } = {}) {
+export async function createFixture({ gameweeks = 1, competitions = false, seasonCompetitions = false, prizeGameweeks = competitions, bannerDefaults = false } = {}) {
   const { admin, anonKey, url } = await localClients();
   await assertCleanDatabase(admin);
-  checked(await admin.from("competition_publication").update({ enabled: competitions }).eq("id", true), "Set disposable competition publication");
+  checked(await admin.from("competition_publication").update({ enabled: competitions }).eq("id", "global"), "Set disposable competition publication");
+  checked(await admin.from("competition_publication").update({ enabled: seasonCompetitions }).eq("id", "season"), "Set disposable season publication");
   const id = randomUUID();
   const email = `functional-${id}@example.invalid`;
   const roundBase = randomInt(100000000, 1900000000);
@@ -60,7 +61,7 @@ export async function createFixture({ gameweeks = 1, competitions = false, prize
   const weeks = Array.from({ length: gameweeks }, (_, index) => ({
     id: randomUUID(), stupa_round_id: -(roundBase + 100 + index),
     stupa_stage_id: -(roundBase + 500), name: `[TEST ${id}] GW${index + 1}`,
-    round_order: index + 1, weekly_smash_enabled: prizeGameweeks,
+    round_order: index + 1,
     first_match_starts_at: minutes(120 + index * 180),
     last_match_ends_at: minutes(150 + index * 180),
     lock_at: minutes(60 + index * 180), unlock_at: minutes(180 + index * 180),
@@ -70,6 +71,12 @@ export async function createFixture({ gameweeks = 1, competitions = false, prize
     checked(await admin.from("clubs").insert(clubs), "Create test clubs");
     checked(await admin.from("players").insert(players), "Create test players");
     checked(await admin.from("fantasy_gameweeks").insert(weeks), "Create test gameweeks");
+    checked(await admin.from("competition_publication").update({ enabled: prizeGameweeks })
+      .in("gameweek_id", weeks.map((week) => week.id)), "Select disposable prize rounds");
+    // Most journeys prepare their own editorial rows (including missing-row
+    // fallbacks). Keep the import defaults for the dedicated schedule journey.
+    if (!bannerDefaults) checked(await admin.from("homepage_banners").delete()
+      .in("gameweek_id", weeks.map((week) => week.id)), "Remove default fixture banners before editorial setup");
     const user = checked(await admin.auth.admin.createUser({ email, password, email_confirm: true }), "Create test user");
     fixture.userId = user.user.id;
     checked(await admin.from("fantasy_teams").insert({ id: fixture.teamId, user_id: fixture.userId, name: `Functional ${id}`,
@@ -94,7 +101,7 @@ export async function cleanupFixture(fixture) {
   checked(await admin.from("players").delete().in("id", players.map((player) => player.id)), "Remove test players");
   checked(await admin.from("clubs").delete().in("id", clubs.map((club) => club.id)), "Remove test clubs");
   if (userId) checked(await admin.auth.admin.deleteUser(userId), "Remove test user");
-  checked(await admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Restore unpublished feature");
+  checked(await admin.from("competition_publication").update({ enabled: false }).in("id", ["global", "season"]), "Restore unpublished feature");
 }
 
 export function squad(players, { captain = 0 } = {}) {

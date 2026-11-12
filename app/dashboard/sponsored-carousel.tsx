@@ -2,24 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { defaultHomepageSlideIndex, type HomepageSlide } from "@/lib/homepage-banners";
+import type { HomepageSlide } from "@/lib/homepage-banners";
 import { safeBannerUrl } from "@/lib/announcements";
 
 function slideName(slide: HomepageSlide) {
   return slide.gameweekLabel ? `${slide.title} ${slide.gameweekLabel}` : slide.title;
 }
 
-function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolean; linked: boolean }) {
+function Sponsor({ slide, first }: { slide: HomepageSlide; first: boolean }) {
   const [failed, setFailed] = useState(false);
   const upcoming = slide.state === "upcoming";
-  const locked = upcoming && slide.kind === "gameweek";
   const showLogo = Boolean(!upcoming && slide.imageUrl && !failed);
-  const headline = upcoming ? null : slide.cta_label ?? (linked && (slide.sponsor || slide.description || slide.imageUrl) ? "Discover prize" : null);
-  const description = upcoming ? null : slide.description;
-  const status = upcoming ? (locked ? "Locked · Coming soon" : "Coming soon")
-    : slide.state === "previous" ? "Awaiting winner confirmation"
-      : slide.state === "refreshing" ? "Updating results"
-        : slide.state === "live" ? "Entries closed" : null;
+  if (slide.winner) return <div className="min-w-0 space-y-1">
+    <p className="break-words text-lg font-black leading-snug text-[var(--pf-logo-gold)]">{slide.winner.team_name}</p>
+    {slide.prize_title ? <p className="break-words text-sm leading-snug text-[var(--pf-text)]">Won {slide.prize_title}</p> : null}
+  </div>;
   return <div className="sponsored-brand flex min-w-0 items-center gap-3">
     {showLogo ? (
       // Reuse the existing private artwork field for a compact, uncropped sponsor logo.
@@ -30,21 +27,16 @@ function Sponsor({ slide, first, linked }: { slide: HomepageSlide; first: boolea
       }} className="max-h-8 w-auto max-w-full object-contain" /></span>
     ) : null}
     <div className="min-w-0 flex-1 space-y-0.5 text-sm font-bold leading-4 text-[var(--pf-text)]">
-      {headline ? <p className="sponsored-discover line-clamp-1 break-words">{headline}</p> : null}
-      {description ? <p className="line-clamp-1 break-words">{description}</p> : null}
-      {status ? <p className="flex items-center gap-1.5 text-xs">
-        {locked ? <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5 shrink-0"><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5 7V5a3 3 0 0 1 6 0v2" /></svg> : null}
-        <span className="line-clamp-1">{status}</span>
-      </p> : null}
-      {!headline && !description && !status ? <p className="line-clamp-1 break-words">Competition details coming soon</p> : null}
+      <p className="break-words">{upcoming
+        ? slide.teaser ?? (slide.kind === "gameweek" ? "Something big is coming... 👀" : "Prize details coming soon")
+        : slide.prize_title ?? "Competition details coming soon"}</p>
     </div>
   </div>;
 }
 
-export function SponsoredCarousel({ slides }: { slides: HomepageSlide[] }) {
-  const defaultIndex = defaultHomepageSlideIndex(slides);
-  const [selected, setSelected] = useState(() => defaultHomepageSlideIndex(slides));
-  const initialSelection = useRef(defaultHomepageSlideIndex(slides));
+export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSlide[]; initialIndex: number }) {
+  const [selected, setSelected] = useState(initialIndex);
+  const initialSelection = useRef(initialIndex);
   const track = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
   const trackId = useId();
@@ -117,20 +109,35 @@ export function SponsoredCarousel({ slides }: { slides: HomepageSlide[] }) {
             const locked = slide.state === "upcoming" && slide.kind === "gameweek";
             const destination = locked ? undefined : safeBannerUrl(slide.cta_url);
             const season = slide.kind === "season";
+            const status = slide.winner ? "Winner announced"
+              : slide.state === "upcoming" ? "Coming soon"
+                : slide.state === "previous" ? "Winner pending" : "Ongoing";
             const content = <>
-              <div className={`flex min-w-0 flex-col gap-2 ${destination ? "pr-10" : ""}`}>
-                <div className="flex items-start gap-2.5">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-1 h-5 w-5 shrink-0 text-[var(--pf-logo-gold)]">
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[var(--pf-logo-gold)] sm:h-5 sm:w-5">
                     <path d={season ? "m3 6 5 4 4-6 4 6 5-4-2 12H5L3 6Zm3 15h12" : "M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4M12 13v5m-4 3h8m-6-3h4l1 3H9l1-3Z"} />
                   </svg>
-                  <h2 className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-xl font-bold leading-snug tracking-tight text-[var(--pf-text)] sm:text-2xl">
-                    <span>{slide.title}</span>
+                  <h2 className="flex min-w-0 flex-1 items-center gap-x-2 text-sm font-bold leading-snug tracking-tight text-[var(--pf-text)] sm:text-xl">
+                    <span className="truncate" title={slide.title}>{slide.title}</span>
                     {slide.gameweekLabel ? <> <span className="shrink-0 whitespace-nowrap rounded-full border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-brand-blue-hover)]/10 px-2 text-[10px] font-bold leading-5 tracking-wide text-[var(--pf-text)]">{slide.gameweekLabel}</span></> : null}
                   </h2>
+                  <span className="sponsored-status shrink-0 whitespace-nowrap rounded-md border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-navy)]/80 px-1.5 py-0.5 text-[10px] font-bold leading-4 text-[var(--pf-text)] sm:px-2 sm:text-xs">
+                    {status}
+                  </span>
                 </div>
-                <Sponsor key={slide.imageUrl} slide={slide} first={index === defaultIndex} linked={Boolean(destination)} />
+                <div className={destination ? "pr-10" : undefined}>
+                  <Sponsor key={slide.imageUrl} slide={slide} first={index === initialIndex} />
+                </div>
+                {locked && slide.prize_reveal_at && slide.prizeRevealLabel ? <p className="flex items-start gap-1.5 text-xs leading-5 text-[var(--pf-text-muted)]">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 h-4 w-4 shrink-0">
+                    <rect x="3" y="4" width="18" height="17" rx="2" />
+                    <path d="M8 2v4M16 2v4M3 9h18" />
+                  </svg>
+                  <span>Prize reveal: <time dateTime={slide.prize_reveal_at}>{slide.prizeRevealLabel}</time></span>
+                </p> : null}
               </div>
-              {destination ? <span className="sponsored-hint absolute right-4 top-1/2 flex h-11 w-8 -translate-y-1/2 items-center justify-center text-[var(--pf-logo-gold)] sm:right-6">
+              {destination ? <span className="sponsored-hint absolute right-4 top-[calc(50%+1rem)] flex h-11 w-8 -translate-y-1/2 items-center justify-center text-[var(--pf-logo-gold)] sm:right-6">
                 <span className="sr-only">View competition</span>
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="sponsored-hint-arrow h-8 w-8">
                   <path d="m9 5 7 7-7 7" />

@@ -51,6 +51,10 @@ test("standings beyond PostgREST's default row cap retain every team and absolut
   assert.equal(initial.at(-1).rank, 1203);
   assert.equal(loader.initialGlobalRows(result.data, "user-2").length, 10);
   assert.equal(loader.initialGlobalRows(result.data, "absent").length, 10);
+  const compact = loader.initialGlobalRows(result.data, "user-1202", 5);
+  assert.equal(compact.length, 6);
+  assert.deepEqual(Array.from(compact, (row) => row.rank), [1, 2, 3, 4, 5, 1203]);
+  assert.equal(loader.initialGlobalRows(result.data, "user-2", 5).length, 5, "Own row is never duplicated in the top five");
 });
 
 test("a failed later batch never becomes a successful partial leaderboard", async () => {

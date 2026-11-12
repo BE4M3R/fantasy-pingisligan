@@ -1,19 +1,20 @@
 # Shared competition rules: publication review
 
-The two Markdown files in this directory are the agreed product rules, prepared
+The two Markdown files in this directory are product rule drafts, prepared
 as **unapproved drafts**. They are not evidence of legal approval. Copy only their
 Markdown body into `competition_rules.body`; do not copy this review document.
 
 | Ruleset | Body file | Local draft created |
 | --- | --- | --- |
-| Weekly Smash (`kind = gameweek`) | [weekly-smash.md](weekly-smash.md) | Version 6 |
+| Gameweek competition (`kind = gameweek`) | [gameweek-competition.md](gameweek-competition.md) | Version 6 |
 | Season Competition (`kind = season`) | [season-competition.md](season-competition.md) | Version 3 |
 
 The local version numbers follow existing draft history and can differ between
 kinds. Both new review rows have `approved_at = null`. Earlier local versions 5
 (gameweek) and 2 (season) were approved manually during the demo; their contents
-and historical banner bindings remain intact. Their text matches the authoring
-files, so local preview uses those existing approved editions. Review drafts 6/3
+and historical banner bindings remain intact. The shortened Gameweek copy was
+subsequently entered and approved locally as version 7. The Rules page now uses
+the latest approved policy independently of prize bindings. Review drafts 6/3
 are associated with their competition kinds; they cannot be assigned to public
 pages until approved. Do not repoint completed competitions or weaken the
 approved-version guard to display drafts. No prize, score or hosted data changed.
@@ -27,7 +28,11 @@ in local Supabase Studio, copy that exact body into the relevant unapproved
 `competition_rules` draft and set its `title`. Keep `approved_at` empty until
 publication review is complete. For later environments, create the same reviewed
 body as a new draft there; local row IDs and version numbers are not portable.
-Use the same five `##` headings as the files. Inline Markdown links and lists are
+Setting `approved_at` publishes the highest approved version on the Rules page
+on the next reload when `global` competitions are enabled. Season policies also
+require the `season` switch. No banner or `rules_version_id` edit is needed.
+Use the four section headings in the Gameweek authoring file. Older Prize delivery
+headings are presented inside Winner Announcement & Claiming. Inline Markdown links and lists are
 supported. There is one shared document for each kind/version, not one per prize.
 
 Published documents are immutable. Subsequent edits require a new version for the
@@ -38,19 +43,19 @@ rewrite completed competitions or any existing binding. Do not attach these draf
 retroactively to past Gameweeks merely to preview the text.
 
 `homepage_banners` keeps its prize, sponsor, images, value, external product link
-and optional `details_markdown` conditions. Do not paste these shared rules into
-individual banners. Optional conditions appear inside the Prize delivery accordion,
-without a separate prize-specific heading. Leave them empty when unnecessary.
+and legacy `details_markdown` notes. Do not paste these shared rules into
+individual banners. Prize-specific notes are no longer fetched or displayed.
 
 ## Mobile presentation
 
-The overall Rules and practical information section stays visible. Approved
-structured documents appear as five native, independently expandable sections:
+The Rules tab and public `/rules` page show one Competition rules and policy
+section. The latest approved Gameweek policy and, when enabled, Season policy
+appear there as four native, independently expandable sections:
 Participation; Winner Selection; Winner Announcement & Claiming;
-Prize Delivery; Taxation. They start closed and can remain open together.
+Taxation. Delivery content is included in claiming. They start closed and can remain open together.
 `details`/`summary` provide native keyboard and expanded-state accessibility, with
 visible focus styling. There is no outer accordion to open first and no added
-client-side state or dependency.
+client-side state or dependency. Prize pages link to this section.
 
 Unstructured older approved text is preserved under Participation. Unknown headings
 and introductory text are retained rather than discarded. Empty categories do not
@@ -81,12 +86,16 @@ rule approval alone can never publish competitions.
   agreed email-triggered claiming periods are five days weekly and ten days season;
   each replacement winner receives a fresh full period.
 
-Sources checked on 1 November 2026:
+Tax guidance checked on 11 November 2026; privacy guidance previously checked on 1 November 2026:
 [Skatteverket: winnings from games and competitions](https://www.skatteverket.se/privat/skatter/arbeteochinkomst/inkomster/vinsterispelochtavlingar.4.7459477810df5bccdd4800015166.html),
 [IMY: personal data about children](https://www.imy.se/verksamhet/dataskydd/det-har-galler-enligt-gdpr/introduktion-till-gdpr/personuppgifter/personuppgifter-om-barn/).
 
 The later confirmation phase must implement exactly these selection and claiming
-rules: weekly net points → raw effective-captain points → documented draw; season
+rules: weekly net points → raw effective-captain points → season position → random draw; season
 total points → sum of raw effective-captain points → documented draw. This task
-adds no season calculation, draw execution, confirmation, automatic announcements,
+adds no season-prize selection, draw execution, confirmation, automatic announcements,
 runner-up reassignment, email sending or administrative interface.
+The public competition leaderboard and provisional-review helper now share the
+same ranking: Gameweek points, raw captain points, then cumulative season points
+through that Gameweek. Later rounds cannot change an older competition's order.
+Remaining ties require a manual draw; no automatic draw or announcement is added.

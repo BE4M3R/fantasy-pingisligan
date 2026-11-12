@@ -185,6 +185,21 @@ The browser league journey checks per-week lineups, chip status, scores, player 
 The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.
 
+Competition regression coverage reuses existing journeys to limit setup time.
+The Home journey also checks winner publication/withdrawal, the 48-hour entry
+window, all future teasers and mobile/desktop banner layouts. The Leagues
+journey covers top-five/own-position display, panel-only switching without
+navigation or scroll movement, Back/Forward, cancellation and failure/retry;
+its response mocks exercise presentation only, while database tests retain the
+real scoring and permission checks. Fast unit cases cover exact time boundaries,
+prize-link eligibility and endpoint authentication/validation. A single populated
+teaser-upgrade case verifies custom/cleared text and existing prize/publication
+data survive the column move, using the same disposable stack and rollback.
+The player-statistics journey refreshes its newly installed synthetic catalogue
+once with a normal hard-refresh request, then checks ordinary cached reads;
+this isolates fixtures without a long shared-cache revalidation wait or changes
+to application caching/scoring rules.
+
 Player statistics tests cover singles/doubles classification, walkovers, multiple
 fixtures, form including missed gameweeks, publication only after successful
 unlock despite stored live scores, inactive history and public-data boundaries.
@@ -368,7 +383,10 @@ does not edit rulesets or branch protection settings.
 The normal jobs retain their coverage: `code-and-unit` runs `npm run check`;
 `functional-and-browser` starts a fresh local Supabase stack, checks populated
 schema upgrades, lints the database, builds the app, and runs functional/browser
-tests. Logs, JUnit summaries and Playwright artifacts remain available for jobs
+tests. This job pins `ubuntu-24.04` to keep browser dependency installation stable
+during the `ubuntu-latest` rollout to 26.04. The full Playwright system dependency
+installation remains required; runner DNS/download failures still fail CI.
+Logs, JUnit summaries and Playwright artifacts remain available for jobs
 that run. Documentation-only runs perform no dependency installation or database
 startup. `tests/unit/ci-validation.test.mjs` covers selection, real Git diffs,
 renames/deletions, gate failure/cancellation/skip cases and workflow wiring offline.

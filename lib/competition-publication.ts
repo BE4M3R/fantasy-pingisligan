@@ -9,3 +9,8 @@ export const competitionsEnabled = cache(async () => {
   const { data, error } = await createPublicClient({ fresh: true }).rpc("competitions_enabled");
   return !error && data === true;
 });
+
+export const seasonCompetitionEnabled = cache(async () => {
+  const { data, error } = await createPublicClient({ fresh: true }).rpc("season_competition_enabled");
+  return !error && data === true;
+});

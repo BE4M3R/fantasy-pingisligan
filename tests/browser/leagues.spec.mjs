@@ -186,10 +186,12 @@ test.describe.serial("private league journey", () => {
     await page.screenshot({ path: testInfo.outputPath("gameweek-league-mobile-390.png"), fullPage: true });
     await expect(page.locator('a[href^="/competitions/"]')).toHaveCount(0);
     expect(checked(await fixture.admin.rpc("competitions_enabled"), "Standings work with competitions off")).toBe(false);
-    checked(await fixture.admin.from("competition_publication").update({ enabled: true }).eq("id", true), "Enable competition links explicitly");
+    checked(await fixture.admin.from("competition_publication").update({ enabled: true }).eq("id", "global"), "Enable competition links explicitly");
     await page.reload();
-    const competitionLink = page.getByRole("link", { name: "View this Weekly Smash competition →", exact: true });
-    await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/1");
+    await expect(page.locator('a[href^="/competitions/"]'), "Older completed rounds have no prize link").toHaveCount(0);
+    await rounds.getByRole("button", { name: "Next: Gameweek 2" }).click();
+    const competitionLink = page.getByRole("link", { name: "View Gameweek 2 Competition →", exact: true });
+    await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/2");
     const leaguesUrl = page.url();
     await competitionLink.scrollIntoViewIfNeeded();
     const scroll = await page.evaluate(() => scrollY);
@@ -201,7 +203,86 @@ test.describe.serial("private league journey", () => {
     await expect(page.getByRole("navigation", { name: "Standings Gameweeks" })).toHaveCount(0);
     const own = page.locator(".md\\:hidden").getByRole("button").filter({ hasText: `Functional ${fixture.id}` });
     await expect(own.getByText("35", { exact: true })).toBeVisible();
-    checked(await fixture.admin.from("competition_publication").update({ enabled: false }).eq("id", true), "Restore unpublished competitions");
+    checked(await fixture.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Restore unpublished competitions");
+
+    // Presentation-only responses exercise top-five/own-position, cancellation,
+    // loading and retry inside the same authenticated journey and fixture.
+    const leaders = Array.from({ length: 5 }, (_, index) => ({ rank: index + 1,
+      user_id: `synthetic-leader-${index}`, team_name: `Synthetic leader ${index + 1}`,
+      display_name: null, total_points: 100 - index }));
+    const compactRows = [...leaders, { rank: 99, user_id: fixture.userId,
+      team_name: `Functional ${fixture.id}`, display_name: ownerDisplayName, total_points: 35 }];
+    let release;
+    let fail = false;
+    let held = true;
+    const gate = new Promise((resolve) => { release = resolve; });
+    await page.route("**/api/league-standings?**", async (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      if (held && query.get("view") === "gameweek") await gate;
+      await route.fulfill({ status: fail ? 503 : 200, contentType: "application/json", body: JSON.stringify({
+        view: query.get("view"), gameweekId: query.get("view") === "gameweek" ? query.get("gameweek") : null,
+        rows: compactRows, total: 99, visible: true, competitionPath: null, error: fail ? "Unavailable" : null,
+      }) }).catch(() => { /* A newer selection may have aborted this held response. */ });
+    });
+    await page.reload();
+    const browserErrors = [];
+    const navigations = [];
+    page.on("pageerror", (error) => browserErrors.push(error.message));
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.isNavigationRequest() || (url.pathname === "/dashboard/leagues/global" && url.searchParams.has("_rsc"))) navigations.push(request.url());
+    });
+    const browserTime = Date.now();
+    await page.clock.setFixedTime(new Date(browserTime));
+    await page.setViewportSize({ width: 390, height: 568 });
+    await modes.evaluate((element) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "600px";
+      element.closest("section").before(spacer);
+      window.__leaguePanelMarker = "same-document";
+    });
+    await modes.scrollIntoViewIfNeeded();
+    const position = await page.evaluate(() => scrollY);
+    await page.clock.setFixedTime(new Date(browserTime + 31_000));
+    await modes.getByRole("link", { name: "Gameweek", exact: true }).click();
+    await expect(page.getByText("Loading standings…", { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("league-switch-loading-390.png") });
+    await modes.getByRole("link", { name: "Season", exact: true }).click();
+    held = false;
+    release();
+    await expect(page.locator(".md\\:hidden").getByText("Your position", { exact: true })).toBeVisible();
+    await expect(page.locator(".md\\:hidden > button")).toHaveCount(6);
+    await expect(own).toContainText("99");
+    await modes.getByRole("link", { name: "Gameweek", exact: true }).click();
+    await expect(page.getByText("Loading standings…", { exact: true })).toHaveCount(0);
+    await expect(rounds.getByText("Gameweek 2", { exact: true })).toBeVisible();
+    await expect(page.locator(".md\\:hidden > button")).toHaveCount(6);
+    await expect(page.getByText("Provisional results", { exact: true })).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(position);
+    await page.goBack();
+    await expect(rounds).toHaveCount(0);
+    await page.goForward();
+    await expect(rounds.getByText("Gameweek 2", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(position);
+    expect(await page.evaluate(() => window.__leaguePanelMarker)).toBe("same-document");
+    expect(navigations).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const standingsPanel = page.getByRole("heading", { name: "Global league", exact: true }).locator("..");
+    await expect(standingsPanel.locator(".transition-opacity")).toHaveCSS("opacity", "1");
+    await standingsPanel.screenshot({ path: testInfo.outputPath("league-top-five-mobile-390.png") });
+    await page.clock.setFixedTime(new Date(browserTime + 62_000));
+    fail = true;
+    await modes.getByRole("link", { name: "Season", exact: true }).click();
+    const panelAlert = page.getByRole("heading", { name: "Global league", exact: true }).locator("..").getByRole("alert");
+    await expect(panelAlert).toContainText("Your previous standings are still shown");
+    await expect(page.locator(".md\\:hidden > button")).toHaveCount(6);
+    fail = false;
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(panelAlert).toHaveCount(0);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(table.locator("tbody tr").filter({ has: page.getByRole("button") })).toHaveCount(6);
+    await table.screenshot({ path: testInfo.outputPath("league-top-five-desktop-1440.png") });
+    expect(browserErrors).toEqual([]);
   });
 
   test("owner creates a private league and receives an invitation code", async ({ page }) => {
