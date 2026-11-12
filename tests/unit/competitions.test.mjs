@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { competitionStatus, formatPrizeValue, isGameweekId, showLeagueCompetitionLink } from "../../lib/competitions.ts";
+import { competitionDisplayTitle, gameweekCompetitionTitle, competitionStatus, formatPrizeValue, isGameweekId, showLeagueCompetitionLink } from "../../lib/competitions.ts";
 import { safeBannerUrl } from "../../lib/announcements.ts";
 
 test("public competition links reject malformed input", () => {
@@ -36,4 +36,10 @@ test("league prize links are limited to ongoing and the most recently completed 
   for (const [id, expected] of [["0", false], ["1", false], ["2", true], ["3", true], ["4", true], ["5", false], ["missing", false], [null, false]]) {
     assert.equal(showLeagueCompetitionLink(weeks, id), expected);
   }
+});
+
+test("competition names capitalize Competition without rewriting custom titles", () => {
+  assert.equal(gameweekCompetitionTitle(4), "Gameweek 4 Competition");
+  assert.equal(competitionDisplayTitle("Gameweek 4 competition"), "Gameweek 4 Competition");
+  assert.equal(competitionDisplayTitle("The special prize competition"), "The special prize competition");
 });

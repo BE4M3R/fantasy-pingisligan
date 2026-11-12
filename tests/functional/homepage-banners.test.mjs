@@ -232,3 +232,82 @@ test("weekly readiness overrides legacy publication dates while season uses its 
     await cleanupFixture(f);
   }
 });
+
+test("imports create editable banners whose schedule controls Home, detail and artwork without changing Fantasy locks", async () => {
+  const f = await createFixture({ gameweeks: 3, competitions: true, bannerDefaults: true });
+  const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+  const artwork = `${f.id}/scheduled-prize.png`;
+  const target = f.weeks[2];
+  const readBanner = async () => checked(await f.admin.from("homepage_banners").select("*")
+    .eq("gameweek_id", target.id).single(), "Read scheduled banner");
+  try {
+    const banners = checked(await f.admin.from("homepage_banners").select("gameweek_id,teaser,prize_reveal_at,content_ready"), "Read generated banners");
+    assert.equal(banners.length, 3);
+    for (const [i, week] of f.weeks.entries()) {
+      const b = banners.find((b) => b.gameweek_id === week.id);
+      assert.ok(b.teaser);
+      assert.equal(b.content_ready, false);
+      if (!i) assert.equal(b.prize_reveal_at, null);
+      else {
+        const dateParts = (value) => Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+        }).formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+        const previous = dateParts(f.weeks[i - 1].last_match_ends_at);
+        const nextDay = new Date(Date.UTC(Number(previous.year), Number(previous.month) - 1, Number(previous.day) + 1)).toISOString().slice(0, 10);
+        const reveal = dateParts(b.prize_reveal_at);
+        assert.equal(`${reveal.year}-${reveal.month}-${reveal.day}`, nextDay);
+        assert.equal(`${reveal.hour}:${reveal.minute}`, "18:00");
+      }
+    }
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[1].id), "Previous Fantasy round has no prize");
+    assert.equal(Date.parse((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).prize_reveal_at),
+      Date.parse(banners.find((b) => b.gameweek_id === target.id).prize_reveal_at), "Default uses the preceding Fantasy round even when it has no prize");
+    checked(await f.admin.storage.from("announcement-artwork").upload(artwork, png, { contentType: "image/png" }), "Upload scheduled prize");
+    const revealAt = minutes(45);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true, prize_reveal_at: revealAt,
+      prize_title: "Scheduled secret", teaser: "Schedule teaser", image_path: artwork, image_alt: "Scheduled artwork" })
+      .eq("gameweek_id", target.id), "Schedule actual prize reveal");
+    const banner = await readBanner();
+    const hidden = async () => {
+      const card = (await cards(f)).find((r) => r.id === `gameweek:${target.id}`);
+      assert.equal(card.state, "upcoming");
+      assert.equal(card.description, null);
+      assert.equal(card.image_path, null);
+      for (const client of [anon, f.user]) {
+        const schedule = checked(await client.rpc("get_public_gameweek_banner_schedule"), "Public date without prize");
+        const item = schedule.find((r) => r.gameweek_id === target.id);
+        assert.equal(item.prize_revealed, false);
+        assert.deepEqual(Object.keys(item).sort(), ["gameweek_id", "prize_reveal_at", "prize_revealed"]);
+        assert.deepEqual(checked(await client.from("homepage_banners").select("prize_title,prize_reveal_at").eq("id", banner.id), "Scheduled row private"), []);
+        assert.equal(checked(await client.rpc("get_public_competition", { p_gameweek_id: target.id }), "Scheduled detail")[0].content_available, false);
+        assert.ok((await client.storage.from("announcement-artwork").createSignedUrl(artwork, 60)).error);
+        assert.ok((await client.from("homepage_banners").update({ prize_reveal_at: minutes(-1) }).eq("id", banner.id)).error);
+      }
+    };
+    await hidden();
+    // Ordinary schedule refreshes must preserve custom dates/copy and IDs.
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(700) }).eq("id", target.id), "Move future deadline");
+    assert.deepEqual(await readBanner(), banner);
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: minutes(-1) }).eq("id", banner.id), "Reach custom reveal before normal opening");
+    assert.equal((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).description, "Scheduled secret");
+    for (const client of [anon, f.user]) {
+      const detail = checked(await client.rpc("get_public_competition", { p_gameweek_id: target.id }), "Revealed detail")[0];
+      assert.equal(detail.content_available, true);
+      assert.equal(detail.state, "open");
+      assert.equal(detail.prize_title, "Scheduled secret");
+      assert.ok(checked(await client.storage.from("announcement-artwork").createSignedUrl(artwork, 60), "Revealed artwork").signedUrl);
+    }
+    assert.equal(checked(await f.user.rpc("homepage_gameweek_states"), "Fantasy state unchanged").find((r) => r.gameweek_id === target.id).state, "upcoming");
+    checked(await f.admin.from("homepage_banners").update({ content_ready: false }).eq("id", banner.id), "Readiness still protects prize");
+    assert.equal((await cards(f)).find((r) => r.id === `gameweek:${target.id}`).description, null);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true, prize_reveal_at: revealAt }).eq("id", banner.id), "Postpone previously visible prize");
+    await hidden();
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: null }).eq("id", banner.id), "Restore automatic lifecycle");
+    await hidden();
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Disable feature");
+    assert.deepEqual(checked(await anon.rpc("get_public_gameweek_banner_schedule"), "Schedule launch gate"), []);
+  } finally {
+    checked(await f.admin.storage.from("announcement-artwork").remove([artwork]), "Remove scheduled artwork");
+    await cleanupFixture(f);
+  }
+});

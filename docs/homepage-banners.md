@@ -4,7 +4,9 @@ Home (`/dashboard/overview`) derives competitions from `fantasy_gameweeks`.
 Only Gameweeks with an enabled linked row in `competition_publication`
 appear as prize competitions. No content row is needed for an opted-in Gameweek
 to exist in the carousel. Existing and newly imported rounds default to excluded,
-and schedule refreshes preserve your selection. `homepage_banners` supplies optional content,
+and schedule refreshes preserve your selection. Each existing and newly imported
+Gameweek automatically receives a draft `homepage_banners` row with editable teaser
+and prize reveal time. `homepage_banners` supplies optional content,
 with at most one row per gameweek and one season row. Announcements, inbox
 history and dismissals remain separate.
 
@@ -20,8 +22,10 @@ While transfers are open, the next gameweek by `lock_at` is current and revealed
 including before the first gameweek. After locking, its content remains revealed
 through play and the pending results refresh. Passing `unlock_at` alone does not
 complete it: `data_refreshed_at` must be set by the successful Fantasy refresh.
-Other unresolved locked gameweeks remain accessible too; any outstanding Fantasy
-lock prevents revealing the next future round. No competition state is stored.
+Other unresolved locked gameweeks remain accessible too. With `prize_reveal_at = null`,
+any outstanding Fantasy lock prevents revealing the next future round. No
+competition state is stored. These Fantasy states still own transfers, results
+and scoring. Prize disclosure additionally uses the editable schedule below.
 
 The carousel contains every opted-in Gameweek in deadline order: completed,
 ongoing, current and all future rounds, followed by the Season Competition when
@@ -48,9 +52,9 @@ Completed cards show “Winner pending” until an operator selects
 a team in `competition_publication.competition_winner`. Selected cards show that
 team's current name, followed by “Won <prize title>”, linking to the winner box on
 the competition page. Lifecycle status appears in a box on the same row as the
-competition heading: “Locked” for later, unrevealed Gameweeks that cannot be
-opened, “Upcoming” for the next revealed Gameweek before its deadline, “Ongoing” while transfers are locked
-(including a pending results refresh), and “Winner pending” after successful
+competition heading: “Coming soon” for unrevealed competitions, “Ongoing” as soon as a competition
+is revealed, including before its deadline and while transfers are locked
+(or a results refresh is pending), and “Winner pending” after successful
 unlock. “Winner announced” takes priority whenever a winner is selected and
 remains until the operator changes or clears that selection.
 One fresh batch RPC supplies public winner records for all slides; no per-slide
@@ -82,8 +86,9 @@ when ready to launch. These controls are independent of `content_ready` below.
 
 In Supabase Table Editor, open `homepage_banners`, find the row linked to the
 Gameweek through `gameweek_id`, and edit its optional `teaser` (up to 240
-characters). If there is no row, create one with `kind = gameweek` and the
-matching `gameweek_id`. Use this single column on each banner row; no new column
+characters). Rows are created automatically for all Gameweeks. If an operator
+deleted a row, recreate it with `kind = gameweek` and the matching `gameweek_id`.
+Use this single column on each banner row; no new column
 is needed for each round. Publication controls and winner selection remain in
 `competition_publication`.
 The teaser replaces the placeholder on that Gameweek's locked Home card. It is
@@ -113,15 +118,54 @@ coming... 👀”. After reveal, the card shows the prize title instead.
 | GW13 | The next prize could be yours! |
 | GW14 | Make this Gameweek one to remember! 🏆 |
 
+## Schedule the prize reveal
+
+In `homepage_banners`, edit **`prize_reveal_at`** on the Gameweek row. Locked Home
+cards show it at the bottom beside a small calendar icon, for example **Prize reveal: Thu 19 Nov · 18:00**.
+Display always uses **Europe/Stockholm**, including daylight saving time; the saved
+value is a `timestamptz`. Enter an explicit offset, for example
+`2026-11-19 18:00:00+01:00` for Stockholm in November. Supabase may display
+that same value as `2026-11-19 17:00:00+00:00` (UTC); Home shows 18:00.
+
+The reveal migrations create missing draft rows and initialize existing rows.
+The evening-default migration moves future dates still equal to the old automatic
+unlock default; custom dates, cleared values and already revealed dates are preserved.
+New schedule imports also create one draft row per Gameweek, including rounds
+that have not been opted in as prize competitions. The initial date is **18:00
+Europe/Stockholm on the calendar day after the
+preceding Fantasy Gameweek's `last_match_ends_at`**, even if that round has no prize.
+For example, if GW3 ends on Thursday 19 November, GW4's prize defaults to
+Friday 20 November at 18:00 Swedish time (`17:00 UTC` in November). Summer dates
+use the same local 18:00 time, with daylight saving handled automatically.
+GW1 has no preceding Gameweek: its date is null and it follows the existing
+pre-season opening rule. Season banners keep their separate publication controls.
+
+The timestamp controls **actual prize visibility**, including Home, public detail
+pages, direct database reads and artwork authorization. Moving it earlier can
+reveal a prize before its normal Fantasy opening; moving it later keeps that
+competition locked until the chosen time. `content_ready = true`, the Gameweek
+opt-in and the global launch switch are still required. A reveal does not change
+Fantasy transfer windows, scoring or results refresh requirements. Returning or
+reloading Home obtains the updated state; an already-open page does not poll.
+
+Schedule refreshes preserve saved dates, teasers, IDs, prize content and readiness.
+If fixture dates change, review the prize schedule separately. Set
+`prize_reveal_at = null` to restore the original Fantasy lifecycle disclosure rule,
+including waiting for successful results/scoring refresh. That mode has no fixed
+scheduled reveal, so the banner omits the date footer. The stored date is public before reveal, like the teaser; prize fields stay protected.
+Existing signed artwork URLs retain their normal five-minute lifetime after
+postponement or withdrawal.
+
 ## Weekly content in Supabase
 
 Develop and verify locally. Hosted content editing is a human operator task in
 Supabase Dashboard; staging requires explicit opt-in. Ordinary app users cannot
 insert, update or delete content or upload artwork.
 
-1. In `homepage_banners`, create a row. `kind` defaults to `gameweek`; select an
-   existing `gameweek_id`. Do not create a separate teaser or reveal row.
-2. Optional `title` overrides “Gameweek <number> competition” **after reveal** (100 characters).
+1. In `homepage_banners`, edit the automatically created row for the Gameweek.
+   Set `prize_reveal_at` to change its reveal schedule. Do not create a separate
+   teaser or reveal row.
+2. Optional `title` overrides “Gameweek <number> Competition” **after reveal** (100 characters).
    Future teasers always use the generic title and gameweek number.
 3. Optional `sponsor` retains the name (80 characters) for branding metadata and
    accessible image fallback text. No “Sponsored by …” line is displayed.
@@ -143,14 +187,16 @@ insert, update or delete content or upload artwork.
    column has been removed; RPC destinations remain generated.
    Linked banners retain the plain gold chevron at the right.
 7. Set `content_ready = true` after reviewing the content. You can do this well
-   before the gameweek: database and Storage authorization prevent early access.
+   before the reveal: database and Storage authorization enforce `prize_reveal_at`
+   (or the Fantasy lifecycle when it is null).
    Set it false to withdraw content on subsequent reads. The generic competition
    card remains; revealed cards without content show “Competition details coming soon”.
 
 Do **not** manage weekly `published`, `publish_at`, or `expires_at`.
 They are retained for season scheduling; unused `sort_order` is removed. The
-weekly visibility gate uses only `content_ready` plus Fantasy state. There are
-no weekly publication dates or manually maintained current/previous kinds.
+weekly visibility gate uses `content_ready` and `prize_reveal_at`, falling back
+to Fantasy state when the date is null. There are no manually maintained
+current/previous kinds.
 
 ## Season Competition in Supabase
 
@@ -194,13 +240,17 @@ of weekly transfer locks. A custom season title is hidden until publication.
 
 `get_homepage_competitions()` is an authenticated, security-invoker RPC. It joins
 public gameweek state to content protected by RLS, returning safe generic cards
-when prize content is unreadable, alongside the public `teaser`. A narrow
-security-definer `get_public_gameweek_teasers()` projection exposes only Gameweek
-IDs and teaser text for enabled competitions, independently of banner-row RLS.
+when prize content is unreadable, alongside the public `teaser`. Narrow
+security-definer projections expose only Gameweek IDs and teaser text
+(`get_public_gameweek_teasers()`) or IDs, reveal times and reveal status
+(`get_public_gameweek_banner_schedule()`) for enabled competitions, independently
+of banner-row RLS.
 The main RPC remains security-invoker and all prize reads keep their existing
 RLS gates. The established RPC's unused `cta_label` output carries that teaser and the app
-aliases it to `teaser`. The same shared gameweek calculation is used by RLS;
-there is no duplicated browser lifecycle calculation. Direct content requests
+aliases it to `teaser`. The Home and detail RPCs use
+`homepage_prize_gameweek_states()` for prize state;
+RLS enforces the same timestamp or automatic Fantasy fallback. There is no
+browser lifecycle calculation. Direct content requests
 cannot read future weekly metadata, unready weekly rows or unrevealed season rows.
 Anonymous readers can read only the granted public editorial columns of revealed
 rows, and their sponsor/prize artwork. Announcement access remains authenticated.
@@ -244,6 +294,13 @@ publication settings continue to work as before. No gameweeks, scores, squads,
 accounts, prices, budgets or announcement interactions are changed.
 
 ## Validation
+
+Reveal coverage checks operator-only scheduling, early/delayed reveal across Home,
+public detail and Storage, unchanged Fantasy state, generated drafts and saved-date
+preservation. A rollback-only migration fixture checks next-day 18:00 defaults
+across both Stockholm daylight-saving changes without starting another stack.
+The existing Home browser journey checks the calendar footer and Coming soon /
+Ongoing labels on mobile and desktop.
 
 `npm run check:all` uses a disposable local stack. Populated upgrade checks verify
 content/publication preservation, conservative readiness conversion, and duplicate

@@ -163,11 +163,15 @@ routes return 404/noindex, and competitions are absent from sitemaps. See
 [launch controls](competition-launch.md).
 
 Home's streamed sponsored carousel uses the authenticated, security-invoker
-`get_homepage_competitions()` RPC. A shared SQL calculation follows the existing
-transfer lock and `data_refreshed_at`; RLS protects weekly content readiness and
-independent season publication, including direct table and Storage access.
+`get_homepage_competitions()` RPC. Fantasy lifecycle still follows the existing
+transfer lock and `data_refreshed_at`; prize state uses the editable
+`homepage_banners.prize_reveal_at` schedule, falling back to Fantasy lifecycle
+when cleared. RLS protects this schedule, weekly content readiness and independent
+season publication, including direct table and Storage access. Imports create
+one draft banner per Gameweek, defaulting prize reveal to 18:00 Stockholm time on
+the day after the preceding Gameweek's final scheduled match, and preserve edits.
 All opted-in historical, current and future rounds, plus an opted-in final season
-card are returned without creating content rows. One batch signs readable artwork.
+card are returned even if optional content is removed. One batch signs readable artwork.
 Each gameweek has a linked `competition_publication` row with `enabled`
 default false, which controls prize-round selection without affecting Fantasy scoring or signed-in standings. Hidden rounds
 have no public page, promotion or prize/artwork disclosure.

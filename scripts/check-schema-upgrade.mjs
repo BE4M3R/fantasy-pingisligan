@@ -14,6 +14,14 @@ assert.ok(/^fpl-test-[a-f0-9]{10}$/.test(projectId ?? "") ||
   (process.env.CI === "true" && projectId === "fantasy-pingisligan"),
 "Upgrade checks require a disposable test stack or the isolated CI runner.");
 
+// Historical schema fixtures explicitly insert their own banners. The new
+// import hook must not run against a reconstructed older banner schema.
+const withoutAutomaticBanners = (sql) => sql.replace(/^begin;/m,
+  "begin;\nalter table public.fantasy_gameweeks disable trigger create_gameweek_homepage_banners;")
+  // Older migrations restore the prior Home RPC's smaller return shape.
+  .replaceAll("create or replace function public.get_homepage_competitions()",
+    "drop function if exists public.get_homepage_competitions();\ncreate function public.get_homepage_competitions()");
+
 // Test the exact migration statements inside a larger rollback-only transaction.
 // Production keeps its own transaction boundaries, including SET LOCAL limits.
 const migrations = await Promise.all([
@@ -97,7 +105,7 @@ for (const [label, schema, failure, followupOnly] of [
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
     "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  { input: withoutAutomaticBanners(sql), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${label}: ${result.stderr}`);
   console.log(`Schema upgrade passed: ${label}`);
@@ -169,7 +177,7 @@ for (const duplicate of [null, "gameweek", "season"]) {
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
     "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  { input: withoutAutomaticBanners(sql), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `Homepage banner upgrade (${duplicate ?? "populated"}): ${result.stderr}`);
   console.log(`Homepage banner upgrade passed: ${duplicate ? `${duplicate} duplicate rejection and rollback` : "content preservation and safe readiness conversion"}`);
@@ -179,7 +187,7 @@ for (const duplicate of [null, "gameweek", "season"]) {
 const rulesValidation = await readFile(path.join(root, "tests/fixtures/competition-rules.sql"), "utf8");
 const rulesResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
   "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-{ input: rulesValidation, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+{ input: withoutAutomaticBanners(rulesValidation), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
 if (rulesResult.error) throw rulesResult.error;
 assert.equal(rulesResult.status, 0, `Competition rules validation: ${rulesResult.stderr}`);
 console.log("Competition rules passed: approval, immutable history, automatic binding, kind isolation and anonymous RLS");
@@ -237,7 +245,7 @@ for (const oversized of [false, true]) {
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
     "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  { input: withoutAutomaticBanners(sql), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `Competition content cleanup (${oversized ? "rollback" : "preservation"}): ${result.stderr}`);
   console.log(`Competition content cleanup passed: ${oversized ? "oversized-content rollback" : "private draft and prize preservation"}`);
@@ -282,7 +290,7 @@ const removeBannerLabelSql = `begin;
   rollback;`;
 const removeBannerLabelResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
   "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-{ input: removeBannerLabelSql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+{ input: withoutAutomaticBanners(removeBannerLabelSql), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
 if (removeBannerLabelResult.error) throw removeBannerLabelResult.error;
 assert.equal(removeBannerLabelResult.status, 0, `Banner label removal: ${removeBannerLabelResult.stderr}`);
 console.log("Banner label removal and prize title rename passed: fallback text and existing prize titles preserved");
@@ -301,7 +309,7 @@ for (const withDraft of [false, true]) {
     .replace("__MIGRATION__", () => publicationMigration);
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
     "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-  { input: sql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+  { input: withoutAutomaticBanners(sql), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `Competition publication upgrade (${withDraft ? "existing draft" : "new draft"}): ${result.stderr}`);
   console.log(`Competition publication upgrade passed: preserved choices, timing, bindings and ${withDraft ? "existing" : "new unapproved"} draft`);
@@ -316,7 +324,67 @@ const teaserUpgrade = (await readFile(path.join(root, "tests/fixtures/gameweek-t
   .replace("__MIGRATION__", () => moveTeasers);
 const teaserResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
   "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-{ input: teaserUpgrade, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+{ input: withoutAutomaticBanners(teaserUpgrade), encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
 if (teaserResult.error) throw teaserResult.error;
 assert.equal(teaserResult.status, 0, `Gameweek teaser upgrade: ${teaserResult.stderr}`);
 console.log("Gameweek teaser upgrade passed: custom/cleared copy, prize fields, publication settings and public-read boundary preserved");
+
+// Replay the reveal migration over populated prior-schema rows, including a
+// missing banner, and prove the existing editorial/publication state survives.
+const revealMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261112170000_gameweek_prize_reveal_schedule.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const revealUpgrade = `begin;
+  drop trigger create_gameweek_homepage_banners on public.fantasy_gameweeks;
+  drop function private.create_gameweek_homepage_banners();
+  drop function public.homepage_prize_gameweek_states();
+  drop function public.get_public_gameweek_banner_schedule();
+  drop function private.gameweek_prize_reveal_defaults();
+  alter table public.homepage_banners drop column prize_reveal_at cascade;
+  insert into public.fantasy_gameweeks (id, stupa_stage_id, stupa_round_id, name,
+    round_order, lock_at, unlock_at, first_match_starts_at, last_match_ends_at)
+  values
+    ('00000000-0000-0000-0000-000000007201', -1999999720, -1999999721, 'Reveal upgrade 1', 1, now() + interval '1 hour', now() + interval '2 days', now() + interval '2 hours', now() + interval '1 day'),
+    ('00000000-0000-0000-0000-000000007202', -1999999720, -1999999722, 'Reveal upgrade 2', 2, now() + interval '3 days', now() + interval '4 days', now() + interval '74 hours', now() + interval '75 hours'),
+    ('00000000-0000-0000-0000-000000007203', -1999999720, -1999999723, 'Reveal upgrade 3', 3, now() + interval '6 days', now() + interval '7 days', now() + interval '146 hours', now() + interval '147 hours');
+  insert into public.homepage_banners (gameweek_id, title, prize_title, teaser, content_ready)
+  values ('00000000-0000-0000-0000-000000007202', 'Preserved prize', 'Original prize', 'Custom teaser', false);
+  create temp table before_reveal_banners as select to_jsonb(b) as row from public.homepage_banners b;
+  create temp table before_reveal_publication as select to_jsonb(p) as row from public.competition_publication p;
+  ${revealMigration.replace('drop policy "Revealed homepage competition content is readable"', 'drop policy if exists "Revealed homepage competition content is readable"')}
+  do $test$ begin
+    if exists (select 1 from before_reveal_banners old where not exists (
+      select 1 from public.homepage_banners b where to_jsonb(b) - 'prize_reveal_at' = old.row)) then
+      raise exception 'Reveal migration changed existing content, IDs, readiness or rules'; end if;
+    if exists (select 1 from before_reveal_publication old where not exists (
+      select 1 from public.competition_publication p where to_jsonb(p) = old.row)) then
+      raise exception 'Reveal migration changed publication choices'; end if;
+    if (select count(*) from public.homepage_banners) <> 3
+      or exists (select 1 from public.homepage_banners where content_ready) then
+      raise exception 'Reveal migration did not safely fill missing drafts'; end if;
+    if exists (select 1 from public.homepage_banners b join (
+      select id, lag(unlock_at) over (order by lock_at, id) as expected from public.fantasy_gameweeks
+    ) d on d.id = b.gameweek_id where b.prize_reveal_at is distinct from d.expected) then
+      raise exception 'Reveal defaults do not match preceding Fantasy unlocks'; end if;
+  end; $test$;
+  rollback;`;
+const revealResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: revealUpgrade, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (revealResult.error) throw revealResult.error;
+assert.equal(revealResult.status, 0, `Prize reveal upgrade: ${revealResult.stderr}`);
+console.log("Prize reveal upgrade passed: draft creation, preceding-unlock defaults and existing editorial/publication preservation");
+
+// Reuse the same disposable stack for calendar/DST and saved-date preservation.
+const eveningMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261112180000_prize_reveal_next_evening.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const eveningUpgrade = (await readFile(path.join(root,
+  "tests/fixtures/prize-reveal-evening-upgrade.sql"), "utf8"))
+  .replace("__MIGRATION__", () => eveningMigration);
+const eveningResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: eveningUpgrade, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (eveningResult.error) throw eveningResult.error;
+assert.equal(eveningResult.status, 0, `Prize evening upgrade: ${eveningResult.stderr}`);
+console.log("Prize evening upgrade passed: Stockholm calendar/DST defaults and custom/cleared/past date preservation");

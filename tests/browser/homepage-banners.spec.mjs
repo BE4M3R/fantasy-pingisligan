@@ -29,7 +29,7 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
         prize_title: "Win a premium training kit.", sponsor: "Fantasy Test Partner", image_path: artwork,
         image_alt: "Test partner artwork" },
       { id: ids[2], gameweek_id: f.weeks[2].id, content_ready: true, title: "Embargoed weekly title",
-        prize_title: "Embargoed weekly prize", teaser: "A surprise for our next champion... 👀", sponsor: "Embargoed weekly sponsor", image_path: opaqueArtwork,
+        prize_reveal_at: "2099-11-19T17:00:00Z", prize_title: "Embargoed weekly prize", teaser: "A surprise for our next champion... 👀", sponsor: "Embargoed weekly sponsor", image_path: opaqueArtwork,
         image_alt: "Embargoed weekly logo" },
       { id: ids[3], kind: "season", published: true, publish_at: minutes(60), title: "The Grand Season Prize",
         prize_title: "Win a premium table tennis kit.", sponsor: "Embargoed season partner" },
@@ -63,9 +63,10 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     const carousel = page.getByRole("region", { name: "Gameweek highlights" });
     const track = carousel.locator(".sponsored-track");
     const status = carousel.getByRole("status");
-    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
     await expect.poll(() => track.evaluate((el) => Math.abs(el.scrollLeft - el.clientWidth))).toBeLessThan(1);
-    await expect(carousel.getByRole("heading", { name: "Gameweek 2 competition" })).toBeVisible();
+    await expect(carousel.getByRole("heading", { name: "Gameweek 2 Competition" })).toBeVisible();
+    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Ongoing", { exact: true })).toBeVisible();
     await expect(carousel.getByRole("button", { name: /^Show highlight/ })).toHaveCount(7);
     expect(await page.content()).not.toContain("Embargoed");
     await expect(carousel.locator('article[aria-hidden="false"]').getByText("Win a premium training kit.", { exact: true })).toBeVisible();
@@ -77,20 +78,20 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     await capture(page, carousel, 1, "home-current-desktop-1440.png");
     await track.focus();
     await page.keyboard.press("ArrowLeft");
-    await expect(status).toHaveText("Highlight 1 of 7: Gameweek 1 competition");
+    await expect(status).toHaveText("Highlight 1 of 7: Gameweek 1 Competition");
     await expect(carousel.getByText("Winner pending", { exact: true })).toBeVisible();
     // Ordinary Home interactions must not put a browsing user back on current.
     await page.getByRole("button", { name: "Open announcements" }).click();
     await page.keyboard.press("Escape");
-    await expect(status).toHaveText("Highlight 1 of 7: Gameweek 1 competition");
+    await expect(status).toHaveText("Highlight 1 of 7: Gameweek 1 Competition");
     await page.getByRole("link", { name: "Squad", exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.getByRole("link", { name: "Home", exact: true }).click();
-    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
     await track.focus();
     await page.keyboard.press("End");
     await expect(status).toHaveText("Highlight 7 of 7: Season Competition");
-    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Upcoming", { exact: true })).toBeVisible();
+    await expect(carousel.locator('article[aria-hidden="false"]').getByText("Coming soon", { exact: true })).toBeVisible();
     await expect(carousel.locator('article[aria-hidden="false"]').getByText("Locked · Coming soon", { exact: true })).toHaveCount(0);
     await expect(carousel.getByRole("link")).toHaveAttribute("href", "/competitions/season");
     await capture(page, carousel, 6, "home-season-coming-soon-desktop-1440.png");
@@ -106,10 +107,10 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     await expect(page.getByRole("region", { name: "Squad editor" })).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/dashboard\/overview$/);
-    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(status).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
     for (const width of [320, 390, 639, 640, 641, 768]) {
       await page.setViewportSize({ width, height: 844 });
-      await expect(carousel.getByRole("heading", { name: "Gameweek 2 competition" })).toBeInViewport();
+      await expect(carousel.getByRole("heading", { name: "Gameweek 2 Competition" })).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect((await carousel.boundingBox()).height).toBeLessThan(180);
       const bell = await page.getByRole("button", { name: "Open announcements", exact: true }).boundingBox();
@@ -126,7 +127,7 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     await phone.goto(new URL("/dashboard/overview", page.url()).href);
     const phoneCarousel = phone.getByRole("region", { name: "Gameweek highlights" });
     const phoneStatus = phoneCarousel.getByRole("status");
-    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
     await phone.evaluate(() => document.fonts.ready);
     await capture(phone, phoneCarousel, 1, "home-current-mobile-390.png");
     await expectCompactInformation(phoneCarousel);
@@ -141,16 +142,27 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     }
     await swipe();
-    await expect(phoneStatus).toHaveText("Highlight 3 of 7: Gameweek 3 competition");
+    await expect(phoneStatus).toHaveText("Highlight 3 of 7: Gameweek 3 Competition");
     await expect(phoneCarousel.getByRole("link")).toHaveCount(0);
-    await expect(phoneCarousel.locator('article[aria-hidden="false"]').getByText("Locked", { exact: true })).toBeVisible();
+    await expect(phoneCarousel.locator('article[aria-hidden="false"]').getByText("Coming soon", { exact: true })).toBeVisible();
     await expect(phoneCarousel.getByText("A surprise for our next champion... 👀", { exact: true })).toBeVisible();
+    const reveal = phoneCarousel.locator('article[aria-hidden="false"] time');
+    await expect(reveal).toHaveText("Thu 19 Nov · 18:00");
+    await expect(reveal).toHaveAttribute("datetime", "2099-11-19T17:00:00+00:00");
     await capture(phone, phoneCarousel, 2, "home-upcoming-mobile-390.png");
+    for (const width of [320, 768, 1440]) {
+      await phone.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+      expect(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect(reveal).toBeInViewport();
+      if (width === 1440) await capture(phone, phoneCarousel, 2, "home-upcoming-desktop-1440.png");
+    }
+    await phone.setViewportSize({ width: 390, height: 844 });
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: null }).eq("id", ids[2]), "Restore normal reveal for remaining lifecycle checks");
     await phone.emulateMedia({ reducedMotion: "reduce" });
     expect(await phoneCarousel.locator(".sponsored-track").evaluate((el) => getComputedStyle(el).scrollBehavior)).toBe("auto");
-    await phoneCarousel.getByRole("button", { name: "Show highlight 4: Gameweek 4 competition" }).tap();
-    await expect(phoneStatus).toHaveText("Highlight 4 of 7: Gameweek 4 competition");
-    await expect(phoneCarousel.getByRole("button", { name: /Gameweek (5|6) competition/ })).toHaveCount(2);
+    await phoneCarousel.getByRole("button", { name: "Show highlight 4: Gameweek 4 Competition" }).tap();
+    await expect(phoneStatus).toHaveText("Highlight 4 of 7: Gameweek 4 Competition");
+    await expect(phoneCarousel.getByRole("button", { name: /Gameweek (5|6) Competition/ })).toHaveCount(2);
 
     checked(await f.admin.from("homepage_banners").update({ publish_at: minutes(-1) }).eq("id", ids[3]), "Reveal season");
     await phone.reload();
@@ -160,13 +172,13 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     await capture(phone, phoneCarousel, 6, "home-season-mobile-390.png");
     await swipe("previous");
     await expect(phone).toHaveURL(/\/dashboard\/overview$/);
-    await expect(phoneStatus).toHaveText("Highlight 6 of 7: Gameweek 6 competition");
+    await expect(phoneStatus).toHaveText("Highlight 6 of 7: Gameweek 6 Competition");
     await phoneCarousel.getByRole("button", { name: "Show highlight 7: The Grand Season Prize" }).tap();
     await phoneCarousel.getByRole("heading", { name: "The Grand Season Prize" }).tap();
     await expect(phone).toHaveURL(/\/competitions\/season$/);
     await phone.goBack();
     await expect(phone).toHaveURL(/\/dashboard\/overview$/);
-    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
 
     // Every revealed competition links to its dedicated public page.
     checked(await f.admin.from("homepage_banners").update({ image_path: opaqueArtwork }).eq("id", ids[1]), "Show logo with derived page link");
@@ -182,7 +194,7 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
       .eq("gameweek_id", f.weeks[0].id), "Announce previous winner");
     await phone.reload();
     const active = phoneCarousel.locator('article[aria-hidden="false"]');
-    await expect(phoneStatus).toHaveText("Highlight 1 of 7: Gameweek 1 competition");
+    await expect(phoneStatus).toHaveText("Highlight 1 of 7: Gameweek 1 Competition");
     await expect(active.getByText(winningName, { exact: true })).toBeVisible();
     await expect(active.getByText("Winner announced", { exact: true })).toBeVisible();
     await expect(active.getByText("Won A champion's shirt", { exact: true })).toBeVisible();
@@ -210,8 +222,8 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     checked(await f.admin.from("fantasy_gameweeks").update({ unlock_at: minutes(-49 * 60) })
       .eq("id", f.weeks[0].id), "Expire the winner's 48-hour feature window");
     await phone.goto(new URL("/dashboard/overview", page.url()).href);
-    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
-    await phoneCarousel.getByRole("button", { name: "Show highlight 1: Gameweek 1 competition" }).click();
+    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
+    await phoneCarousel.getByRole("button", { name: "Show highlight 1: Gameweek 1 Competition" }).click();
     await expect(active.getByText(winningName, { exact: true })).toBeVisible();
     checked(await f.admin.from("competition_publication").update({ competition_winner: null })
       .eq("gameweek_id", f.weeks[0].id), "Withdraw winner");
@@ -227,13 +239,13 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     checked(await f.admin.from("homepage_banners").delete().eq("id", ids[1]), "Remove optional current content");
     await phone.reload();
     await expect(phoneCarousel.locator('article[aria-hidden="false"]').getByText("Competition details coming soon", { exact: true })).toBeVisible();
-    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 competition");
+    await expect(phoneStatus).toHaveText("Highlight 2 of 7: Gameweek 2 Competition");
     for (const week of f.weeks.slice(1)) {
       checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(-10), unlock_at: minutes(-1) }).eq("id", week.id), "Pass remaining deadlines");
       await complete(f, week);
     }
     await phone.reload();
-    await expect(phoneStatus).toHaveText("Highlight 6 of 7: Gameweek 6 competition");
+    await expect(phoneStatus).toHaveText("Highlight 6 of 7: Gameweek 6 Competition");
     await expect(phoneCarousel.locator('article[aria-hidden="false"]').getByText("Winner pending", { exact: true })).toBeVisible();
     await capture(phone, phoneCarousel, 5, "home-completed-mobile-390.png");
     expect(errors).toEqual([]);

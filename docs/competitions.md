@@ -82,17 +82,21 @@ round. Then prepare its optional prize content below.
 Use local Supabase for development. Hosted content publishing is a deliberate human
 operator action; hosted schema changes use reviewed migrations and GitHub Actions.
 
-1. Create one `homepage_banners` row with `kind = gameweek` and its `gameweek_id`.
+1. Edit the automatically created `homepage_banners` row for its `gameweek_id`.
 2. Enter sponsor name/logo and prize information from the table below.
-3. Review the content, then set `content_ready = true`. The existing Fantasy
-   lifecycle controls reveal; no URL or publication date is needed for a weekly row.
+3. Review the content, then set `content_ready = true`. `prize_reveal_at` controls
+   the actual prize reveal and defaults to 18:00 Stockholm time on the day after
+   the preceding Gameweek's final scheduled match. Edit it to move the reveal, or
+   clear it to restore the original Fantasy lifecycle gate. No URL is needed.
+   See [reveal scheduling](homepage-banners.md#schedule-the-prize-reveal).
 4. An approved shared Gameweek competition rules version is attached automatically. Do
    not paste the same rules into every prize row. If no version is approved,
    the public page states that terms are being finalised; prize awards stay unavailable.
 
 | Field | Editorial use |
 | --- | --- |
-| `title` | Optional competition title; otherwise Gameweek <number> competition / Season Competition |
+| `title` | Optional competition title; otherwise Gameweek <number> Competition / Season Competition |
+| `prize_reveal_at` | Editable timestamp controlling prize visibility; displayed with a calendar icon on Coming soon Home banners in Stockholm time |
 | `teaser` | Public text on locked Gameweek Home cards, readable before prize reveal regardless of `content_ready` |
 | `sponsor` | Sponsor name |
 | `image_path`, `image_alt` | Sponsor logo for carousel/discovery; absent from detail pages |

@@ -41,7 +41,12 @@ export function showLeagueCompetitionLink(weeks: { gameweek_id: string; state: s
 }
 
 export function gameweekCompetitionTitle(number: number | null) {
-  return number === null ? "Gameweek competition" : `Gameweek ${number} competition`;
+  return number === null ? "Gameweek Competition" : `Gameweek ${number} Competition`;
+}
+
+// Normalize established default names without changing custom editorial titles.
+export function competitionDisplayTitle(title: string) {
+  return title.replace(/^(Gameweek(?: \d+)?) competition$/, "$1 Competition");
 }
 
 export function formatPrizeValue(value: number | string | null | undefined, language: "sv" | "en" = "en") {

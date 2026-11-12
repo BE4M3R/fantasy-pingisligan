@@ -162,7 +162,7 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
                 currentUserId={userId} gameweekId={standings.view === "gameweek" ? standings.gameweekId ?? undefined : undefined}
                 initialRowCount={5} rows={standings.rows} totalRowCount={standings.total} searchable
                 emptyMessage={standings.view === "gameweek" ? "No scored squads yet. Check back after Gameweek results are refreshed." : "No fantasy teams yet."} />}
-        {showCompetitionLink && standings.competitionPath ? <Link className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--pf-brand-blue-hover)] underline underline-offset-2" href={standings.competitionPath}>View Gameweek {displayedWeek.gameweek_number} competition →</Link> : null}
+        {showCompetitionLink && standings.competitionPath ? <Link className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--pf-brand-blue-hover)] underline underline-offset-2" href={standings.competitionPath}>View Gameweek {displayedWeek.gameweek_number} Competition →</Link> : null}
       </div>
       {pending ? <p role="status" className="absolute inset-0 flex min-h-20 items-center justify-center text-sm font-semibold text-[var(--pf-text)]">
         <span className="rounded-md bg-[var(--pf-navy)] px-4 py-2">Loading standings…</span>
