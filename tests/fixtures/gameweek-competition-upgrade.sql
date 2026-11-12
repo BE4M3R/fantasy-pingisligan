@@ -1,5 +1,7 @@
 -- Disposable-only legacy publication state. The surrounding runner rolls back.
 begin;
+drop trigger set_homepage_banner_teaser_default on public.homepage_banners;
+alter table public.homepage_banners rename column prize_title to description;
 alter table public.homepage_banners add column cta_label text;
 grant select (cta_label) on public.homepage_banners to anon;
 drop trigger sync_gameweek_competition_publication on public.fantasy_gameweeks;

@@ -1,9 +1,15 @@
+export type CompetitionWinner = {
+  gameweek_id: string;
+  team_name: string;
+  points: number | null;
+};
+
 export type Competition = {
   gameweek_number: number | null;
   state: "upcoming" | "open" | "live" | "refreshing" | "previous" | "revealed";
   content_available: boolean;
   title: string;
-  description: string | null;
+  prize_title: string | null;
   sponsor: string | null;
   image_path: string | null;
   image_alt: string | null;
@@ -26,6 +32,13 @@ export type CompetitionStandings = {
 };
 
 export const isGameweekId = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+// League metadata is newest first; older results remain browsable without a prize link.
+export function showLeagueCompetitionLink(weeks: { gameweek_id: string; state: string }[], gameweekId: string | null) {
+  const selected = weeks.find((week) => week.gameweek_id === gameweekId);
+  return Boolean(selected && (selected.state === "live" || selected.state === "refreshing" ||
+    (selected.state === "previous" && selected.gameweek_id === weeks.find((week) => week.state === "previous")?.gameweek_id)));
+}
 
 export function gameweekCompetitionTitle(number: number | null) {
   return number === null ? "Gameweek competition" : `Gameweek ${number} competition`;

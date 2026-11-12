@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props) {
   if (!competition && !error) notFound();
   return publicPageMetadata(competition?.public_path ?? `/competitions/gameweek/${value}`,
     `${competition?.title ?? "Gameweek competition"}${competition && competition.title !== gameweekCompetitionTitle(competition.gameweek_number) ? ` · Gameweek ${competition.gameweek_number}` : ""} | Pingisligan Fantasy`,
-    competition?.description ?? "Follow Gameweek competition prizes and winner announcements on Pingisligan Fantasy.");
+    "Follow Gameweek competition prizes and winner announcements on Pingisligan Fantasy.");
 }
 
 export default async function Page({ params }: Props) {

@@ -34,13 +34,13 @@ test("shared competition page protects drafts and supports top-five search, priz
     for (const path of paths) checked(await f.admin.storage.from("announcement-artwork").upload(path,
       await readFile(new URL("../../public/branding/pingisligan-fantasy-logo.png", import.meta.url)), { contentType: "image/png" }), "Upload competition artwork");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Smash Test Partner", description: "The training collection",
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Smash Test Partner", prize_title: "The training collection",
         image_path: paths[0], image_alt: "Test sponsor logo", prize_image_path: paths[1], prize_image_alt: "Test prize artwork",
         prize_value_sek: 500, prize_product_url: "https://shop.example.invalid/training-collection",
         prize_description: "A premium **training collection** for your next session.\n\n- Competition shirt\n- Training accessories",
         details_markdown: "Delivery within Sweden.\n\n<script>window.competitionUnsafe = true</script>" },
       { gameweek_id: f.weeks[2].id, content_ready: true, title: "Embargoed title", sponsor: "Embargoed sponsor", prize_description: "Embargoed prize", prize_product_url: "https://shop.example.invalid/embargoed" },
-      { id: seasonId, kind: "season", published: true, title: "The Season Competition", description: "Season training kit",
+      { id: seasonId, kind: "season", published: true, title: "The Season Competition", prize_title: "Season training kit",
         sponsor: "Season Partner", prize_description: "A season to remember.", prize_image_path: paths[1], prize_image_alt: "Season prize artwork" },
     ], { defaultToNull: false }), "Prepare public competitions");
     const route = "/competitions/gameweek/1";
@@ -50,9 +50,10 @@ test("shared competition page protects drafts and supports top-five search, priz
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(route);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("The training collection");
-    await expect(page.getByText("Awaiting winner confirmation", { exact: true })).toBeVisible();
+    await expect(page.getByText("Awaiting winner confirmation", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Provisional", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Competition leaderboard", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Winner announcement", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Winner announcement", exact: true })).toBeVisible();
     await expect(page.getByText(/Gameweek points including captains/)).toHaveCount(0);
     await expect(page.locator('header img[src*="wordmark-transparent-v2"]')).toBeVisible();
     await expect(page.getByText(/Sponsored by Smash Test Partner/)).toBeVisible();
@@ -111,7 +112,7 @@ test("shared competition page protects drafts and supports top-five search, priz
     await expect(page).toHaveURL(/\/competitions\/gameweek\/1$/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`${route}$`));
     await page.goto(`/competitions/gameweek/${f.weeks[2].id}`);
-    await expect(page.getByText("Upcoming", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Prize details coming soon");
     expect(await page.content()).not.toContain("Embargoed");
     await expect(page.getByText(/This Gameweek has not started/)).toBeVisible();
     await expect(page.getByLabel("Search team name")).toBeDisabled();
@@ -170,18 +171,18 @@ test("public homepage promotes two competitions and approved shared terms remain
     checked(await f.admin.from("competition_rules").insert({ id: seasonRulesId, kind: "season", version,
       title: "Season competition test terms", body: "## Participation\n\nSeason participation terms." }), "Prepare synthetic season draft");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current test partner", description: "Training bag",
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current test partner", prize_title: "Training bag",
         prize_description: "A **training bag** for your next session.", prize_value_sek: 500 },
-      { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Unrevealed weekly partner", description: "Unrevealed weekly prize" },
+      { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Unrevealed weekly partner", prize_title: "Unrevealed weekly prize" },
       { id: seasonId, kind: "season", published: true, publish_at: new Date(Date.now() + 3600000).toISOString(),
-        sponsor: "Unrevealed season partner", prize_value_sek: 16000, description: "Table tennis table" },
+        sponsor: "Unrevealed season partner", prize_value_sek: 16000, prize_title: "Table tennis table" },
     ], { defaultToNull: false }), "Prepare landing promotions");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/en");
     const promotions = page.getByRole("region", { name: "Competitions", exact: true });
     await expect(promotions.getByRole("link")).toHaveCount(2);
-    await expect(promotions.getByText("Training bag", { exact: true })).toBeVisible();
-    await expect(promotions.getByText("Prize details coming soon", { exact: true })).toBeVisible();
+    await expect(promotions.getByText("Training bag", { exact: true })).toHaveCount(0);
+    await expect(promotions.getByText("View competition", { exact: true })).toHaveCount(2);
     expect(await page.content()).not.toContain("Unrevealed");
     await expect(page.getByRole("link", { name: "Get started", exact: true })).toBeVisible();
     await expect(page.locator(".sponsored-track")).toHaveCount(0);
@@ -228,7 +229,7 @@ test("public homepage promotes two competitions and approved shared terms remain
     await page.locator('#competition-rules section[aria-label^="Season competition rules"] summary').click();
     await expect(page.getByText("Season participation terms.", { exact: true })).toBeVisible();
     await page.goto("/en");
-    await expect(promotions.getByText("Table tennis table", { exact: true })).toBeVisible();
+    await expect(promotions.getByText("Table tennis table", { exact: true })).toHaveCount(0);
     await expect(promotions.getByText(/16,000/)).toBeVisible();
     await promotions.getByRole("link").last().click();
     await expect(page).toHaveURL(/\/competitions\/season$/);

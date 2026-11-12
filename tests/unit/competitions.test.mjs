@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { competitionStatus, formatPrizeValue, isGameweekId } from "../../lib/competitions.ts";
+import { competitionStatus, formatPrizeValue, isGameweekId, showLeagueCompetitionLink } from "../../lib/competitions.ts";
 import { safeBannerUrl } from "../../lib/announcements.ts";
 
 test("public competition links reject malformed input", () => {
@@ -28,4 +28,12 @@ test("completed refresh does not imply settled competition results", () => {
   assert.equal(competitionStatus({ state: "open", gameweek_number: 1 }), "Open");
   assert.equal(competitionStatus({ state: "upcoming", gameweek_number: 1 }), "Upcoming");
   assert.equal(competitionStatus({ state: "revealed", gameweek_number: null }), "Season competition");
+});
+
+test("league prize links are limited to ongoing and the most recently completed round", () => {
+  const weeks = ["upcoming", "open", "refreshing", "live", "previous", "previous"]
+    .map((state, index) => ({ gameweek_id: String(index), state }));
+  for (const [id, expected] of [["0", false], ["1", false], ["2", true], ["3", true], ["4", true], ["5", false], ["missing", false], [null, false]]) {
+    assert.equal(showLeagueCompetitionLink(weeks, id), expected);
+  }
 });

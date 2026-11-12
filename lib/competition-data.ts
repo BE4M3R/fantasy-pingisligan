@@ -2,7 +2,14 @@ import "server-only";
 import { competitionsEnabled } from "@/lib/competition-publication";
 import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { Competition, CompetitionStandings } from "./competitions";
+import type { Competition, CompetitionStandings, CompetitionWinner } from "./competitions";
+
+export async function getCompetitionWinner(gameweekId: string) {
+  const { data, error } = await createPublicClient({ fresh: true }).rpc("get_public_competition_winners", {
+    p_gameweek_id: gameweekId,
+  });
+  return { winner: (data?.[0] ?? null) as CompetitionWinner | null, error: Boolean(error) };
+}
 
 // Embargoed metadata must not enter a persistent app cache.
 // React cache deduplicates the page/metadata read within the current request.
@@ -10,7 +17,7 @@ export const getCompetition = cache(async (gameweekId: string | null) => {
   if (!await competitionsEnabled()) return { competition: null, error: false };
   const { data, error } = await createPublicClient({ fresh: true }).rpc("get_public_competition", {
     p_gameweek_id: gameweekId,
-  }).select("gameweek_number,state,content_available,title,description,sponsor,image_path,image_alt,prize_image_path,prize_image_alt,prize_description,prize_product_url,prize_value_sek,public_path");
+  }).select("gameweek_number,state,content_available,title,prize_title,sponsor,image_path,image_alt,prize_image_path,prize_image_alt,prize_description,prize_product_url,prize_value_sek,public_path");
   return { competition: ((data as unknown as Competition[] | null)?.[0] ?? null), error: Boolean(error) };
 });
 

@@ -17,7 +17,7 @@ test("only opted-in Gameweeks appear as prize competitions; excluded rounds reta
     assert.deepEqual(checked(await anon.rpc("competition_gameweek_routes"), "No implicit competitions"), []);
     const selectedIds = [f.weeks[0].id, f.weeks[2].id, f.weeks[3].id, f.weeks[4].id];
     checked(await f.admin.from("competition_publication").update({ enabled: true }).in("gameweek_id", selectedIds), "Opt in prize rounds");
-    assert.deepEqual((await readCards()).map(r => r.gameweek_number), [1, 3, 4]);
+    assert.deepEqual((await readCards()).map(r => r.gameweek_number), [1, 3, 4, 5]);
     // Match the schedule importer's ordinary upsert without an editorial flag.
     const schedule = { ...f.weeks[0] };
     checked(await f.admin.from("fantasy_gameweeks").upsert(schedule, { onConflict: "stupa_round_id" }), "Refresh schedule");
@@ -25,7 +25,7 @@ test("only opted-in Gameweeks appear as prize competitions; excluded rounds reta
     await f.user.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[0].id);
     assert.equal(checked(await f.admin.from("competition_publication").select("enabled").eq("gameweek_id", f.weeks[0].id).single(), "Ordinary users cannot choose prize rounds").enabled, true);
     checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[0].id), "Exclude current round");
-    assert.deepEqual((await readCards()).map(r => r.gameweek_number), [3, 4]);
+    assert.deepEqual((await readCards()).map(r => r.gameweek_number), [3, 4, 5]);
     for (const client of [anon, f.user]) {
       assert.deepEqual(checked(await client.rpc("get_public_competition", { p_gameweek_id: f.weeks[0].id }), "Excluded page"), []);
       assert.deepEqual(checked(await client.from("homepage_banners").select("title").eq("gameweek_id", f.weeks[0].id), "Excluded prize private"), []);

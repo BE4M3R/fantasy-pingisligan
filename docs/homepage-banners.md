@@ -23,25 +23,41 @@ complete it: `data_refreshed_at` must be set by the successful Fantasy refresh.
 Other unresolved locked gameweeks remain accessible too; any outstanding Fantasy
 lock prevents revealing the next future round. No competition state is stored.
 
-The carousel contains opted-in history/locked rounds in deadline order, the
-opted-in current competition, **only the next two opted-in** upcoming teasers, and finally the
-Season Competition when the `season` publication row is enabled. Numbers come from `round_order`, falling back to chronological
+The carousel contains every opted-in Gameweek in deadline order: completed,
+ongoing, current and all future rounds, followed by the Season Competition when
+the `season` publication row is enabled. There is no limit on future cards.
+Numbers come from `round_order`, falling back to chronological
 position. Schedule changes follow Fantasy's existing rules: future deadlines can
 move, locked boundaries remain frozen, and postponed fixtures keep their original
 gameweek. Reordering a future gameweek can return its content to embargo;
 previously downloaded information cannot be recalled.
 
-On each Home entry, select current; if none exists, select the latest completed
-gameweek. With no gameweeks, show season alone if opted in; otherwise hide the carousel. Entry positioning does not depend
+On each Home entry, select the most recently completed Gameweek's manually selected
+winner only during the 48 hours starting at that Gameweek's `unlock_at`. Once that
+window expires, or if it has no selected winner, select current, then the latest
+completed competition. An older winner never takes over the priority window.
+The initial selection is calculated once on the server; the browser clock does
+not affect it. Winner cards remain available through manual browsing afterwards.
+With no gameweeks,
+show season alone if opted in; otherwise hide the carousel. Entry positioning does not depend
 on the currently selected slide or refreshed props and never interrupts browsing.
 Swipe, pagination, desktop arrows, Left/Right and Home/End remain manual, without
 autoplay. Arrows are hidden below 640px; reduced motion is respected.
 
-Completed cards show “Awaiting winner confirmation”. The refresh marker means
+Completed cards show “Winner pending” until an operator selects
+a team in `competition_publication.competition_winner`. Selected cards show that
+team's current name, followed by “Won <prize title>”, linking to the winner box on
+the competition page. Lifecycle status appears in a box on the same row as the
+competition heading: “Locked” for later, unrevealed Gameweeks that cannot be
+opened, “Upcoming” for the next revealed Gameweek before its deadline, “Ongoing” while transfers are locked
+(including a pending results refresh), and “Winner pending” after successful
+unlock. “Winner announced” takes priority whenever a winner is selected and
+remains until the operator changes or clears that selection.
+One fresh batch RPC supplies public winner records for all slides; no per-slide
+queries or client polling are added. The refresh marker means
 Fantasy has completed its post-unlock processing, not that upstream scores can
-never change. Public competition pages and provisional standings are available;
-confirmation and winner announcements remain deferred. There is no new scoring
-system or winner field. See [competitions](competitions.md).
+never change. Scoring never selects or removes a winner; changing or clearing
+the field controls the announcement. See [Table Editor winner selection](competitions.md#choose-a-gameweek-winner-in-table-editor).
 
 ## Choose which Gameweeks have prizes
 
@@ -54,13 +70,48 @@ The `global` row must also be enabled. No per-gameweek columns need to be added.
 Excluded rounds have no carousel card (including generic teasers), public
 competition page, promotion or competition link in Leagues. Their prize/rules
 and artwork stay protected. Fantasy scoring, squads, Gameweek numbers and all
-signed-in Leagues standings remain available. The next two teaser slots skip
+signed-in Leagues standings remain available. Future cards skip
 excluded rounds; hiding GW1 does not renumber GW2. Prize content and historical
 rule bindings are preserved for later opt-in.
 
 The global `competition_publication.enabled` switch must also be true to publish
 competitions. Choose prize rounds first; enable the global switch separately
 when ready to launch. These controls are independent of `content_ready` below.
+
+## Edit a Gameweek teaser
+
+In Supabase Table Editor, open `homepage_banners`, find the row linked to the
+Gameweek through `gameweek_id`, and edit its optional `teaser` (up to 240
+characters). If there is no row, create one with `kind = gameweek` and the
+matching `gameweek_id`. Use this single column on each banner row; no new column
+is needed for each round. Publication controls and winner selection remain in
+`competition_publication`.
+The teaser replaces the placeholder on that Gameweek's locked Home card. It is
+public before prize reveal, so keep prize-specific secrets in the separate prize fields.
+Setting `content_ready` does not hide or reveal this public teaser.
+
+The initial values below are stored in the database. New banner rows receive
+matching initial copy when created. A Gameweek without a banner row uses the
+same default through the public teaser projection. Schedule updates preserve
+stored edits, including a cleared value. A cleared teaser falls back to “Something big is
+coming... 👀”. After reveal, the card shows the prize title instead.
+
+| Gameweek | Initial teaser |
+| --- | --- |
+| GW1 | The first prize is waiting... 🏓 |
+| GW2 | A fresh challenge. A new reward! |
+| GW3 | Your next winning moment could be close... ✨ |
+| GW4 | Something big is coming... 👀 |
+| GW5 | A new prize is on the horizon! 🏆 |
+| GW6 | Ready for the next challenge? |
+| GW7 | Something special is up for grabs... |
+| GW8 | New Gameweek. New prize. 🔥 |
+| GW9 | The next reward is waiting... |
+| GW10 | Think you've got what it takes? |
+| GW11 | Another Gameweek. Another chance to win! |
+| GW12 | A little surprise is coming your way... 👀 |
+| GW13 | The next prize could be yours! |
+| GW14 | Make this Gameweek one to remember! 🏆 |
 
 ## Weekly content in Supabase
 
@@ -80,11 +131,11 @@ insert, update or delete content or upload artwork.
    The carousel contains the image without cropping, on a compact light tile.
    Bold information lines sit beside the image; no text is placed below it.
    Information remains readable when the image is absent or fails to load.
-5. Optional `description` is the concise prize summary (240 characters), shown
-   as a bold information line beside the logo. The line is limited to one visual
-   line to keep the banner compact.
-   Lifecycle status shares this information area. Public competition pages show
-   the complete summary and optional long-form content.
+5. Optional `prize_title` (240 characters) is the headline shown on revealed Home
+   banners and the competition detail page. Existing `description` values are
+   preserved by the rename migration. Home shows the prize title beside the logo
+   until a winner is selected; afterwards it shows the winning team with
+   “Won <prize title>” underneath. Upcoming cards keep their prize title hidden.
 6. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
    season banners, including Coming soon teasers, link to `/competitions/season`. No URL entry is needed.
    Existing UUID links redirect when their number is unambiguous. Reused numbers
@@ -112,7 +163,7 @@ homepage promotion, direct prize/rule reads and artwork share this gate. Ordinar
 Fantasy season standings are independent. See [launch controls](competition-launch.md).
 
 Create or edit the single row with `kind = season` and `gameweek_id = null`.
-Use the same optional title, sponsor, image and description
+Use the same optional title, sponsor, image and prize title
 fields, plus the [detail-page content](competitions.md#enter-a-new-gameweek-competition-prize-in-supabase). Its default title is “Season Competition”. A crown, longer gold accent
 and subtle gold court treatment distinguish it without changing the palette.
 
@@ -136,14 +187,19 @@ without a season row, Home still shows
 a generic **Coming soon** Season Competition as the final slide. It links to the
 same public season placeholder page used by signed-out visitors; unpublished
 prize content remains protected. Upcoming Gameweek cards retain their locks.
-The season slide never counts against the two-gameweek teaser limit. Once published, its reveal is independent
+The season slide follows all Gameweek cards. Once published, its reveal is independent
 of weekly transfer locks. A custom season title is hidden until publication.
 
 ## Authorization, payload and loading
 
 `get_homepage_competitions()` is an authenticated, security-invoker RPC. It joins
 public gameweek state to content protected by RLS, returning safe generic cards
-when content is unreadable. The same shared gameweek calculation is used by RLS;
+when prize content is unreadable, alongside the public `teaser`. A narrow
+security-definer `get_public_gameweek_teasers()` projection exposes only Gameweek
+IDs and teaser text for enabled competitions, independently of banner-row RLS.
+The main RPC remains security-invoker and all prize reads keep their existing
+RLS gates. The established RPC's unused `cta_label` output carries that teaser and the app
+aliases it to `teaser`. The same shared gameweek calculation is used by RLS;
 there is no duplicated browser lifecycle calculation. Direct content requests
 cannot read future weekly metadata, unready weekly rows or unrevealed season rows.
 Anonymous readers can read only the granted public editorial columns of revealed
@@ -156,8 +212,10 @@ makes the shared object readable. Use a new path when uploading embargoed artwor
 Existing signed URLs can remain usable for their five-minute lifetime after
 withdrawal or schedule changes; previously seen content cannot be made secret.
 
-A streamed Server Component performs one metadata RPC and one batch signing
-request for readable artwork. No service-role client, persistent content cache,
+A streamed Server Component performs one metadata RPC, one public-winner batch
+read, one compact lookup of the latest completed Gameweek's ID/unlock time, and
+one batch signing request for readable artwork. The metadata, winners and unlock
+lookup run in parallel. No service-role client, persistent content cache,
 polling, cron or new environment variables are introduced. An already-open Home
 does not poll for publication; return/reload to obtain updated content and URLs.
 Metadata errors show a neutral unavailable message; artwork failure keeps text.
@@ -190,7 +248,7 @@ accounts, prices, budgets or announcement interactions are changed.
 `npm run check:all` uses a disposable local stack. Populated upgrade checks verify
 content/publication preservation, conservative readiness conversion, and duplicate
 rejection with rollback. Functional tests exercise direct table/RPC/Storage reads,
-operator-only writes, two-teaser limits, missing rows, Fantasy lock/refresh,
+operator-only writes, generic future cards, missing rows, Fantasy lock/refresh,
 schedule changes, history and season publication. Browser coverage verifies Home
 entry/re-entry/back selection, browsing without reset, desktop keyboard controls,
 mobile Chromium touch swipes, reduced motion, responsive widths, missing content,

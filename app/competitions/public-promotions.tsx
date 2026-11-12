@@ -7,7 +7,7 @@ import { CompetitionArtwork } from "./artwork";
 
 type Promotion = {
   kind: "gameweek" | "season"; gameweek_number: number | null; content_available: boolean;
-  title: string; description: string | null; sponsor: string | null; prize_title: string | null;
+  title: string; sponsor: string | null;
   prize_value_sek: number | string | null; image_path: string | null; image_alt: string | null; public_path: string;
 };
 
@@ -29,7 +29,7 @@ export async function PublicCompetitionPromotions({ language }: { language: "sv"
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pf-logo-gold)]">{p.kind === "gameweek" ? sv ? "Pristävling" : "Prize competition" : sv ? "Säsongens stora pris" : "The season prize"}</p>
           <h2 className="mt-1 break-words text-base font-bold leading-5">{p.title}</h2>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--pf-text-muted)]">{p.content_available ? p.prize_title ?? p.description ?? (sv ? "Se pris och tävlingsinformation" : "Discover the prize and competition") : sv ? "Priset avslöjas snart" : "Prize details coming soon"}</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--pf-text-muted)]">{sv ? "Se tävlingen" : "View competition"}</p>
         </div>
         <div className="hidden lg:block"><CompetitionArtwork compact src={p.image_path ? images.get(p.image_path) ?? undefined : undefined} alt={p.image_alt ?? "Competition prize"} /></div>
         <span aria-hidden="true" className="shrink-0 text-lg text-[var(--pf-logo-gold)]">→</span>

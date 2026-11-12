@@ -1,12 +1,21 @@
 # Competitions: prizes, shared terms and discovery
 
-Public competition pages lead with the prize description, a small competition label,
+Public competition pages lead with the prize title, a small competition label,
 text sponsor attribution and optional prize value. Mobile artwork is contained in
-a shorter frame; sponsor logos remain in the carousel, not on detail pages. Headers
+a shorter frame; per-prize sponsor logos remain in the carousel. Headers
 reuse the carousel's blue court and gold trophy/crown styling, with extra gold for
 season. The header uses the existing brand mark and wordmark images. Weekly
-pages show a Competition leaderboard; winner notices are deferred to the later
-announcement implementation. The Rules tab and public `/rules` page contain the approved
+and Season competition headers show a larger Yasaka wordmark from
+`public/branding/yasaka-www-grey.png`, with no sponsor caption. Its transparent
+canvas padding is clipped in the header while the supplied file stays intact. Our icon sits above
+the wordmark on the left, Yasaka sits directly beside it and is vertically centered,
+and a compact return action sits
+on the right on every viewport. Winners
+use a centered celebration card with static gold/blue confetti in the corners;
+the winner card has no trophy, points or confirmation-status line. Pending notices stay plain.
+Weekly pages show a Competition leaderboard and a dedicated winner box above the prize
+when an operator selects a winner. Completed Gameweeks without a selection show
+a pending announcement notice. The Rules tab and public `/rules` page contain the approved
 shared terms in one “Competition rules and policy” section. It shows the latest
 approved Gameweek policy and, when enabled, the latest approved Season policy. Each
 document uses four independent native accordions:
@@ -14,8 +23,8 @@ Participation, Winner Selection, Winner Announcement & Claiming,
 and Taxation. They start collapsed and allow multiple sections to
 remain open. Delivery text in older documents is grouped with claiming.
 There is no prize-specific section; legacy `details_markdown` is retained in storage
-but is not fetched or displayed by the Rules page. Phase 3 remains absent: no winner confirmation,
-random draw execution, award storage or automatic winner announcement.
+but is not fetched or displayed by the Rules page. A manual `competition_winner` team reference on each Gameweek publication row
+publishes to the competition page and Home banner. Email, social posts, prize fulfilment and inbox/popups remain separate.
 
 ## Publication and local preview
 
@@ -26,6 +35,8 @@ Signed-in Season/Gameweek Leagues standings remain available independently; only
 their links to competition pages require publication and an opted-in prize round.
 `competition_publication` now has `global`, `season`, and linked gameweek rows,
 each with an `enabled` switch. Keep season false for this weekly-only season.
+Gameweek `homepage_banners` rows hold an editable public `teaser` for locked Home cards;
+see [teaser copy](homepage-banners.md#edit-a-gameweek-teaser).
 New gameweeks automatically receive disabled rows; enable the chosen gameweek
 rows alongside global. Season/global choices and existing per-round selections
 are preserved. No content is deleted by toggling; direct prize/rule/artwork reads
@@ -49,7 +60,7 @@ this local flag or demo content.
 
 `competition_gameweek_routes()` reuses `round_order`, falling back to the same
 chronological number used by the carousel. Internal relationships still use UUIDs.
-The carousel keeps its ordering, two-teaser limit, entry selection and interaction;
+The carousel keeps its ordering, entry selection and interaction;
 only its generated destination changes. Future prize content remains embargoed.
 
 The same competition page serves everyone. Only the header action uses the cached
@@ -82,9 +93,10 @@ operator action; hosted schema changes use reviewed migrations and GitHub Action
 | Field | Editorial use |
 | --- | --- |
 | `title` | Optional competition title; otherwise Gameweek <number> competition / Season Competition |
+| `teaser` | Public text on locked Gameweek Home cards, readable before prize reveal regardless of `content_ready` |
 | `sponsor` | Sponsor name |
 | `image_path`, `image_alt` | Sponsor logo for carousel/discovery; absent from detail pages |
-| `description` | Short prize summary for carousel/discovery and the detail-page headline |
+| `prize_title` | Prize headline on revealed Home banners and the competition detail page; winner banners show it below the team name as “Won <prize title>” |
 | `prize_image_path`, `prize_image_alt` | Separate, prominent prize artwork |
 | `prize_description` | Full prize description; include prize choices where applicable |
 | `prize_product_url` | Optional HTTPS product page; image opens it in a new tab |
@@ -111,7 +123,14 @@ The RPC’s `rules_markdown` output still means the approved shared document bod
 Migration `20261110230000_remove_banner_cta_label.sql` copies an old headline to
 `description` only when the latter is empty, then removes the redundant banner
 `cta_label` column. The established RPC output shapes stay compatible while the
-carousel and detail page use `description`.
+carousel and detail page originally used `description`. Forward migration
+`20261111180000_banner_prize_title.sql` renames that column to `prize_title`,
+preserving its existing text and grants. Migration
+`20261112120000_home_banner_prize_titles.sql` also returns that headline through
+the Home RPC's existing `description` output, aliased to `prize_title` by the app.
+Home shows the prize title before a winner is selected, and the winning team with
+“Won <prize title>” afterwards. Public landing cards use the generic View competition label;
+their compact RPC does not return the editorial prize title.
 
 Migration `20261101180000_competition_product_links.sql` adds the optional
 `prize_product_url` field, separate from generated internal competition links.
@@ -215,15 +234,26 @@ styled like the squad view switch. Both modes reuse `LeagueTable`, including
 responsive cards/table, search,
 show-more pagination, manager display names, own-position highlighting and team
 previews. In Gameweek mode, a team preview opens on the selected round and points
-are labelled as Gameweek points. The first ten entries plus the manager's own row
+are labelled as Gameweek points. The first five entries plus the manager's own row
 match the global view's initial behavior. Gameweek mode defaults to the most recent
 started round, falling back to the earliest scheduled round when none has started.
 Left/right arrows select the previous/next scheduled Gameweek, including those not
-started, and a link opens its canonical Gameweek competition page directly. Avoid UUID
+started. A competition link appears only for an ongoing round (including its
+pending results refresh) or the most recently completed round, and only when
+that prize competition is enabled. Older completed and future rounds have no
+competition link in this view. The link opens its canonical competition page directly. Avoid UUID
 redirects for these internal links: redirects can lose the dashboard referral used
 for returning to the previous route and scroll. Query parameters retain the
 selected view/Gameweek across navigation. Private
 league membership, tables and authorization are unchanged.
+Switches and round arrows fetch only the standings panel, without reloading the
+page or scrolling to the top. The previous table remains visible while loading,
+and retained panel height prevents scroll jumps when a round has fewer rows.
+Native history updates preserve the URL, unrelated query parameters and browser
+Back/Forward navigation. Compact views are cached in the mounted panel for 30
+seconds (at most 16 entries); older requests are cancelled when selection changes.
+An authenticated, private/no-store `/api/league-standings` read shares the initial
+server loader, including the manager's own row and competition publication gates.
 
 Migration `20261101190000_gameweek_leaderboard_search.sql` adds the optional
 `p_search` argument to `get_competition_standings` and an authenticated-only
@@ -235,8 +265,12 @@ profile names and squads. No table, scoring rules or RLS policy changes.
 
 Public competition standings show rank, locked Fantasy team name and net Gameweek
 points only. They are explicitly provisional; incomplete results, no scores, pre-kickoff and fetch
-errors have distinct messages. Winner verification remains a separate step. The
-page has no winner-announcement section. The season prize page has no winner notice.
+errors have distinct messages. The leaderboard has no Provisional badge, and the
+prize header has no lifecycle badge. Leagues Gameweek navigation omits
+“Provisional results” and the provisional qualifier on in-progress rounds.
+Winner verification remains a separate step. The
+selected winner's box sits above the prize and remains independent of leaderboard
+search, pagination and ranking. The season prize page has no winner notice.
 
 The public board and private provisional review reuse
 `private.weekly_competition_rankings()` from migration
@@ -263,6 +297,56 @@ Missing scores, outstanding fixtures and refresh state are reported separately.
 `data_refreshed_at` does not guarantee final upstream results; later imports can
 still change scores. The review always reports `award_enabled = false`.
 
+## Choose a Gameweek winner in Table Editor
+
+Open **Supabase → Table Editor → public → competition_publication**. Find the row
+named **Gameweek <number> competition** and edit **competition_winner**:
+
+- Select the linked row from `fantasy_teams`, or paste that team's `id`.
+- Save to announce that team on the competition page and Home banner.
+- Change the team to replace the winner.
+- Clear the value to `NULL` to remove the announcement.
+
+The `global` row and the chosen Gameweek row must both have `enabled = true`.
+Winner selection belongs on Gameweek rows, not the `global` or `season` rows.
+A future Gameweek still marked `upcoming` stays embargoed until its normal reveal.
+For a revealed Gameweek, selecting a winner is the publishing action: it does
+not require a SQL function, approved prize rules, a ready banner, completed
+fixtures, a squad snapshot, a successful refresh or a particular leaderboard
+position. The operator is responsible for deciding the winner and publication
+time. Leave the column empty until ready to announce.
+
+The column is a nullable foreign key to `fantasy_teams.id`, preventing references
+to nonexistent teams. The website displays the selected team's current name;
+the Home banner also shows the prize it won. The public projection retains optional
+stored points, but the winner card and banner omit points. A team without a
+stored score still appears. Renaming the team updates its displayed
+name; deleting it clears its winner reference. No email, account/team UUID,
+manager profile, delivery address or squad is included in the public response.
+
+`get_public_competition_winners` is a read-only projection, returning the public
+Gameweek UUID, selected team name and optional points. Home loads all public
+winner choices in one fresh batch; detail pages filter by Gameweek. The most
+recently completed Gameweek's winner leads Home on entry only until 48 hours
+after that Gameweek's `unlock_at`; afterwards, or without a winner, Home selects
+the current competition. Older winner cards remain browsable. Reload or return to the page
+to see edits. Landing-page promotions retain their existing current-prize behavior.
+
+Migration `20261111160000_manual_competition_winner.sql` replaces the initial
+confirmation prototype with this field. It preserves any published prototype
+choice, then removes the private decision table, confirmation/withdrawal/draw
+functions and scoring-invalidation triggers. The earlier migration remains as
+schema history. There is no automatic selection, draw, ranking validation or
+score-change withdrawal. Existing Fantasy scoring and leaderboard tie-breaks
+remain unchanged; later score changes update the displayed points without
+changing the operator's chosen team.
+
+Ordinary visitors and managers cannot write publication rows or read the private
+team reference directly. The web application uses its existing unprivileged
+Supabase clients. Email, social posts and prize fulfilment remain manual; the
+five-day claim period starts when the email is actually sent. Existing inbox,
+popups and Season winner selection are unchanged.
+
 ## Public homepage promotion
 
 Signed-out `/` and `/en` visitors see two compact entry points beneath the signup
@@ -278,7 +362,7 @@ private data or unrevealed sponsor/prize metadata. There is one metadata request
 and one batch artwork-signing request, without polling or persistent content caching.
 Signed-in users continue to redirect to their dashboard before promotions load.
 
-## Validation and Phase 3
+## Validation and remaining delivery work
 
 `npm run check:all` uses a disposable local stack. Coverage includes immutable
 approved documents, automatic version assignment, historical retention, separate
@@ -292,7 +376,9 @@ coverage for text/link preservation, legacy content and fenced Markdown. Populat
 private legacy drafts and reject oversized text without partial changes. Browser
 screenshots require capture and visual inspection through `$verify-ui`.
 
-Phase 3 still requires separate approval: protected winner confirmation and draw
-records, an immutable published decision, atomic publication of one existing
-announcement, and a seven-day popup window with retained inbox history. No winner
-confirmation or announcement action is introduced here.
+Winner regression coverage covers selecting a team without ranking or score
+prerequisites, replacement, clearing, deletion, score changes, publication gates,
+future embargoes, write permissions and private identifiers. The browser journey
+uses the same publication-row edits as Table Editor, covering the winner box,
+Home banner, withdrawal and mobile/desktop overflow. Email/social delivery and
+claim tracking remain outside this feature.
