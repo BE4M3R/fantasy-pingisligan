@@ -11,7 +11,7 @@ const cards = async (f) => checked(await f.user.rpc("get_homepage_competitions")
 
 // Exercise ordinary direct table/RPC/storage requests as well as Fantasy's
 // actual lock, scoring and completion helpers on a disposable database.
-test("Gameweek competition follows transfer availability and successful refresh, with exactly two secure teasers", async () => {
+test("all Gameweek cards share lifecycle, public teasers and secure prize/artwork gates", async () => {
   const f = await createFixture({ gameweeks: 5, competitions: true, seasonCompetitions: true });
   const ids = Array.from({ length: 6 }, () => randomUUID());
   const paths = ids.map((id) => `${f.id}/${id}.png`);
@@ -20,7 +20,7 @@ test("Gameweek competition follows transfer availability and successful refresh,
     checked(await save(f, squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]])), "Save squad");
     checked(await f.admin.from("homepage_banners").insert([
       ...f.weeks.map((w, i) => ({ id: ids[i], gameweek_id: w.id, content_ready: true,
-        title: i ? `Secret ${i}` : null, sponsor: `Partner ${i}`, description: `Prize ${i}`,
+        title: i ? `Secret ${i}` : null, sponsor: `Partner ${i}`, prize_title: `Prize ${i}`,
         image_path: paths[i], image_alt: `Logo ${i}` })),
       { id: ids[5], kind: "season", published: true, publish_at: minutes(60), title: "Secret season",
         sponsor: "Season partner", image_path: paths[5], image_alt: "Season logo" },
@@ -28,11 +28,33 @@ test("Gameweek competition follows transfer availability and successful refresh,
     for (const path of paths) checked(await f.admin.storage.from("announcement-artwork").upload(path, png, { contentType: "image/png" }), "Upload artwork");
     const signing = (index) => f.user.storage.from("announcement-artwork").createSignedUrl(paths[index], 60);
     let rows = await cards(f);
-    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, null]);
-    assert.deepEqual(rows.map((r) => r.state), ["open", "upcoming", "upcoming", "upcoming"]);
+    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, 5, null]);
+    assert.deepEqual(rows.map((r) => r.state), ["open", "upcoming", "upcoming", "upcoming", "upcoming", "upcoming"]);
     assert.equal(rows[0].is_current, true);
     assert.equal(rows[0].title, "Gameweek 1 competition");
     assert.equal(rows[0].sponsor, "Partner 0");
+    assert.equal(rows[0].description, "Prize 0");
+    const readTeasers = (client = anon) => client.rpc("get_public_gameweek_teasers");
+    const teasers = checked(await readTeasers(), "Read safe public teasers");
+    assert.equal(teasers.length, 5);
+    assert.ok(teasers.every((r) => Object.keys(r).sort().join() === "gameweek_id,teaser"));
+    checked(await f.admin.from("homepage_banners").update({ teaser: "A public surprise awaits 👀", content_ready: false })
+      .eq("id", ids[1]), "Edit future teaser independently of prize readiness");
+    assert.equal((await cards(f))[1].cta_label, "A public surprise awaits 👀");
+    assert.equal((await cards(f))[1].description, null, "A public teaser never reveals the prize headline");
+    for (const client of [anon, f.user]) {
+      assert.ok((await client.from("competition_publication").select("teaser")).error, "Teasers have moved off publication controls");
+      assert.ok((await client.from("homepage_banners").update({ teaser: "Unauthorized edit" }).eq("id", ids[1])).error);
+      assert.deepEqual(checked(await client.from("homepage_banners").select("teaser,prize_title").eq("id", ids[1]), "Future banner stays private"), []);
+    }
+    for (const teaser of [" ", "x".repeat(241)]) assert.ok((await f.admin.from("homepage_banners").update({ teaser }).eq("id", ids[1])).error);
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true }).eq("id", ids[1]), "Restore ready prize");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[1].id), "Hide future competition");
+    assert.ok(!checked(await readTeasers(), "Excluded teaser hidden").some((r) => r.gameweek_id === f.weeks[1].id));
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("gameweek_id", f.weeks[1].id), "Restore future competition");
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", "global"), "Hide all teasers");
+    assert.deepEqual(checked(await readTeasers(), "Launch gate protects teaser projection"), []);
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "global"), "Restore publication");
     for (const r of rows.slice(1)) {
       assert.equal(r.sponsor, null);
       assert.equal(r.description, null);
@@ -69,12 +91,13 @@ test("Gameweek competition follows transfer availability and successful refresh,
     assert.ok((await signing(1)).error);
     await complete(f);
     rows = await cards(f);
-    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, null]);
+    assert.deepEqual(rows.map((r) => r.gameweek_number), [1, 2, 3, 4, 5, null]);
     assert.equal(rows[0].state, "previous");
     assert.equal(rows[0].sponsor, "Partner 0", "History keeps original content");
     assert.equal(rows[1].state, "open");
     assert.equal(rows[1].is_current, true);
     assert.equal(rows[1].sponsor, "Partner 1");
+    assert.equal(rows[1].cta_label, "A public surprise awaits 👀", "Lifecycle updates preserve teaser edits");
     assert.ok(checked(await signing(1), "Next reveal image").signedUrl);
 
     // Use the importer's boundary rule: future deadlines move, locked ones stay.
@@ -107,19 +130,22 @@ test("Gameweek competition follows transfer availability and successful refresh,
   }
 });
 
-test("no content rows are required, completed history is retained, and no gameweeks still yields season", async () => {
-  const f = await createFixture({ gameweeks: 5, competitions: true, seasonCompetitions: true });
+test("all fourteen default teasers work without banner rows, with retained history and a season-only fallback", async () => {
+  const f = await createFixture({ gameweeks: 14, competitions: true, seasonCompetitions: true });
   try {
     let rows = await cards(f);
-    assert.equal(rows.length, 4);
+    assert.equal(rows.length, 15);
+    const defaults = rows.slice(0, -1).map((r) => r.cta_label);
+    assert.equal(new Set(defaults).size, 14);
+    assert.ok(defaults.every((value) => typeof value === "string" && value.trim().length));
     assert.equal(rows[0].title, "Gameweek 1 competition");
-    for (const week of f.weeks) {
+    for (const week of f.weeks.slice(0, 5)) {
       checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: minutes(-10), unlock_at: minutes(-1) }).eq("id", week.id), "Pass test deadline");
       await complete(f, week);
     }
     rows = await cards(f);
-    assert.equal(rows.length, 6, "All history stays browsable plus season");
-    assert.ok(rows.slice(0, -1).every((r) => r.state === "previous" && !r.is_current));
+    assert.equal(rows.length, 15, "All historical and future cards stay browsable plus season");
+    assert.ok(rows.slice(0, 5).every((r) => r.state === "previous" && !r.is_current));
     assert.equal(checked(await f.admin.from("homepage_banners").select("*"), "No generated content rows").length, 0);
     checked(await f.admin.from("fantasy_gameweeks").delete().in("id", f.weeks.map((w) => w.id)), "Remove this fixture's rounds");
     rows = await cards(f);

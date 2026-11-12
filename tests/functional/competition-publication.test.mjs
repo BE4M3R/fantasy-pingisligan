@@ -14,7 +14,7 @@ test("unlaunched competitions deny direct table, RPC and artwork access to visit
     checked(await f.admin.from("competition_rules").insert({ id: ruleId, kind: "gameweek", version: 1,
       title: "Private draft", body: "DRAFT_SECRET" }), "Prepare private rules");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, title: "UNLAUNCHED_SECRET", description: "Secret prize",
+      { gameweek_id: f.weeks[0].id, content_ready: true, title: "UNLAUNCHED_SECRET", prize_title: "Secret prize",
         prize_image_path: path, prize_image_alt: "Secret artwork", prize_product_url: "https://example.invalid/secret" },
       { id: seasonId, kind: "season", published: true, title: "UNLAUNCHED_SEASON" },
     ], { defaultToNull: false }), "Prepare ready unpublished competitions");

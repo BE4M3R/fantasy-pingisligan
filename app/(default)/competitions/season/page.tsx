@@ -8,7 +8,7 @@ export async function generateMetadata() {
   if (!await seasonCompetitionEnabled()) return { title: "Not found", robots: { index: false, follow: false } };
   const { competition } = await getCompetition(null);
   return publicPageMetadata("/competitions/season", `${competition?.title ?? "Season Competition"} | Pingisligan Fantasy`,
-    competition?.description ?? "Explore the Season Competition prize and winner announcement.");
+    "Explore the Season Competition prize and winner announcement.");
 }
 
 export default async function Page() {

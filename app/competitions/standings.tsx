@@ -71,7 +71,7 @@ export function CompetitionStandings({ gameweekId, initial }: { gameweekId: stri
       {displayed.missing_scores > 0 || displayed.outstanding_fixtures > 0 || displayed.fixture_count === 0 ?
         <p className="mb-3 text-sm text-[var(--pf-text-muted)]">Results are still coming in. The leaderboard may change.</p> : null}
       {displayed.rows.length ? <table className="w-full table-fixed text-left text-sm">
-        <caption className="sr-only">Provisional competition leaderboard</caption>
+        <caption className="sr-only">Competition leaderboard</caption>
         <thead className="border-b border-[var(--pf-card-border)] text-xs uppercase tracking-wide text-[var(--pf-text-muted)]">
           <tr><th scope="col" className="w-12 py-3 sm:w-16">Rank</th><th scope="col" className="py-3">Fantasy team</th><th scope="col" className="w-16 py-3 text-right">Points</th></tr>
         </thead>

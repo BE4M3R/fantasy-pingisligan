@@ -71,14 +71,17 @@ test.describe.serial("player statistics and transfer comparison", () => {
     const payload = await stats.json();
     expect(payload.history).toHaveLength(5);
     expect(payload.player.owned_percent).toBe(100);
-    // Earlier journeys can leave the shared 60-second catalogue cache warm.
-    // Wait for the newly created fixture to appear before checking the picker.
+    // Other journeys replace their synthetic players in the same server. Use a
+    // normal hard-refresh request once to isolate this fixture's catalogue,
+    // then verify the ordinary cached endpoint. This avoids a 75-second SWR wait
+    // without changing application caching or bypassing scoring/visibility rules.
+    expect((await page.request.get("/api/players", { headers: { "Cache-Control": "no-cache" } })).status()).toBe(200);
     await expect.poll(async () => {
       const response = await page.request.get("/api/players");
       expect(response.status()).toBe(200);
       const catalogue = await response.json();
       return catalogue.players.find((player) => player.id === fixture.players[0].id)?.owned_percent;
-    }, { timeout: 75_000, intervals: [500, 1000, 5000] }).toBe(payload.player.owned_percent);
+    }, { timeout: 15_000, intervals: [250, 500, 1000] }).toBe(payload.player.owned_percent);
     expect(payload.history[4].singles_wins).toBe(2);
     expect(payload.history[4].doubles_wins).toBe(1);
     expect(payload.fixtures).toHaveLength(3);

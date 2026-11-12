@@ -191,6 +191,7 @@ const contentCleanup = (await readFile(path.join(root,
   .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 for (const oversized of [false, true]) {
   const sql = `begin;
+    alter table public.homepage_banners rename column prize_title to description;
     update public.competition_publication set enabled = true where id = 'global';
     alter table public.homepage_banners add column cta_label text,
       add column rules_markdown text,
@@ -247,7 +248,12 @@ for (const oversized of [false, true]) {
 const removeBannerLabel = (await readFile(path.join(root,
   "supabase/migrations/20261110230000_remove_banner_cta_label.sql"), "utf8"))
   .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const renamePrizeTitle = (await readFile(path.join(root,
+  "supabase/migrations/20261111180000_banner_prize_title.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 const removeBannerLabelSql = `begin;
+  alter table public.homepage_banners rename column prize_title to description;
+  alter table public.homepage_banners rename constraint homepage_banners_prize_title_check to homepage_banners_description_check;
   alter table public.homepage_banners add column cta_label text;
   insert into public.fantasy_gameweeks (id, stupa_stage_id, stupa_round_id, name, round_order, lock_at, unlock_at, first_match_starts_at, last_match_ends_at)
     values
@@ -265,13 +271,21 @@ const removeBannerLabelSql = `begin;
       or (select description from public.homepage_banners where title = 'Existing description') <> 'Authoritative description' then
       raise exception 'Banner description was not preserved'; end if;
   end; $test$;
+  ${renamePrizeTitle}
+  do $test$ begin
+    if (select prize_title from public.homepage_banners where title = 'Old headline only') is distinct from 'Preserved headline'
+      or (select prize_title from public.homepage_banners where title = 'Existing description') is distinct from 'Authoritative description'
+      or exists (select 1 from information_schema.columns where table_schema = 'public'
+        and table_name = 'homepage_banners' and column_name = 'description') then
+      raise exception 'Prize title rename lost text or retained the old column'; end if;
+  end; $test$;
   rollback;`;
 const removeBannerLabelResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
   "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
 { input: removeBannerLabelSql, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
 if (removeBannerLabelResult.error) throw removeBannerLabelResult.error;
 assert.equal(removeBannerLabelResult.status, 0, `Banner label removal: ${removeBannerLabelResult.stderr}`);
-console.log("Banner label removal passed: fallback text and existing descriptions preserved");
+console.log("Banner label removal and prize title rename passed: fallback text and existing prize titles preserved");
 
 // Centralization must preserve populated switches, immutable rules and lifecycle
 // state, both with an existing draft and when a replacement draft is needed.
@@ -292,3 +306,17 @@ for (const withDraft of [false, true]) {
   assert.equal(result.status, 0, `Competition publication upgrade (${withDraft ? "existing draft" : "new draft"}): ${result.stderr}`);
   console.log(`Competition publication upgrade passed: preserved choices, timing, bindings and ${withDraft ? "existing" : "new unapproved"} draft`);
 }
+
+// One populated case covers custom/cleared teasers, missing banner rows and the
+// privilege boundary without starting another database or browser fixture.
+const moveTeasers = (await readFile(path.join(root,
+  "supabase/migrations/20261112160000_move_teasers_to_homepage_banners.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const teaserUpgrade = (await readFile(path.join(root, "tests/fixtures/gameweek-teaser-upgrade.sql"), "utf8"))
+  .replace("__MIGRATION__", () => moveTeasers);
+const teaserResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: teaserUpgrade, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (teaserResult.error) throw teaserResult.error;
+assert.equal(teaserResult.status, 0, `Gameweek teaser upgrade: ${teaserResult.stderr}`);
+console.log("Gameweek teaser upgrade passed: custom/cleared copy, prize fields, publication settings and public-read boundary preserved");

@@ -16,7 +16,7 @@ test("numbered routes reject ambiguity and public promotions select only reveale
   try {
     const anon = anonymous(f);
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current partner", description: "A bag", prize_value_sek: 500 },
+      { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current partner", prize_title: "A bag", prize_value_sek: 500 },
       { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Future secret", prize_value_sek: 9999 },
       { id: seasonId, kind: "season", published: true, publish_at: new Date(Date.now() + 3600000).toISOString(),
         sponsor: "Season secret", prize_value_sek: 16000 },
@@ -24,6 +24,8 @@ test("numbered routes reject ambiguity and public promotions select only reveale
     let promotions = checked(await anon.rpc("get_public_competition_promotions"), "Public promotions");
     assert.equal(promotions.length, 2);
     assert.equal(promotions[0].sponsor, "Current partner");
+    assert.equal(promotions[0].prize_title, null, "Prize headlines are confined to detail pages");
+    assert.equal(promotions[0].description, null);
     assert.equal(Number(promotions[0].prize_value_sek), 500);
     assert.equal(promotions[0].public_path, "/competitions/gameweek/1");
     assert.equal(promotions[1].sponsor, null);

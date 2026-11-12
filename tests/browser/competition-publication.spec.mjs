@@ -10,7 +10,7 @@ test("competitions stay unpublished through links, direct URLs, metadata and API
     checked(await f.admin.from("competition_rules").insert({ id: rulesId, kind: "gameweek", version: 1,
       title: "Hidden draft", body: "PRIVATE_RULES_SECRET" }), "Prepare hidden rules");
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, title: "PRIVATE_PRIZE_SECRET", description: "Private training kit" },
+      { gameweek_id: f.weeks[0].id, content_ready: true, title: "PRIVATE_PRIZE_SECRET", prize_title: "Private training kit" },
       { id: seasonId, kind: "season", published: true, title: "PRIVATE_SEASON_SECRET" },
     ], { defaultToNull: false }), "Prepare ready content with feature off");
     await page.setViewportSize({ width: 390, height: 844 });
@@ -90,7 +90,7 @@ test("only selected prize rounds have carousel cards, pages and links; Fantasy r
     await expect(page.getByRole("navigation", { name: "Standings Gameweeks" }).getByText("Gameweek 2", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "View Gameweek 2 competition →" })).toHaveCount(0);
     await page.getByRole("button", { name: "Previous: Gameweek 1" }).click();
-    await expect(page.getByRole("link", { name: "View Gameweek 1 competition →" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "View Gameweek 1 competition →" })).toHaveCount(0);
     checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[0].id), "Exclude current prize round");
     expect((await page.goto("/competitions/gameweek/1")).status()).toBe(404);
     await page.goto("/dashboard/overview");
@@ -105,8 +105,8 @@ test("weekly-only publication hides season discovery and routes until explicitly
   const seasonId = randomUUID();
   try {
     checked(await f.admin.from("homepage_banners").insert([
-      { gameweek_id: f.weeks[0].id, content_ready: true, description: "Weekly training kit" },
-      { id: seasonId, kind: "season", published: true, description: "Season training kit" },
+      { gameweek_id: f.weeks[0].id, content_ready: true, prize_title: "Weekly training kit" },
+      { id: seasonId, kind: "season", published: true, prize_title: "Season training kit" },
     ], { defaultToNull: false }), "Prepare weekly and season prizes");
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
