@@ -1,7 +1,7 @@
 import { competitionsEnabled } from "@/lib/competition-publication";
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase/public";
-import { formatPrizeValue } from "@/lib/competitions";
+import { competitionDisplayTitle, formatPrizeValue } from "@/lib/competitions";
 import { safeBannerUrl } from "@/lib/announcements";
 import { CompetitionArtwork } from "./artwork";
 
@@ -28,7 +28,7 @@ export async function PublicCompetitionPromotions({ language }: { language: "sv"
       <div className="flex min-w-0 items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pf-logo-gold)]">{p.kind === "gameweek" ? sv ? "Pristävling" : "Prize competition" : sv ? "Säsongens stora pris" : "The season prize"}</p>
-          <h2 className="mt-1 break-words text-base font-bold leading-5">{p.title}</h2>
+          <h2 className="mt-1 break-words text-base font-bold leading-5">{competitionDisplayTitle(p.title)}</h2>
           <p className="mt-1 text-xs leading-5 text-[var(--pf-text-muted)]">{sv ? "Se tävlingen" : "View competition"}</p>
         </div>
         <div className="hidden lg:block"><CompetitionArtwork compact src={p.image_path ? images.get(p.image_path) ?? undefined : undefined} alt={p.image_alt ?? "Competition prize"} /></div>

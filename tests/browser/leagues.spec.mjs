@@ -190,7 +190,7 @@ test.describe.serial("private league journey", () => {
     await page.reload();
     await expect(page.locator('a[href^="/competitions/"]'), "Older completed rounds have no prize link").toHaveCount(0);
     await rounds.getByRole("button", { name: "Next: Gameweek 2" }).click();
-    const competitionLink = page.getByRole("link", { name: "View Gameweek 2 competition →", exact: true });
+    const competitionLink = page.getByRole("link", { name: "View Gameweek 2 Competition →", exact: true });
     await expect(competitionLink).toHaveAttribute("href", "/competitions/gameweek/2");
     const leaguesUrl = page.url();
     await competitionLink.scrollIntoViewIfNeeded();

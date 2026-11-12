@@ -110,9 +110,8 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
             const destination = locked ? undefined : safeBannerUrl(slide.cta_url);
             const season = slide.kind === "season";
             const status = slide.winner ? "Winner announced"
-              : locked ? "Locked"
-                : slide.state === "previous" ? "Winner pending"
-                  : slide.state === "live" || slide.state === "refreshing" ? "Ongoing" : "Upcoming";
+              : slide.state === "upcoming" ? "Coming soon"
+                : slide.state === "previous" ? "Winner pending" : "Ongoing";
             const content = <>
               <div className="flex min-w-0 flex-col gap-2">
                 <div className="flex min-w-0 items-center gap-2">
@@ -130,6 +129,13 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
                 <div className={destination ? "pr-10" : undefined}>
                   <Sponsor key={slide.imageUrl} slide={slide} first={index === initialIndex} />
                 </div>
+                {locked && slide.prize_reveal_at && slide.prizeRevealLabel ? <p className="flex items-start gap-1.5 text-xs leading-5 text-[var(--pf-text-muted)]">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 h-4 w-4 shrink-0">
+                    <rect x="3" y="4" width="18" height="17" rx="2" />
+                    <path d="M8 2v4M16 2v4M3 9h18" />
+                  </svg>
+                  <span>Prize reveal: <time dateTime={slide.prize_reveal_at}>{slide.prizeRevealLabel}</time></span>
+                </p> : null}
               </div>
               {destination ? <span className="sponsored-hint absolute right-4 top-[calc(50%+1rem)] flex h-11 w-8 -translate-y-1/2 items-center justify-center text-[var(--pf-logo-gold)] sm:right-6">
                 <span className="sr-only">View competition</span>

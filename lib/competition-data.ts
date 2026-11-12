@@ -2,7 +2,7 @@ import "server-only";
 import { competitionsEnabled } from "@/lib/competition-publication";
 import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { Competition, CompetitionStandings, CompetitionWinner } from "./competitions";
+import { competitionDisplayTitle, type Competition, type CompetitionStandings, type CompetitionWinner } from "./competitions";
 
 export async function getCompetitionWinner(gameweekId: string) {
   const { data, error } = await createPublicClient({ fresh: true }).rpc("get_public_competition_winners", {
@@ -18,7 +18,8 @@ export const getCompetition = cache(async (gameweekId: string | null) => {
   const { data, error } = await createPublicClient({ fresh: true }).rpc("get_public_competition", {
     p_gameweek_id: gameweekId,
   }).select("gameweek_number,state,content_available,title,prize_title,sponsor,image_path,image_alt,prize_image_path,prize_image_alt,prize_description,prize_product_url,prize_value_sek,public_path");
-  return { competition: ((data as unknown as Competition[] | null)?.[0] ?? null), error: Boolean(error) };
+  const competition = (data as unknown as Competition[] | null)?.[0] ?? null;
+  return { competition: competition ? { ...competition, title: competitionDisplayTitle(competition.title) } : null, error: Boolean(error) };
 });
 
 export const resolveCompetitionGameweek = cache(async (number: string) => {

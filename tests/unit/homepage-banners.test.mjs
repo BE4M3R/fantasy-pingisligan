@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildHomepageCards, defaultHomepageSlideIndex } from "../../lib/homepage-banners.ts";
+import { buildHomepageCards, defaultHomepageSlideIndex, formatPrizeRevealDate } from "../../lib/homepage-banners.ts";
 import { safeBannerUrl } from "../../lib/announcements.ts";
 
 const row = (extra = {}) => ({ id: "gameweek:1", kind: "gameweek", gameweek_number: 1,
-  state: "open", is_current: true, title: "Gameweek 1 competition",
-  prize_title: null, teaser: null, sponsor: null, image_path: null, image_alt: null, cta_url: null, ...extra });
+  state: "open", is_current: true, title: "Gameweek 1 Competition",
+  prize_title: null, teaser: null, prize_reveal_at: null, sponsor: null, image_path: null, image_alt: null, cta_url: null, ...extra });
 
 test("default selection uses the current competition, then latest completed, then the first card", () => {
   const rows = [row({ state: "previous", is_current: false }), row(), row({ state: "upcoming", is_current: false })];
@@ -21,7 +21,7 @@ test("locked gameweek and season payloads stay generic, while revealed editorial
       prize_title: "Secret prize", teaser: "Public teaser", sponsor: "Secret partner", image_path: "secret.webp", image_alt: "Secret logo",
       cta_url: "https://example.com/secret" });
     const [card] = buildHomepageCards([secret]);
-    assert.equal(card.title, kind === "season" ? "Season Competition" : "Gameweek 1 competition");
+    assert.equal(card.title, kind === "season" ? "Season Competition" : "Gameweek 1 Competition");
     for (const field of ["prize_title", "sponsor", "image_path", "image_alt"]) assert.equal(card[field], null);
     assert.equal(card.teaser, "Public teaser");
     assert.equal(card.cta_url, kind === "season" ? "/competitions/season" : null);
@@ -55,4 +55,21 @@ test("only the previous completed winner leads Home during its exact 48-hour unl
   assert.equal(defaultHomepageSlideIndex(slides, null, unlock), 2);
   assert.equal(defaultHomepageSlideIndex(slides, { ...previous, unlock_at: "invalid" }, unlock), 2);
   assert.equal(buildHomepageCards([row({ state: "upcoming", winner })])[0].winner, null);
+});
+
+test("prize reveal dates use Stockholm time and the requested English format", () => {
+  assert.equal(formatPrizeRevealDate("2026-11-19T17:00:00Z"), "Thu 19 Nov · 18:00");
+  assert.equal(formatPrizeRevealDate("2026-07-01T22:00:00Z"), "Thu 2 Jul · 00:00");
+  assert.equal(formatPrizeRevealDate("2026-10-25T00:30:00Z"), "Sun 25 Oct · 02:30");
+  assert.equal(formatPrizeRevealDate("2026-10-25T01:30:00Z"), "Sun 25 Oct · 02:30");
+  assert.equal(formatPrizeRevealDate(null), undefined);
+  assert.equal(formatPrizeRevealDate("bad"), undefined);
+  const [card] = buildHomepageCards([row({ state: "upcoming", prize_reveal_at: "2026-11-19T17:00:00Z" })]);
+  assert.equal(card.prizeRevealLabel, "Thu 19 Nov · 18:00");
+});
+
+test("legacy default Home titles use the competition name without a duplicate Gameweek badge", () => {
+  const [card] = buildHomepageCards([row({ title: "Gameweek 1 competition" })]);
+  assert.equal(card.title, "Gameweek 1 Competition");
+  assert.equal(card.gameweekLabel, undefined);
 });

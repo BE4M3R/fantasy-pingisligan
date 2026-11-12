@@ -9,7 +9,7 @@ export async function HomepageBanners() {
   const supabase = await createClient();
   // Invoker RPC + RLS share database time for lifecycle and disclosure.
   const [{ data, error }, announcements, previousGameweek] = await Promise.all([
-    supabase.rpc("get_homepage_competitions").select("id,kind,gameweek_number,state,is_current,title,prize_title:description,teaser:cta_label,sponsor,image_path,image_alt,cta_url"),
+    supabase.rpc("get_homepage_competitions").select("id,kind,gameweek_number,state,is_current,title,prize_title:description,teaser:cta_label,sponsor,image_path,image_alt,cta_url,prize_reveal_at"),
     supabase.rpc("get_public_competition_winners"),
     supabase.from("fantasy_gameweeks").select("id,unlock_at")
       .not("data_refreshed_at", "is", null)

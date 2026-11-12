@@ -230,7 +230,7 @@ export async function RulesContent() {
         {error ? <p role="status" className="mt-4 text-sm text-[var(--pf-text-muted)]">Competition terms are temporarily unavailable. Please try again.</p> :
           rules.length ? <div className="mt-5 space-y-7">
             {rules.map((rule) => <section key={`${rule.kind}-${rule.version}`} aria-label={`${rule.kind === "season" ? "Season" : "Gameweek"} competition rules`}>
-              <h3 className="text-base font-bold text-[var(--pf-logo-gold)]">{rule.kind === "season" ? "Season competition" : "Gameweek competition"}</h3>
+              <h3 className="text-base font-bold text-[var(--pf-logo-gold)]">{rule.kind === "season" ? "Season competition" : "Gameweek Competition"}</h3>
               <CompetitionRules body={rule.body} />
             </section>)}
           </div> : <p className="mt-4 text-sm leading-6 text-[var(--pf-text-muted)]">Competition terms are being finalised. Full participation and prize information will be published before awards begin.</p>}

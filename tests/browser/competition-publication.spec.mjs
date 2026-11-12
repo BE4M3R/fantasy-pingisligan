@@ -81,21 +81,21 @@ test("only selected prize rounds have carousel cards, pages and links; Fantasy r
     await page.goto("/dashboard/overview");
     const carousel = page.getByRole("region", { name: "Gameweek highlights" });
     await expect(carousel.getByRole("button", { name: /^Show highlight/ })).toHaveCount(3);
-    await expect(carousel.getByRole("button", { name: /Gameweek 2 competition/ })).toHaveCount(0);
-    await expect(carousel.getByRole("button", { name: /Gameweek 3 competition/ })).toBeVisible();
+    await expect(carousel.getByRole("button", { name: /Gameweek 2 Competition/ })).toHaveCount(0);
+    await expect(carousel.getByRole("button", { name: /Gameweek 3 Competition/ })).toBeVisible();
     expect((await page.goto("/competitions/gameweek/2")).status()).toBe(404);
     expect((await page.goto(`/competitions/gameweek/${f.weeks[1].id}`)).status()).toBe(404);
     expect((await page.request.get(`/api/competitions/gameweek/${f.weeks[1].id}/standings`)).status()).toBe(404);
     await page.goto(`/dashboard/leagues?view=gameweek&gameweek=${f.weeks[1].id}`);
     await expect(page.getByRole("navigation", { name: "Standings Gameweeks" }).getByText("Gameweek 2", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "View Gameweek 2 competition →" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "View Gameweek 2 Competition →" })).toHaveCount(0);
     await page.getByRole("button", { name: "Previous: Gameweek 1" }).click();
-    await expect(page.getByRole("link", { name: "View Gameweek 1 competition →" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "View Gameweek 1 Competition →" })).toHaveCount(0);
     checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[0].id), "Exclude current prize round");
     expect((await page.goto("/competitions/gameweek/1")).status()).toBe(404);
     await page.goto("/dashboard/overview");
     await expect(carousel.getByRole("button", { name: /^Show highlight/ })).toHaveCount(2);
-    await expect(carousel.getByRole("button", { name: /Gameweek 1 competition/ })).toHaveCount(0);
+    await expect(carousel.getByRole("button", { name: /Gameweek 1 Competition/ })).toHaveCount(0);
   } finally { await cleanupFixture(f); }
 });
 
@@ -125,10 +125,10 @@ test("weekly-only publication hides season discovery and routes until explicitly
     expect(await (await page.request.get("/robots.txt")).text()).toContain("Disallow: /competitions/season");
     expect((await page.goto("/competitions/gameweek/1")).status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Weekly training kit");
-    await expect(page).toHaveTitle("Gameweek 1 competition | Pingisligan Fantasy");
+    await expect(page).toHaveTitle("Gameweek 1 Competition | Pingisligan Fantasy");
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-      await expect(page.getByText("Gameweek 1 competition", { exact: true })).toBeVisible();
+      await expect(page.getByText("Gameweek 1 Competition", { exact: true })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: testInfo.outputPath(`gameweek-1-competition-${width}.png`), fullPage: true });
     }
@@ -142,7 +142,7 @@ test("weekly-only publication hides season discovery and routes until explicitly
     const carousel = page.getByRole("region", { name: "Gameweek highlights" });
     await expect(carousel).toBeVisible();
     await expect(carousel.getByText("Season Competition", { exact: true })).toHaveCount(0);
-    await expect(carousel.getByText("Gameweek 1 competition", { exact: true })).toBeVisible();
+    await expect(carousel.getByText("Gameweek 1 Competition", { exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: testInfo.outputPath("weekly-only-dashboard-390.png"), fullPage: true });
     checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "season"), "Opt season in");

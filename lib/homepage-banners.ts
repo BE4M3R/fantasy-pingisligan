@@ -9,6 +9,7 @@ export type HomepageCompetition = {
   title: string;
   prize_title: string | null;
   teaser: string | null;
+  prize_reveal_at: string | null;
   sponsor: string | null;
   image_path: string | null;
   image_alt: string | null;
@@ -19,6 +20,7 @@ export type HomepageCompetition = {
 export type HomepageSlide = Omit<HomepageCompetition, "image_path" | "gameweek_number"> & {
   gameweekLabel?: string;
   imageUrl?: string;
+  prizeRevealLabel?: string;
 };
 
 // SQL owns ordering, competition opt-ins and authorization. Keep locked client
@@ -26,9 +28,12 @@ export type HomepageSlide = Omit<HomepageCompetition, "image_path" | "gameweek_n
 // Public teaser copy is intentionally retained before prize reveal.
 export function buildHomepageCards(rows: HomepageCompetition[]) {
   return rows.map(({ gameweek_number, ...row }) => {
-    const defaultTitle = row.kind === "season" ? "Season Competition" : `Gameweek ${gameweek_number} competition`;
+    const defaultTitle = row.kind === "season" ? "Season Competition" : `Gameweek ${gameweek_number} Competition`;
+    const isDefaultTitle = row.title === defaultTitle || row.title === defaultTitle.replace("Competition", "competition");
     return {
       ...row,
+      title: isDefaultTitle ? defaultTitle : row.title,
+      prizeRevealLabel: formatPrizeRevealDate(row.prize_reveal_at),
       ...(row.state === "upcoming" ? {
         title: defaultTitle,
         prize_title: null,
@@ -36,7 +41,7 @@ export function buildHomepageCards(rows: HomepageCompetition[]) {
         cta_url: row.kind === "season" ? "/competitions/season" : null,
         winner: null,
       } : {}),
-      gameweekLabel: gameweek_number === null || row.title === defaultTitle || row.state === "upcoming"
+      gameweekLabel: gameweek_number === null || isDefaultTitle || row.state === "upcoming"
         ? undefined : `GW ${gameweek_number}`,
     };
   });
@@ -56,4 +61,14 @@ export function defaultHomepageSlideIndex(
   if (current >= 0) return current;
   const latestCompleted = slides.findLastIndex((slide) => slide.state === "previous");
   return Math.max(0, latestCompleted);
+}
+
+export function formatPrizeRevealDate(value: string | null) {
+  if (!value || !Number.isFinite(Date.parse(value))) return undefined;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Stockholm", weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+  return `${part("weekday")} ${part("day")} ${part("month")} · ${part("hour")}:${part("minute")}`;
 }

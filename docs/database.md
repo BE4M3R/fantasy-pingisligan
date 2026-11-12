@@ -112,12 +112,19 @@ and ordinary league standings remain independent. Centralization preserves all
 existing choices and replaces the old per-gameweek column and season singleton
 column without resetting data.
 
-`homepage_banners` stores one optional content row per gameweek plus one season
-row. Weekly `content_ready` and derived Fantasy lifecycle gate public editorial reads;
-season retains independent `published`/publication/expiry controls. Legacy weekly
+`homepage_banners` stores one automatically created draft row per Gameweek plus
+an optional season row. Weekly `content_ready` and `prize_reveal_at` gate public
+editorial reads. The date defaults to 18:00 Europe/Stockholm on the day after the
+preceding Fantasy Gameweek's `last_match_ends_at`, with daylight saving handled
+in SQL. Schedule imports preserve saved dates and copy. Clearing the date restores
+the original Fantasy lifecycle gate and removes the fixed-date footer. Season
+retains independent `published`/publication/expiry controls. Legacy weekly
 publication values are preserved but no longer control visibility. All writes are
-operator-only. `homepage_gameweek_states()` shares lifecycle between RLS and the
-security-invoker `get_homepage_competitions()` RPC, which returns all history,
+operator-only. `homepage_gameweek_states()` retains Fantasy lifecycle;
+`homepage_prize_gameweek_states()` projects scheduled prize state for the
+security-invoker Home/detail RPCs. The narrow security-definer
+`get_public_gameweek_banner_schedule()` exposes only enabled Gameweek IDs,
+public dates and reveal booleans. `get_homepage_competitions()` returns all history,
 current, all generic future cards and season last. Artwork follows the same RLS
 through the private announcement bucket. See [homepage highlights](homepage-banners.md).
 

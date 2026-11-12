@@ -44,7 +44,7 @@ export function checked(result, context) {
 
 const minutes = (amount) => new Date(Date.now() + amount * 60000).toISOString();
 
-export async function createFixture({ gameweeks = 1, competitions = false, seasonCompetitions = false, prizeGameweeks = competitions } = {}) {
+export async function createFixture({ gameweeks = 1, competitions = false, seasonCompetitions = false, prizeGameweeks = competitions, bannerDefaults = false } = {}) {
   const { admin, anonKey, url } = await localClients();
   await assertCleanDatabase(admin);
   checked(await admin.from("competition_publication").update({ enabled: competitions }).eq("id", "global"), "Set disposable competition publication");
@@ -73,6 +73,10 @@ export async function createFixture({ gameweeks = 1, competitions = false, seaso
     checked(await admin.from("fantasy_gameweeks").insert(weeks), "Create test gameweeks");
     checked(await admin.from("competition_publication").update({ enabled: prizeGameweeks })
       .in("gameweek_id", weeks.map((week) => week.id)), "Select disposable prize rounds");
+    // Most journeys prepare their own editorial rows (including missing-row
+    // fallbacks). Keep the import defaults for the dedicated schedule journey.
+    if (!bannerDefaults) checked(await admin.from("homepage_banners").delete()
+      .in("gameweek_id", weeks.map((week) => week.id)), "Remove default fixture banners before editorial setup");
     const user = checked(await admin.auth.admin.createUser({ email, password, email_confirm: true }), "Create test user");
     fixture.userId = user.user.id;
     checked(await admin.from("fantasy_teams").insert({ id: fixture.teamId, user_id: fixture.userId, name: `Functional ${id}`,
