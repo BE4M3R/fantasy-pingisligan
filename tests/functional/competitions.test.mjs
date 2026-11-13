@@ -10,21 +10,24 @@ const review = async (f) => checked(await f.admin.rpc("get_weekly_competition_re
 const selection = (f) => squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]]);
 const score = async (f) => checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Score using Fantasy");
 
-test("numbered routes reject ambiguity and public promotions select only revealed current content", async () => {
+test("numbered routes reject ambiguity and promotions follow the next enterable prize round and reveal schedule", async () => {
   const f = await createFixture({ gameweeks: 3, competitions: true, seasonCompetitions: true });
   const seasonId = randomUUID();
+  const future = new Date(Date.now() + 86400000).toISOString();
   try {
     const anon = anonymous(f);
     checked(await f.admin.from("homepage_banners").insert([
       { gameweek_id: f.weeks[0].id, content_ready: true, sponsor: "Current partner", prize_title: "A bag", prize_value_sek: 500 },
-      { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Future secret", prize_value_sek: 9999 },
+      { gameweek_id: f.weeks[1].id, content_ready: true, sponsor: "Future secret", prize_value_sek: 9999,
+        prize_title: "Future secret prize", prize_image_path: `${f.id}/secret.png`, prize_image_alt: "Future secret artwork", teaser: "A public surprise!", prize_reveal_at: future },
+      { gameweek_id: f.weeks[2].id, content_ready: true, prize_title: "Early revealed prize", prize_reveal_at: new Date(Date.now() - 60000).toISOString() },
       { id: seasonId, kind: "season", published: true, publish_at: new Date(Date.now() + 3600000).toISOString(),
         sponsor: "Season secret", prize_value_sek: 16000 },
     ], { defaultToNull: false }), "Prepare discovery content");
     let promotions = checked(await anon.rpc("get_public_competition_promotions"), "Public promotions");
     assert.equal(promotions.length, 2);
     assert.equal(promotions[0].sponsor, "Current partner");
-    assert.equal(promotions[0].prize_title, null, "Prize headlines are confined to detail pages");
+    assert.equal(promotions[0].prize_title, "A bag");
     assert.equal(promotions[0].description, null);
     assert.equal(Number(promotions[0].prize_value_sek), 500);
     assert.equal(promotions[0].public_path, "/competitions/gameweek/1");
@@ -37,6 +40,23 @@ test("numbered routes reject ambiguity and public promotions select only reveale
     checked(await f.admin.from("homepage_banners").update({ publish_at: new Date(Date.now() - 60000).toISOString() }).eq("id", seasonId), "Publish season independently");
     promotions = checked(await anon.rpc("get_public_competition_promotions"), "Revealed season promotion");
     assert.equal(promotions[1].sponsor, "Season secret");
+    // A locked round is no longer enterable even while its matches are pending.
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: new Date(Date.now() - 60000).toISOString() }).eq("id", f.weeks[0].id), "Close current entry");
+    promotions = checked(await anon.rpc("get_public_competition_promotions"), "Next enterable prize");
+    assert.equal(promotions[0].gameweek_number, 2);
+    assert.equal(promotions[0].content_available, false);
+    assert.equal(promotions[0].description, "A public surprise!");
+    assert.equal(Date.parse(promotions[0].prize_reveal_at), Date.parse(future));
+    for (const field of ["sponsor", "prize_title", "prize_value_sek", "image_path"])
+      assert.equal(promotions[0][field], null, `Embargoed ${field}`);
+    checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("gameweek_id", f.weeks[1].id), "Skip disabled prize round");
+    promotions = checked(await anon.rpc("get_public_competition_promotions"), "Early revealed future round");
+    assert.equal(promotions[0].gameweek_number, 3);
+    assert.equal(promotions[0].prize_title, "Early revealed prize");
+    assert.equal(promotions[0].content_available, true);
+    checked(await f.admin.from("fantasy_gameweeks").update({ lock_at: new Date().toISOString() }).eq("id", f.weeks[2].id), "Reach final entry deadline");
+    assert.deepEqual(checked(await anon.rpc("get_public_competition_promotions"), "No remaining enterable rounds").map(p => p.kind), ["season"]);
+    checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("gameweek_id", f.weeks[1].id), "Restore second route for ambiguity check");
     checked(await f.admin.from("fantasy_gameweeks").update({ round_order: 1 }).eq("id", f.weeks[1].id), "Repeated Gameweek number");
     const routes = checked(await anon.rpc("competition_gameweek_routes").eq("gameweek_number", 1), "Ambiguous routes");
     assert.equal(routes.length, 2);

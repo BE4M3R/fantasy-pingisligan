@@ -55,6 +55,22 @@ the experience has one consistent color profile. Use logo gold for the public
 primary CTA and key headline accent. Use white or `--pf-text` for primary copy
 and `--pf-text-muted` for supporting copy.
 
+Below the signup button, show a muted “Proudly sponsored by” caption (localized
+in Swedish) and `public/branding/yasaka-grey.png`, contained without cropping on
+a black `--pf-sponsor-logo-bg` tile. Center
+the sponsorship on phones and align it with the signup action on wider screens.
+
+Start-page competition promotions share a rounded navy panel with a bordered
+header and a centered white invitation to compete for Gameweek prizes every week,
+larger than the card copy.
+Competition copy and optional value sit
+below it, with the destination arrow at the bottom right. These cards omit prize
+images and sponsor names; the Yasaka sponsorship stays beside the signup area.
+Competition links brighten on hover and visibly press inward with a blue surface
+and inset gold ring while clicked or tapped. Their arrows move right on hover
+and press. Reduced-motion preferences disable the movement; keyboard focus keeps
+the visible gold outline.
+
 ## Logged-in app
 
 The app page background resembles a blue table-tennis court shared with the
@@ -70,6 +86,7 @@ public landing page, while content sits on navy cards.
 | `--pf-card-border` | `#123a55` | Default border on navy cards |
 | `--pf-brand-blue-soft` | `#0b3762` | Subtle blue selected or hover background |
 | `--pf-brand-blue-border` | `#18558d` | Interactive or emphasized border |
+| `--pf-sponsor-logo-bg` | `#000000` | Black background behind sponsor logos in Home competition banners and the start-page Yasaka tile |
 
 ## Semantic colors
 

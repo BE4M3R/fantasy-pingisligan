@@ -31,6 +31,9 @@ erDiagram
 - `profiles` mirrors application-specific user information from Supabase Auth.
   `created_at` records when the Auth user signed up, while nullable
   `verified_at` mirrors the time their email was confirmed.
+  `can_preview_competitions` defaults to false and is operator-only; it permits
+  account-specific reads of ready unrevealed competition prizes and prize artwork
+  without changing Home or public reveal. See [account previews](competitions.md#account-specific-preview-before-reveal).
 - `fantasy_teams` is one user's team, name and budget. The budget represents
   current squad value plus unspent cash; it moves with owned-player price
   changes so a refresh does not change the team's available cash.

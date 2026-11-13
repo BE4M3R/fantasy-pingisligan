@@ -2,6 +2,7 @@ import "server-only";
 import { competitionsEnabled } from "@/lib/competition-publication";
 import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/public";
+import { createClient, getClaims } from "@/lib/supabase/server";
 import { competitionDisplayTitle, type Competition, type CompetitionStandings, type CompetitionWinner } from "./competitions";
 
 export async function getCompetitionWinner(gameweekId: string) {
@@ -22,6 +23,24 @@ export const getCompetition = cache(async (gameweekId: string | null) => {
   return { competition: competition ? { ...competition, title: competitionDisplayTitle(competition.title) } : null, error: Boolean(error) };
 });
 
+// Page content alone may use the signed-in preview projection. Keep metadata,
+// discovery and every public loader on getCompetition's anonymous reads.
+export const getCompetitionForPage = cache(async (gameweekId: string | null) => {
+  const content = await getCompetition(gameweekId);
+  if (content.error || !content.competition || content.competition.content_available) {
+    return { ...content, preview: false };
+  }
+  const { data } = await getClaims();
+  if (!data?.claims.sub) return { ...content, preview: false };
+  const client = await createClient();
+  const { data: previews, error } = await client.rpc("get_competition_preview", { p_gameweek_id: gameweekId });
+  const preview = (previews as Competition[] | null)?.[0];
+  // A missing permission or failed read leaves the public placeholder intact.
+  return !error && preview ? {
+    competition: { ...preview, title: competitionDisplayTitle(preview.title) }, error: false, preview: true,
+  } : { ...content, preview: false };
+});
+
 export const resolveCompetitionGameweek = cache(async (number: string) => {
   if (!/^[1-9][0-9]*$/.test(number) || Number(number) > 2147483647) return null;
   const { data, error } = await createPublicClient({ fresh: true }).rpc("competition_gameweek_routes")
@@ -38,9 +57,10 @@ export async function getCompetitionStandings(gameweekId: string, offset = 0, li
   return error ? null : data as CompetitionStandings | null;
 }
 
-export async function getCompetitionArtwork(competition: Competition) {
+export async function getCompetitionArtwork(competition: Competition, preview = false) {
   const paths = competition.prize_image_path ? [competition.prize_image_path] : [];
   if (!paths.length) return {} as Record<string, string | undefined>;
-  const { data } = await createPublicClient({ fresh: true }).storage.from("announcement-artwork").createSignedUrls(paths, 300);
+  const client = preview ? await createClient() : createPublicClient({ fresh: true });
+  const { data } = await client.storage.from("announcement-artwork").createSignedUrls(paths, 300);
   return Object.fromEntries((data ?? []).map((item) => [item.path, item.signedUrl])) as Record<string, string | undefined>;
 }

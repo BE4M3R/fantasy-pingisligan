@@ -43,6 +43,7 @@
   --pf-coral-text: #ffcaca;
   --pf-text: #f2f6f8;
   --pf-text-muted: #9fb8c6;
+  --pf-sponsor-logo-bg: #000000;
 }
 
 html {
@@ -136,6 +137,46 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .match-live-dot {
     animation: none;
+  }
+}
+
+#announcement-popup[data-closing="true"] {
+  pointer-events: none;
+}
+
+#announcement-popup[data-closing="true"]::backdrop {
+  animation: announcement-backdrop-dismiss 480ms ease-out forwards;
+}
+
+.announcement-bell-arrival {
+  animation: announcement-bell-arrival 650ms ease-out;
+}
+
+.announcement-badge-fade {
+  animation: announcement-badge-fade 320ms ease-out 1400ms forwards;
+}
+
+@keyframes announcement-backdrop-dismiss {
+  to { opacity: 0; }
+}
+
+@keyframes announcement-bell-arrival {
+  0% { box-shadow: 0 0 0 0 rgb(var(--pf-brand-blue-rgb) / 0.55); }
+  100% { box-shadow: 0 0 0 12px rgb(var(--pf-brand-blue-rgb) / 0); }
+}
+
+@keyframes announcement-badge-fade {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #announcement-popup[data-closing="true"]::backdrop,
+  .announcement-bell-arrival {
+    animation: none;
+  }
+
+  .announcement-badge-fade {
+    animation-duration: 1ms;
   }
 }
 
@@ -297,7 +338,7 @@ body {
   height: 2.75rem;
   padding: 0.375rem;
   border-radius: 0.375rem;
-  background: var(--pf-text);
+  background: var(--pf-sponsor-logo-bg);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--pf-navy-deep) 20%, transparent);
 }
 

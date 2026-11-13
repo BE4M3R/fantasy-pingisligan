@@ -18,6 +18,7 @@ const homeCopy = {
     heading: "Skapa ditt Pingisligan",
     headingAccent: "Fantasy-lag",
     getStarted: "Kom igång",
+    sponsoredBy: "Stolta över att sponsras av",
     featureHeading: "Fantasy för svensk bordtennis",
     featureText: "Bygg ditt bästa möjliga fantasy pingisligan-lag",
     squadAlt: "Exempel på ett fantasylag på en bordtennisplan",
@@ -31,6 +32,7 @@ const homeCopy = {
     heading: "Build your pingligan",
     headingAccent: "fantasy team",
     getStarted: "Get started",
+    sponsoredBy: "Proudly sponsored by",
     featureHeading: "Fantasy for Swedish table tennis",
     featureText: "Build your fantasy team with players from Pingisligan.",
     squadAlt: "Example fantasy team on a table tennis court",
@@ -44,6 +46,7 @@ const homeCopy = {
   heading: string;
   headingAccent: string;
   getStarted: string;
+  sponsoredBy: string;
   featureHeading: string;
   featureText: string;
   squadAlt: string;
@@ -153,6 +156,19 @@ export async function Homepage({ language }: { language: HomeLanguage }) {
             >
               {copy.getStarted}
             </Link>
+            <div className="mt-5 flex flex-col items-center gap-2 sm:items-start">
+              <p className="text-xs font-medium tracking-wide text-[var(--pf-text-muted)]">{copy.sponsoredBy}</p>
+              <span className="flex h-16 w-20 items-center justify-center rounded-xl bg-[var(--pf-sponsor-logo-bg)] p-2.5 sm:h-20 sm:w-24">
+                <Image
+                  src="/branding/yasaka-grey.png"
+                  width={1187}
+                  height={980}
+                  alt="Yasaka"
+                  className="h-auto max-h-full w-auto max-w-full object-contain"
+                  unoptimized
+                />
+              </span>
+            </div>
           </div>
           <Suspense fallback={null}>
             <PublicCompetitionPromotions language={language} />

@@ -145,6 +145,30 @@ test("weekly-only publication hides season discovery and routes until explicitly
     await expect(carousel.getByText("Gameweek 1 Competition", { exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: testInfo.outputPath("weekly-only-dashboard-390.png"), fullPage: true });
+    // The normal URL is still public-placeholder-only until this account is
+    // explicitly permitted; metadata and the previewer's Home keep their gates.
+    checked(await f.admin.from("homepage_banners").update({ title: "PRIVATE_PREVIEW_TITLE",
+      prize_reveal_at: new Date(Date.now() + 86400000).toISOString() }).eq("gameweek_id", f.weeks[0].id), "Schedule future reveal");
+    await page.goto("/competitions/gameweek/1");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Prize details coming soon");
+    checked(await f.admin.from("profiles").update({ can_preview_competitions: true }).eq("id", f.userId), "Grant account preview");
+    const response = await page.reload();
+    const cacheControl = response.headers()["cache-control"] ?? "";
+    expect(cacheControl).toMatch(/\b(?:no-store|no-cache)\b/);
+    expect(cacheControl).not.toMatch(/\bpublic\b|\bs-maxage=/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Weekly training kit");
+    expect(await page.title()).not.toContain("PRIVATE_PREVIEW_TITLE");
+    expect(await page.locator('meta[property="og:title"]').getAttribute("content")).not.toContain("PRIVATE_PREVIEW_TITLE");
+    await page.screenshot({ path: testInfo.outputPath("gameweek-1-account-preview-390.png"), fullPage: true });
+    const publicHtml = await (await page.request.get("/competitions/gameweek/1", { headers: { cookie: "" } })).text();
+    expect(publicHtml).not.toContain("PRIVATE_PREVIEW_TITLE");
+    expect(publicHtml).not.toContain("Weekly training kit");
+    await page.goto("/dashboard/overview");
+    await expect(carousel.getByText(/Prize reveal:/)).toBeVisible();
+    await expect(carousel.getByText("Weekly training kit", { exact: true })).toHaveCount(0);
+    checked(await f.admin.from("profiles").update({ can_preview_competitions: false }).eq("id", f.userId), "Revoke account preview");
+    await page.goto("/competitions/gameweek/1");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Prize details coming soon");
     checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", "season"), "Opt season in");
     expect((await page.goto("/competitions/season")).status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Season training kit");
