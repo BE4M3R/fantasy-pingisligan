@@ -11,8 +11,9 @@ events, analytics providers, database writes or additional dependencies.
 - The server renders the integration only when `VERCEL_ENV=production`.
 - `next.config.ts` derives `NEXT_PUBLIC_ANALYTICS_ENABLED` from `VERCEL_ENV` at
   build time. It is not a manually maintained environment variable.
-- The client requires that flag **and** the exact origin
-  `https://pingisliganfantasy.se` before mounting `Analytics` or calling `track()`.
+- The client requires that flag **and** either exact production origin,
+  `https://www.pingisliganfantasy.se` or `https://pingisliganfantasy.se`, before
+  mounting `Analytics` or calling `track()`.
 - `beforeSendAnalytics` repeats the same gate for both page views and events.
   Localhost, preview, staging and deployment-specific `*.vercel.app` URLs do not
   load the analytics script or dispatch custom events, including production-mode
@@ -27,7 +28,9 @@ helper accepts **no properties**, so every event has zero custom properties
 (within the requested Pro limit of two). No player, manager, user, team, email,
 league, invitation, product URL or search text is supplied to `track()`.
 
-The shared `beforeSend` hook redacts the URL on both page views and custom events:
+The shared `beforeSend` hook normalizes both production origins to
+`https://www.pingisliganfantasy.se` and redacts the URL on both page views and
+custom events:
 
 | Actual page | Reported path |
 | --- | --- |

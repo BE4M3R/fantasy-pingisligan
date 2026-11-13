@@ -3,7 +3,11 @@
 import { track } from "@vercel/analytics";
 import type { BeforeSendEvent } from "@vercel/analytics/next";
 
-const productionOrigin = "https://pingisliganfantasy.se";
+const productionOrigin = "https://www.pingisliganfantasy.se";
+const productionOrigins = new Set([
+  "https://pingisliganfantasy.se",
+  productionOrigin,
+]);
 
 export type AnalyticsEvent =
   | "Competition Banner Clicked"
@@ -23,7 +27,7 @@ export type AnalyticsEvent =
 export function isAnalyticsEnabled() {
   return process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === "true"
     && typeof window !== "undefined"
-    && window.location.origin === productionOrigin;
+    && productionOrigins.has(window.location.origin);
 }
 
 // No properties argument: entity identifiers and user data cannot be passed in.
@@ -48,7 +52,7 @@ export function beforeSendAnalytics(event: BeforeSendEvent): BeforeSendEvent | n
   if (!isAnalyticsEnabled()) return null;
   try {
     const url = new URL(event.url);
-    if (url.origin !== productionOrigin) return null;
+    if (!productionOrigins.has(url.origin)) return null;
     const path = url.pathname.replace(/\/$/, "") || "/";
     const groupedPath = /^\/dashboard\/leagues\/[^/]+$/.test(path)
       ? "/dashboard/leagues/[leagueId]"
