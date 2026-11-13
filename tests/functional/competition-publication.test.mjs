@@ -126,3 +126,77 @@ test("season opt-in hides all season disclosures independently and preserves con
     await cleanupFixture(f);
   }
 });
+
+test("only operator-permitted accounts preview ready prizes and artwork, without changing public reads or Home", async () => {
+  const f = await createFixture({ gameweeks: 2, competitions: true, seasonCompetitions: true });
+  const anon = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+  const other = createClient(f.url, f.anonKey, { auth: { persistSession: false } });
+  const path = `${f.id}/preview.png`;
+  const seasonId = randomUUID();
+  let otherId;
+  try {
+    const email = `${randomUUID()}@example.invalid`;
+    otherId = checked(await f.admin.auth.admin.createUser({ email, password: f.password, email_confirm: true,
+      user_metadata: { can_preview_competitions: true } }), "Create ordinary reader").user.id;
+    checked(await other.auth.signInWithPassword({ email, password: f.password }), "Sign in ordinary reader");
+    const future = new Date(Date.now() + 86400000).toISOString();
+    checked(await f.admin.from("homepage_banners").insert([
+      { gameweek_id: f.weeks[0].id, content_ready: true, prize_reveal_at: future, prize_title: "PREVIEW_SECRET",
+        prize_description: "Private prize description", prize_image_path: path, prize_image_alt: "Private preview prize", prize_product_url: "https://example.invalid/prize" },
+      { gameweek_id: f.weeks[1].id, content_ready: false, prize_reveal_at: future, prize_title: "UNREADY_SECRET" },
+      { id: seasonId, kind: "season", published: true, publish_at: future, prize_title: "SEASON_SECRET" },
+    ], { defaultToNull: false }), "Prepare embargoed prizes");
+    checked(await f.admin.storage.from("announcement-artwork").upload(path,
+      Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64"), { contentType: "image/png" }), "Upload preview prize");
+    const preview = () => f.user.rpc("get_competition_preview", { p_gameweek_id: f.weeks[0].id });
+    const permission = (value) => f.admin.from("profiles").update({ can_preview_competitions: value }).eq("id", f.userId);
+    for (const client of [f.user, other]) {
+      assert.equal(checked(await client.rpc("can_preview_competitions"), "Default-off permission"), false);
+      assert.ok((await client.from("profiles").update({ can_preview_competitions: true }).eq("id", f.userId)).error);
+    }
+    assert.ok((await anon.rpc("get_competition_preview", { p_gameweek_id: f.weeks[0].id })).error);
+    assert.deepEqual(checked(await preview(), "Ordinary account has no preview"), []);
+    const home = checked(await f.user.rpc("get_homepage_competitions"), "Original Home banners");
+    const promotions = checked(await anon.rpc("get_public_competition_promotions"), "Original public promotions");
+    checked(await permission(true), "Operator grants preview");
+    const prize = checked(await preview(), "Account preview")[0];
+    assert.equal(prize.prize_title, "PREVIEW_SECRET");
+    assert.equal(prize.prize_description, "Private prize description");
+    assert.equal(prize.prize_product_url, "https://example.invalid/prize");
+    assert.equal(prize.public_path, "/competitions/gameweek/1");
+    assert.ok(checked(await f.user.storage.from("announcement-artwork").createSignedUrl(path, 60), "Permitted artwork").signedUrl);
+    assert.ok(!(await f.user.storage.from("announcement-artwork").download(path)).error);
+    assert.equal(checked(await f.user.rpc("get_competition_preview"), "Season preview")[0].prize_title, "SEASON_SECRET");
+    assert.deepEqual(checked(await f.user.rpc("get_competition_preview", { p_gameweek_id: f.weeks[1].id }), "Unready prize stays hidden"), []);
+    assert.deepEqual(checked(await other.rpc("get_competition_preview", { p_gameweek_id: f.weeks[0].id }), "Other account stays ordinary"), []);
+    for (const client of [anon, other]) {
+      assert.ok((await client.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
+      assert.ok((await client.storage.from("announcement-artwork").download(path)).error);
+    }
+    for (const client of [anon, f.user, other]) {
+      assert.equal(checked(await client.rpc("get_public_competition", { p_gameweek_id: f.weeks[0].id }), "Public projection unchanged")[0].content_available, false);
+      assert.deepEqual(checked(await client.from("homepage_banners").select("prize_title"), "Direct prize rows stay private"), []);
+      assert.deepEqual(checked(await client.rpc("get_public_competition_promotions"), "Public promotions unchanged"), promotions);
+    }
+    assert.deepEqual(checked(await f.user.rpc("get_homepage_competitions"), "Previewer's Home unchanged"), home);
+    for (const id of ["global", `gameweek:${f.weeks[0].id}`]) {
+      checked(await f.admin.from("competition_publication").update({ enabled: false }).eq("id", id), "Withdraw publication");
+      assert.deepEqual(checked(await preview(), "Preview respects publication"), []);
+      assert.ok((await f.user.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
+      checked(await f.admin.from("competition_publication").update({ enabled: true }).eq("id", id), "Restore publication");
+    }
+    checked(await f.admin.from("homepage_banners").update({ content_ready: false }).eq("gameweek_id", f.weeks[0].id), "Withdraw ready content");
+    assert.deepEqual(checked(await preview(), "Ready flag enforced"), []);
+    assert.ok((await f.user.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
+    checked(await permission(false), "Revoke account permission");
+    checked(await f.admin.from("homepage_banners").update({ content_ready: true }).eq("gameweek_id", f.weeks[0].id), "Restore ready content");
+    assert.deepEqual(checked(await preview(), "Revocation immediate on new reads"), []);
+    assert.ok((await f.user.storage.from("announcement-artwork").createSignedUrl(path, 60)).error);
+    checked(await f.user.from("profiles").update({ display_name: "Ordinary editable name" }).eq("id", f.userId), "Normal profile editing remains available");
+  } finally {
+    checked(await f.admin.storage.from("announcement-artwork").remove([path]), "Remove preview artwork");
+    checked(await f.admin.from("homepage_banners").delete().eq("id", seasonId), "Remove preview season");
+    if (otherId) checked(await f.admin.auth.admin.deleteUser(otherId), "Remove ordinary reader");
+    await cleanupFixture(f);
+  }
+});

@@ -181,7 +181,11 @@ test("public homepage promotes two competitions and approved shared terms remain
     await page.goto("/en");
     const promotions = page.getByRole("region", { name: "Competitions", exact: true });
     await expect(promotions.getByRole("link")).toHaveCount(2);
-    await expect(promotions.getByText("Training bag", { exact: true })).toHaveCount(0);
+    await expect(promotions.getByRole("heading", { name: "Training bag", exact: true })).toBeVisible();
+    await expect(promotions.getByRole("heading", { name: "Compete for exciting Gameweek prizes every week!", exact: true })).toBeVisible();
+    await expect(promotions.locator("img")).toHaveCount(0);
+    await expect(promotions.getByText("Current test partner", { exact: true })).toHaveCount(0);
+    await expect(page.getByAltText("Yasaka", { exact: true })).toBeVisible();
     await expect(promotions.getByText("View competition", { exact: true })).toHaveCount(2);
     expect(await page.content()).not.toContain("Unrevealed");
     await expect(page.getByRole("link", { name: "Get started", exact: true })).toBeVisible();
@@ -190,8 +194,11 @@ test("public homepage promotes two competitions and approved shared terms remain
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: testInfo.outputPath("public-promotions-desktop-1440.png"), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: testInfo.outputPath("public-promotions-mobile-390.png"), fullPage: true });
     await promotions.getByRole("link").first().click();
     await expect(page).toHaveURL(/\/competitions\/gameweek\/1$/);
@@ -229,7 +236,7 @@ test("public homepage promotes two competitions and approved shared terms remain
     await page.locator('#competition-rules section[aria-label^="Season competition rules"] summary').click();
     await expect(page.getByText("Season participation terms.", { exact: true })).toBeVisible();
     await page.goto("/en");
-    await expect(promotions.getByText("Table tennis table", { exact: true })).toHaveCount(0);
+    await expect(promotions.getByRole("heading", { name: "Table tennis table", exact: true })).toBeVisible();
     await expect(promotions.getByText(/16,000/)).toBeVisible();
     await promotions.getByRole("link").last().click();
     await expect(page).toHaveURL(/\/competitions\/season$/);

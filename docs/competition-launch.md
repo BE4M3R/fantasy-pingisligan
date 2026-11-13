@@ -45,7 +45,10 @@ publishes the latest policy without requiring a prize row. Global must be enable
 Season policies also require the season switch. Draft rules remain private.
 Missing rows and failed configuration reads disable access. Anonymous and ordinary
 authenticated users can read non-sensitive switches but cannot edit them. There is
-no public environment variable, cookie, hostname bypass or privileged app client.
+no public environment variable, cookie or hostname bypass, or privileged app client.
+An operator-granted account preview can read ready prizes before reveal through a
+separate authenticated projection; it never changes public publication or Home.
+See [account previews](competitions.md#account-specific-preview-before-reveal).
 
 When global is off, competition pages return 404/noindex and competition APIs
 return 404. Competition links, public promotions and carousel placeholders are

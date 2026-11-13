@@ -93,6 +93,16 @@ Clicking a popup link saves its dismissal before following the link. A failed
 save keeps the current item open with an error and Retry action. Opening inbox
 details marks read without dismissing; opening the list alone does neither.
 
+After a successful popup dismissal, the popup shrinks and curves toward the
+header's notification bell over 480ms, then the bell briefly highlights. The next
+popup waits until that animation finishes. Reduced-motion users skip the flight;
+an off-screen bell also skips it without moving the page. The bell's unread badge
+stays visible for 1.4 seconds after the update, then fades over 320ms only when
+more than one unread announcement remains. A count of one stays visible.
+Opening the inbox reveals the badge again, and a changed unread count also
+reveals it. The fade changes presentation only: unread/read/dismissal state and
+the bell's accessible unread label retain their existing behavior.
+
 Each notice requires individual dismissal. There are no cooldowns or snoozing.
 Dismissals persist per user across devices; dismissed notices remain in the inbox
 and never appear automatically again.
@@ -126,9 +136,9 @@ Inbox pages load in batches of 20, including body text for previews. Full Markdo
 rendering and short-lived artwork URLs load when an item opens. No shared cache
 contains authenticated state.
 
-The existing announcement unit and browser tests still describe the previous
-snooze and footer-button flow and need updating before they can verify this UI.
-Database publication, RLS, private Storage and irreversible dismissal behavior
-are unchanged.
+Existing browser journeys cover popup order, saved dismissals, failure/retry,
+the flight to the bell, delayed multi-unread badge fading, the persistent single
+unread badge and reduced-motion queue advancement. Database publication, RLS,
+private Storage and irreversible dismissal behavior are unchanged.
 Follow [rendered inspection](automated-testing.md#rendered-ui-inspection)
 and `$verify-ui`; screenshot assertions alone are insufficient.
