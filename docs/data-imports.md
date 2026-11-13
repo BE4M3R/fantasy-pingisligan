@@ -212,8 +212,26 @@ see [Home matches and stream links](home-matches.md) to configure Watch links.
 The daily and manual schedule imports recalculate a future gameweek's deadline
 from its earliest fixture. Once the existing deadline has passed, imports keep
 that gameweek's lock and unlock boundaries unchanged but continue updating its
-individual fixture times and statuses. Existing fixtures retain their original
-gameweek link when STUPA postpones them or moves their upstream round.
+individual fixture times and statuses. While both the original and destination
+gameweeks remain unlocked, existing fixtures follow STUPA round corrections, repairing stale
+gameweek links on the next import without recreating matches. Reassignments are
+logged by fixture ID and old/new gameweek IDs. If either gameweek's deadline has
+passed, the fixture retains its original gameweek link to protect locked squads.
+The importer checks deadlines both before and after refreshing the schedule;
+a correction that immediately locks a round cannot move fixtures into or out of it.
+
+After deploying this correction through staging and the normal `develop` → `main`
+release, run **Import Pingisligan results** on `main` with `kind=full` to repair
+unlocked round assignments, refresh results and score. Rerunning the older
+importer only updates dates/teams and cannot repair an existing gameweek link.
+Already locked assignments require separate review; this import preserves them.
+
+The Fixtures page groups by the latest imported STUPA round independently of
+the fantasy scoring link. A fixture moved out of a locked round appears under
+its latest scheduled round, with a note identifying the original gameweek that
+receives its fantasy points. The schedule and scoring history can therefore
+stay accurate together. Fixtures without a known STUPA round fall back to their
+fantasy gameweek.
 
 ## Availability and prices
 

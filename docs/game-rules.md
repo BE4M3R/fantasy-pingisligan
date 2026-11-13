@@ -228,6 +228,14 @@ deadline to two hours before the new scheduled start of its earliest team
 fixture. If that updated deadline has already passed when the change is
 imported, the gameweek locks immediately.
 
+While both affected gameweeks remain unlocked, a fixture follows confirmed STUPA round
+corrections. A fixture's scoring assignment cannot move once either the original
+or destination gameweek's deadline has passed, including a deadline brought
+forward by that same schedule refresh.
+The Fixtures page always displays the latest imported STUPA round; if the
+scoring gameweek remains different, the fixture identifies which gameweek
+receives its fantasy points.
+
 Once a deadline has passed, its lock and unlock boundaries are frozen and the
 gameweek is not reopened. The schedule importer still updates individual
 fixture times and statuses. A postponed fixture remains attached to its

@@ -166,12 +166,18 @@ export function resolveFixtureGameweekId(
   stupaRoundId,
   existingMatchesByStupaId,
   gameweeksByRoundId,
+  unlockedGameweekIds,
 ) {
-  return (
-    existingMatchesByStupaId.get(stupaMatchId)?.fantasy_gameweek_id ??
-    gameweeksByRoundId.get(stupaRoundId)?.id ??
-    null
-  );
+  const existingId = existingMatchesByStupaId.get(stupaMatchId)?.fantasy_gameweek_id;
+  const upstreamId = gameweeksByRoundId.get(stupaRoundId)?.id;
+  if (!existingId) return upstreamId ?? null;
+
+  // Before either deadline, upstream round corrections should repair stale
+  // links. After locking, the original squad snapshots must remain authoritative.
+  if (upstreamId && unlockedGameweekIds.has(existingId) && unlockedGameweekIds.has(upstreamId)) {
+    return upstreamId;
+  }
+  return existingId;
 }
 
 async function getClubs(supabase) {
@@ -184,20 +190,11 @@ async function getClubs(supabase) {
   return data ?? [];
 }
 
-async function upsertGameweeks(supabase, gameweeks) {
-  const roundIds = gameweeks.map((gameweek) => gameweek.stupa_round_id);
-  const { data: existingGameweeks, error: existingError } = await supabase
-    .from("fantasy_gameweeks")
-    .select("stupa_round_id, lock_at, unlock_at")
-    .in("stupa_round_id", roundIds);
-
-  if (existingError) {
-    throw new Error(`Could not load existing gameweeks: ${existingError.message}`);
-  }
-
+async function upsertGameweeks(supabase, gameweeks, existingGameweeks, refreshedAt) {
   const safeGameweeks = preserveLockedGameweekBoundaries(
     gameweeks,
-    existingGameweeks ?? [],
+    existingGameweeks,
+    refreshedAt,
   );
 
   for (const [index, gameweek] of safeGameweeks.entries()) {
@@ -225,7 +222,7 @@ async function upsertGameweeks(supabase, gameweeks) {
   return new Map(data.map((gameweek) => [gameweek.stupa_round_id, gameweek]));
 }
 
-async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
+async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId, unlockedGameweekIds) {
   const clubs = await getClubs(supabase);
   const stupaMatchIds = matches
     .map((match) => nullableInteger(match.id))
@@ -256,15 +253,22 @@ async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId) {
       continue;
     }
 
+    const gameweekId = resolveFixtureGameweekId(
+      match.id,
+      match.round_id,
+      existingMatchesByStupaId,
+      gameweeksByRoundId,
+      unlockedGameweekIds,
+    );
+    const previousGameweekId = existingMatchesByStupaId.get(match.id)?.fantasy_gameweek_id;
+    if (previousGameweekId && gameweekId !== previousGameweekId) {
+      console.log(`Fixture ${match.id}: reassigned unlocked gameweek ${previousGameweekId} to ${gameweekId} (STUPA round ${match.round_id}).`);
+    }
+
     payload.push({
       profixio_id: `stupa:${match.id}`,
       stupa_match_id: match.id,
-      fantasy_gameweek_id: resolveFixtureGameweekId(
-        match.id,
-        match.round_id,
-        existingMatchesByStupaId,
-        gameweeksByRoundId,
-      ),
+      fantasy_gameweek_id: gameweekId,
       stupa_event_match_id: match.event_match_id ?? null,
       stupa_stage_id: stageId,
       stupa_round_id: match.round_id,
@@ -300,8 +304,29 @@ export async function persistSchedule(
   stageId,
   gameweeks = buildGameweeks(matches, stageId),
 ) {
-  const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks);
-  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId);
+  const refreshedAt = new Date().toISOString();
+  const { data: existingGameweeks, error } = await supabase
+    .from("fantasy_gameweeks")
+    .select("id, stupa_round_id, lock_at, unlock_at")
+    .eq("stupa_stage_id", stageId);
+  if (error) throw new Error(`Could not load existing gameweeks: ${error.message}`);
+
+  const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks, existingGameweeks ?? [], refreshedAt);
+  const refreshTime = Date.parse(refreshedAt);
+  const existingById = new Map((existingGameweeks ?? []).map((week) => [week.id, week]));
+  const unlockedGameweekIds = new Set((existingGameweeks ?? [])
+    .filter((week) => Date.parse(week.lock_at) > refreshTime).map((week) => week.id));
+  for (const week of gameweeksByRoundId.values()) {
+    const previous = existingById.get(week.id);
+    // Check both deadlines: a correction can lock a previously open round
+    // immediately, and must never make an already locked round movable again.
+    if (Date.parse(week.lock_at) > refreshTime && (!previous || Date.parse(previous.lock_at) > refreshTime)) {
+      unlockedGameweekIds.add(week.id);
+    } else {
+      unlockedGameweekIds.delete(week.id);
+    }
+  }
+  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId, unlockedGameweekIds);
   return { gameweeks, importedMatches };
 }
 
