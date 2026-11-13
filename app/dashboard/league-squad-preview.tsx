@@ -1,5 +1,7 @@
 "use client";
 
+import { trackAnalyticsEvent } from "@/lib/analytics";
+
 import { type MouseEvent, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { animatePopupOpen, type PopupOrigin } from "@/app/dashboard/popup-animation";
@@ -130,6 +132,7 @@ export function LeagueSquadPreview({ players, userId, gameweekId, gameweekLabel 
   const [loading, setLoading] = useState(false);
 
   async function openDetails(player: DisplayPlayer, onBench: boolean, trigger: HTMLButtonElement, point: PopupOrigin | null) {
+    trackAnalyticsEvent("Player Points Clicked");
     triggerRef.current = trigger;
     const cached = breakdownCache.current.get(player.player_id);
     flushSync(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { safeAnnouncementUrl } from "@/lib/announcements";
 
 export function CompetitionArtwork({ src, alt, compact = false, productUrl }: { src?: string; alt: string; compact?: boolean; productUrl?: string | null }) {
@@ -21,6 +22,6 @@ export function CompetitionArtwork({ src, alt, compact = false, productUrl }: { 
     </span> : null}
   </>;
   const className = "block overflow-hidden rounded-xl bg-[var(--pf-navy-elevated)]";
-  return href ? <a href={href} target="_blank" rel="noopener noreferrer" className={`${className} transition hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-logo-gold)]`}>{content}</a>
+  return href ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => trackAnalyticsEvent("Sponsor Link Clicked")} className={`${className} transition hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pf-logo-gold)]`}>{content}</a>
     : <div className={className}>{content}</div>;
 }

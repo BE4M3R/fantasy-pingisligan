@@ -6,6 +6,7 @@ import { LeagueSquadPreview, type LeagueSnapshotPlayer } from "@/app/dashboard/l
 import { animatePopupOpen } from "@/app/dashboard/popup-animation";
 import { SquadLineupView } from "@/app/dashboard/squad-lineup-view";
 import { createClient } from "@/lib/supabase/browser";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 export type LeagueTableRow = {
   rank?: number;
@@ -244,6 +245,7 @@ export function LeagueTable({
   }
 
   async function openGameweekScores(row: LeagueTableRow, event: MouseEvent<HTMLButtonElement>) {
+    trackAnalyticsEvent("League Team Clicked");
     const requestId = ++scoresRequestRef.current;
     ++lineupRequestRef.current;
     setSelectedTeam(row);

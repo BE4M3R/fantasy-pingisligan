@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { HomepageSlide } from "@/lib/homepage-banners";
 import { safeBannerUrl } from "@/lib/announcements";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 function slideName(slide: HomepageSlide) {
   return slide.gameweekLabel ? `${slide.title} ${slide.gameweekLabel}` : slide.title;
@@ -151,7 +152,7 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
                 role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${slides.length}: ${slideName(slide)}`}
                 className={`sponsored-slide relative w-full shrink-0 snap-start ${season ? "sponsored-slide-season" : ""}`}
               >
-                {destination ? <Link prefetch={false} href={destination} className={`${contentClass} sponsored-link focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-[var(--pf-logo-gold)]`}>
+                {destination ? <Link prefetch={false} href={destination} onClick={() => trackAnalyticsEvent("Competition Banner Clicked")} className={`${contentClass} sponsored-link focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-[var(--pf-logo-gold)]`}>
                   {content}
                 </Link> : <div className={contentClass}>{content}</div>}
               </article>
