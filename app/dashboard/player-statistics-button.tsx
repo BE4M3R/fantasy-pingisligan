@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import type { DashboardPlayer } from "@/app/dashboard/player-types";
 import { PlayerStatisticsContent } from "@/app/dashboard/player-statistics";
 import { usePlayerStatistics } from "@/app/dashboard/use-player-statistics";
@@ -13,7 +14,7 @@ export function PlayerStatisticsButton({ player, children, className }: {
 }) {
   const [open, setOpen] = useState(false);
   return <>
-    <button aria-label={`View statistics for ${player.first_name} ${player.last_name}`} aria-haspopup="dialog" className={className ?? "mt-4 min-h-11 w-full rounded-md border border-[var(--pf-brand-blue-border)] px-3 py-2 text-sm font-semibold text-[var(--pf-brand-blue-hover)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"} onClick={() => setOpen(true)} type="button">{children ?? "View player statistics"}</button>
+    <button aria-label={`View statistics for ${player.first_name} ${player.last_name}`} aria-haspopup="dialog" className={className ?? "mt-4 min-h-11 w-full rounded-md border border-[var(--pf-brand-blue-border)] px-3 py-2 text-sm font-semibold text-[var(--pf-brand-blue-hover)] hover:bg-[var(--pf-brand-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)]"} onClick={() => { trackAnalyticsEvent("Full Statistics Clicked"); setOpen(true); }} type="button">{children ?? "View player statistics"}</button>
     {open ? <PlayerStatisticsDialog player={player} onClose={() => setOpen(false)} /> : null}
   </>;
 }

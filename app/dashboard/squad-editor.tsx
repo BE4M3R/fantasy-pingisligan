@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   confirmGameweekChip,
@@ -502,6 +503,7 @@ export function SquadEditor({
   }
 
   function changeViewMode(mode: "transfers" | "results") {
+    trackAnalyticsEvent(mode === "results" ? "Result Mode Clicked" : "Squad Mode Clicked");
     setViewMode(mode);
     setResultLoadError("");
 
@@ -661,6 +663,7 @@ export function SquadEditor({
 
   function saveChanges() {
     if (saveDisabled) return;
+    trackAnalyticsEvent("Squad Save Clicked");
     const input: SaveSquadDraftInput = {
       chip: selectedChip,
       gameweekId: upcomingGameweek?.id ?? null,
@@ -683,6 +686,7 @@ export function SquadEditor({
       setSavedSquad(draftSquad);
       setSavedChip(selectedChip);
       setSaveMessage("Team saved.");
+      if (result.saved) trackAnalyticsEvent("Squad Save Succeeded");
     });
   }
 

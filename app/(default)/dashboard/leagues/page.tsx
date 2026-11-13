@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AnalyticsLink } from "@/app/analytics-link";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { StandingsPanel } from "@/app/dashboard/leagues/standings-panel";
@@ -119,7 +119,8 @@ export default async function LeaguesPage({
           <nav aria-label="League selection" className="mt-3 space-y-1.5">
             {privateLeagues.length ? (
               privateLeagues.map((league) => (
-                <Link
+                <AnalyticsLink
+                  analyticsEvent="Private League Clicked"
                   className={leagueLinkClass}
                   href={privateLeagueHref(league.league_id)}
                   key={league.league_id}
@@ -135,7 +136,7 @@ export default async function LeaguesPage({
                   <span className="shrink-0 rounded-full border border-[var(--pf-fantasy-yellow)]/40 bg-[var(--pf-fantasy-yellow)]/10 px-2.5 py-1 text-sm font-black text-[var(--pf-fantasy-yellow)]">
                     {league.current_rank ? `#${league.current_rank}` : "—"}
                   </span>
-                </Link>
+                </AnalyticsLink>
               ))
             ) : (
               <p className="rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] px-3 py-4 text-sm text-[var(--pf-text-muted)]">

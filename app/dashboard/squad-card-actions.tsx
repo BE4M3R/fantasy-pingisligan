@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { canonicalClubName } from "@/lib/clubs";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { ClubLogo, ResultBreakdown } from "@/app/dashboard/result-player-details";
 import { PlayerActionIcon } from "@/app/dashboard/player-action-icon";
 import { PlayerPicker } from "@/app/dashboard/player-picker";
@@ -108,6 +109,7 @@ export function SquadCardActions({
         aria-expanded={isOpen}
         className={`${squadCardShellClass(player, { isOpen })} touch-manipulation cursor-pointer transition hover:-translate-y-0.5 hover:border-[var(--pf-brand-blue)] hover:bg-[var(--pf-navy-elevated)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pf-brand-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--pf-table-blue)]`}
         onClick={(event) => {
+          if (result) trackAnalyticsEvent("Player Points Clicked");
           popupOriginRef.current = event.detail ? { x: event.clientX, y: event.clientY } : null;
           setIsOpen(true);
         }}
