@@ -13,6 +13,64 @@ async function login(page, fixture) {
 
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
 
+test("selected account previews draft announcement popup, artwork and inbox before publication", async ({ page }, testInfo) => {
+  const f = await createFixture();
+  const id = randomUUID();
+  const artwork = `${f.id}/announcement-preview.png`;
+  const title = "Private announcement preview";
+  const popup = page.getByRole("dialog", { name: "Announcement", exact: true });
+  const inbox = page.getByRole("dialog", { name: "Announcements", exact: true });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    checked(await save(f, squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]])), "Save preview reader squad");
+    checked(await f.admin.storage.from("announcement-artwork").upload(artwork,
+      await readFile(new URL("../../public/branding/pingisligan-fantasy-mark-transparent-v2.png", import.meta.url)),
+      { contentType: "image/png" }), "Upload preview artwork");
+    checked(await f.admin.from("announcements").insert({ id, title, body: "Review **this draft** before sharing it with managers.",
+      published: false, publish_at: ago(-60), popup_enabled: true,
+      image_path: artwork, image_alt: "Private announcement artwork", cta_label: "Read the rules", cta_url: "/dashboard/rules" }), "Prepare draft announcement");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, f);
+    await expect(page.getByRole("button", { name: "Open announcements", exact: true })).toBeVisible();
+    await expect(popup).not.toBeVisible();
+
+    checked(await f.admin.from("profiles").update({ can_preview_announcements: true }).eq("id", f.userId), "Enable account preview");
+    await page.reload();
+    await expect(popup.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    const image = popup.getByAltText("Private announcement artwork", { exact: true });
+    await expect.poll(() => image.evaluate((element) => element.naturalWidth)).toBeGreaterThan(0);
+    await page.evaluate(() => document.fonts.ready);
+    for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+      await page.setViewportSize(viewport);
+      await expect(popup.getByRole("button", { name: "Close announcement", exact: true })).toBeInViewport({ ratio: 1 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`dashboard-announcement-preview-popup-${viewport.width}.png`) });
+    }
+    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
+    await expect(popup).not.toBeVisible();
+    await page.getByRole("button", { name: "Open announcements", exact: true }).click();
+    await expect(inbox.getByRole("button", { name: new RegExp(title) })).toBeVisible();
+    await inbox.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(inbox.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await expect(inbox.getByAltText("Private announcement artwork", { exact: true })).toBeVisible();
+
+    checked(await f.admin.from("profiles").update({ can_preview_announcements: false }).eq("id", f.userId), "Revoke account preview");
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open announcements", exact: true })).toBeVisible();
+    await expect(popup).not.toBeVisible();
+    await page.getByRole("button", { name: "Open announcements", exact: true }).click();
+    await expect(inbox).toBeVisible();
+    await expect(inbox.getByRole("button", { name: new RegExp(title) })).toHaveCount(0);
+    expect(checked(await f.admin.from("announcements").select("published").eq("id", id).single(), "Preview never publishes").published).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    checked(await f.admin.storage.from("announcement-artwork").remove([artwork]), "Remove preview artwork");
+    checked(await f.admin.from("announcements").delete().eq("id", id), "Remove preview announcement");
+    await cleanupFixture(f);
+  }
+});
+
 test("announcement sequence, dismissal across devices, inbox and safe responsive layouts", async ({ page, browser }, testInfo) => {
   test.setTimeout(150_000);
   const f = await createFixture();
