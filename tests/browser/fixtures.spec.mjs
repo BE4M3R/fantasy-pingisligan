@@ -50,7 +50,8 @@ test("Fixtures follows latest STUPA rounds and identifies the original locked sc
     await expect(first.getByRole("listitem")).toHaveCount(1);
     await expect(returning.getByRole("listitem")).toHaveCount(1);
     const preserved = checked(await fixture.admin.from("fantasy_team_gameweek_snapshots")
-      .select("*").eq("id", snapshot.id).single(), "Read unchanged locked snapshot");
+      .select("*").eq("fantasy_team_id", fixture.teamId)
+      .eq("fantasy_gameweek_id", fixture.weeks[0].id).single(), "Read unchanged locked snapshot");
     expect(preserved).toEqual(snapshot);
 
     await page.evaluate(() => document.fonts.ready);
