@@ -398,7 +398,7 @@ Before prize reveal, the weekly card shows its generic Gameweek title, public
 teaser and scheduled reveal date (Stockholm time). Ready, revealed prizes show
 their prize title and optional value. The start-page cards omit sponsor names and
 artwork. A bordered header above the cards reads “Compete for exciting Gameweek
-prizes every week!” (localized in Swedish), with competition details below
+prizes” (localized in Swedish), with competition details below
 and each arrow in the bottom-right corner. Two cards stack on phones and share
 a row from the small breakpoint.
 The entire card links to the ordinary competition page. The signup action stays
