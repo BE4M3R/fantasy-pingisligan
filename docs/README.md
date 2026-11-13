@@ -36,6 +36,8 @@ Start with the root [README](../README.md) to install and run the application.
 14. [Announcements and publishing](announcements.md)
 15. [Homepage sponsored highlights](homepage-banners.md)
 16. [Public competition pages and provisional results](competitions.md)
+17. [Anonymous production Web Analytics](analytics.md)
+18. [Dependency security exceptions](dependency-security.md)
 
 ## Task shortcuts
 

@@ -59,9 +59,34 @@ test("announcement sequence, dismissal across devices, inbox and safe responsive
     await page.evaluate(() => document.fonts.ready);
     await popup.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: testInfo.outputPath("dashboard-high-popup-390.png") });
+    // Pause one real successful dismissal mid-flight to inspect its destination
+    // without relying on machine timing or mocking persistence.
+    await popup.evaluate((dialog) => {
+      const observer = new MutationObserver(() => {
+        if (dialog.dataset.closing !== "true") return;
+        const flight = dialog.getAnimations().find(animation => animation.effect?.target === dialog &&
+          animation.effect.getKeyframes().some(frame => frame.transform));
+        if (!flight) return;
+        flight.pause();
+        flight.currentTime = 380;
+        window.announcementReviewFlight = flight;
+        observer.disconnect();
+      });
+      observer.observe(dialog, { attributes: true, attributeFilter: ["data-closing"] });
+    });
     await popup.getByRole("button", { name: "Close announcement" }).click();
+    await page.waitForFunction(() => window.announcementReviewFlight?.playState === "paused");
+    expect(checked(await f.user.from("announcement_user_state").select("dismissed_at").eq("announcement_id", ids[1]).single(), "Save precedes flight").dismissed_at).toBeTruthy();
+    await expect(popup.getByRole("heading", { name: "Important gameweek update" })).toHaveCount(1);
+    await expect(popup.getByRole("heading", { name: "New player statistics" })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("dashboard-popup-flight-to-bell-390.png") });
+    await page.evaluate(() => window.announcementReviewFlight.play());
     await expect(popup.getByRole("heading", { name: "New player statistics" })).toBeVisible();
     await expect(popup.getByText("2 of 3", { exact: true })).toBeVisible();
+    const badge = page.locator("#announcement-bell .announcement-badge-fade");
+    await expect(badge).toHaveText("3");
+    await expect.poll(() => badge.evaluate(element => getComputedStyle(element).opacity)).toBe("0");
+    await expect(page.getByRole("button", { name: "Open announcements (3 unread)" })).toHaveCount(1);
     const failAction = async (route) => {
       if (route.request().method() === "POST" && route.request().headers()["next-action"]) await route.fulfill({ status: 503, body: "Temporarily unavailable" });
       else await route.continue();
@@ -69,6 +94,7 @@ test("announcement sequence, dismissal across devices, inbox and safe responsive
     await page.route("**/dashboard/**", failAction);
     await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("alert")).toContainText("Could not save");
+    await expect(popup).not.toHaveAttribute("data-closing", "true");
     await expect(popup.getByRole("heading", { name: "New player statistics" })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("dashboard-popup-save-error-390.png") });
     await page.unroute("**/dashboard/**", failAction);
@@ -95,6 +121,8 @@ test("announcement sequence, dismissal across devices, inbox and safe responsive
     await page.setViewportSize({ width: 390, height: 844 });
     await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup).not.toBeVisible();
+    await expect(page.locator("#announcement-bell .announcement-badge-fade")).toHaveCount(0);
+    await expect(page.locator("#announcement-bell span").filter({ hasText: /^1$/ })).toHaveCSS("opacity", "1");
     const state = checked(await f.user.from("announcement_user_state").select("announcement_id, dismissed_at"), "Read browser dismissals");
     expect(state.map((item) => item.announcement_id).sort()).toEqual(ids.slice(0, 3).sort());
     expect(state.every((item) => item.dismissed_at)).toBe(true);
@@ -278,8 +306,11 @@ test("an initially empty visit discovers new popups on return and preserves the 
     await page.keyboard.press("Escape");
     await expect(blockingDialog).not.toBeVisible();
     await expect(popup.getByRole("heading", { name: "New High after an empty visit" })).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await popup.getByRole("button", { name: "Close announcement" }).click();
     await expect(popup.getByRole("heading", { name: "New Normal after an empty visit" })).toBeVisible();
+    await expect(popup).not.toHaveAttribute("data-closing", "true");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     // New items join behind the current announcement without replacing it.
     checked(await f.admin.from("announcements").insert([
       { id: ids[6], title: "High while reading", priority: "high" },

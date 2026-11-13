@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HOME_DESCRIPTION, SITE_NAME, socialMetadata } from "@/lib/seo";
+import { ProductionAnalytics } from "@/app/production-analytics";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export function DocumentLayout({
 }>) {
   return (
     <html lang={language} className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {process.env.VERCEL_ENV === "production" ? <ProductionAnalytics /> : null}
+      </body>
     </html>
   );
 }

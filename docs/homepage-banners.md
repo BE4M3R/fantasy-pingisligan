@@ -172,7 +172,7 @@ insert, update or delete content or upload artwork.
 4. Upload an optional PNG/JPEG/WebP logo or artwork, maximum 2 MiB, to the private
    `announcement-artwork` bucket. Use a unique path, for example
    `<banner-id>/sponsor.webp`, in `image_path`; enter descriptive `image_alt`.
-   The carousel contains the image without cropping, on a compact light tile.
+   The carousel contains the image without cropping, on a compact black tile.
    Bold information lines sit beside the image; no text is placed below it.
    Information remains readable when the image is absent or fails to load.
 5. Optional `prize_title` (240 characters) is the headline shown on revealed Home

@@ -1,5 +1,7 @@
 "use client";
 
+import { trackAnalyticsEvent } from "@/lib/analytics";
+
 import { canSelectPlayer, comparePlayerPrices, hasConfiguredPrice } from "@/lib/player-availability";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -184,6 +186,7 @@ export function PlayerPicker({
 
   async function openPicker() {
     if (transfersLocked || clubRepairBlocked) return;
+    trackAnalyticsEvent("Transfer Player Clicked");
     setFiltersOpen(false);
     dialogRef.current?.showModal();
     setPickerOpen(true);
@@ -194,6 +197,11 @@ export function PlayerPicker({
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Could not load players.");
     }
+  }
+
+  function openStatistics(player: DashboardPlayer) {
+    trackAnalyticsEvent("Full Statistics Clicked");
+    setStatisticsPlayer(player);
   }
 
   useEffect(() => {
@@ -376,7 +384,7 @@ export function PlayerPicker({
           </div>
 
           <div aria-label="Transfer player list" className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-3 [-webkit-overflow-scrolling:touch] sm:p-6">
-            {outgoingPlayer ? <OutgoingPlayerCard player={players?.find((player) => player.id === outgoingPlayer.id) ?? outgoingPlayer} onStatistics={setStatisticsPlayer} /> : null}
+            {outgoingPlayer ? <OutgoingPlayerCard player={players?.find((player) => player.id === outgoingPlayer.id) ?? outgoingPlayer} onStatistics={openStatistics} /> : null}
             {!players && !error ? <p className="py-12 text-center text-sm text-[var(--pf-text-muted)]">Loading players…</p> : null}
             {error ? <div className="rounded-md border border-[var(--pf-coral)]/45 bg-[var(--pf-coral-soft)] p-4 text-sm text-[var(--pf-coral-text)]">{error}</div> : null}
             {players ? (
@@ -413,11 +421,11 @@ export function PlayerPicker({
                   return (
                     <tr className={selected ? "bg-[var(--pf-brand-blue-soft)]" : "bg-[var(--pf-navy-elevated)]"} key={player.id}>
                       <td className="pr-1 sm:pr-3">
-                        <button aria-label={`View statistics for ${player.first_name} ${player.last_name}`} aria-haspopup="dialog" className={statisticsTriggerClass} onClick={() => setStatisticsPlayer(player)} type="button">
+                        <button aria-label={`View statistics for ${player.first_name} ${player.last_name}`} aria-haspopup="dialog" className={statisticsTriggerClass} onClick={() => openStatistics(player)} type="button">
                           <PlayerIdentity player={player} />
                         </button>
                       </td>
-                      <StatisticCells player={player} sortedColumn={sorting.column} onStatistics={setStatisticsPlayer} />
+                      <StatisticCells player={player} sortedColumn={sorting.column} onStatistics={openStatistics} />
                       <td className="py-1 text-right sm:py-2 sm:pl-2">
                       <button
                         aria-label={selectionLabel === "Add" ? "Add" : selectionLabel}

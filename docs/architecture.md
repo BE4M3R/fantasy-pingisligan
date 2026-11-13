@@ -188,8 +188,15 @@ time. The initial slide is chosen on the server; the web application uses no pri
 See [homepage highlights](homepage-banners.md).
 
 Public `/competitions/gameweek/[number]` and `/competitions/season` pages use
-an anonymous client with fresh reads. Their content/Storage reads share the
-carousel reveal rules; social metadata never reads draft content. Weekly pages load five public standings rows server-side, with bounded incremental
+an anonymous client with fresh reads for public content and metadata. Their public
+content/Storage reads share the carousel reveal rules; social metadata never reads
+draft content. An operator-only `profiles.can_preview_competitions` permission
+allows signed-in page content to fall back to `get_competition_preview()` for ready
+unrevealed prizes on the same URLs. That narrow security-definer projection and a
+matching prize-artwork policy check the caller's account, publication switches and
+readiness. Public banner/rule policies and Home remain unchanged, including for
+the preview account; preview data is never used for metadata or discovery.
+Weekly pages load five public standings rows server-side, with bounded incremental
 loading through the same existing RPC. Leagues adds Season/Gameweek controls and
 left/right round navigation, defaulting to the latest started round. Both modes
 reuse the existing interactive `LeagueTable`; the authenticated weekly projection
@@ -233,7 +240,11 @@ only the latest approved policy per enabled kind, even when it has no prize
 binding. This narrowly scoped public projection preserves launch/season switches
 and never returns drafts or prize metadata. Direct table reads retain their
 revealed-prize RLS. Public landing pages stream
-two compact promotions through the same reveal-protected detail projection. The
+compact promotions through the same reveal-protected detail projection. Weekly
+selection uses the nearest enabled, uncompleted round with a future entry deadline,
+independently of Fantasy's current round. Before reveal, only its public teaser
+and reveal date accompany the generic title; afterward its prize title
+and value appear. Season retains its separate switch. The
 dashboard carousel and announcement delivery remain independent.
 
 Dashboard announcements use a persistent layout controller and the existing

@@ -14,7 +14,11 @@ const AnnouncementContent = dynamic(() => import("./content").then((module) => m
   loading: () => <p className="py-8 text-sm text-[var(--pf-text-muted)]" role="status">Loading announcement…</p>,
 });
 
-const InboxContext = createContext<{ unread: number; open: (anchor: HTMLButtonElement) => void } | null>(null);
+type BellCue = { sequence: number; unread: number };
+const InboxContext = createContext<{
+  unread: number; open: (anchor: HTMLButtonElement) => void;
+  cue: BellCue | null;
+} | null>(null);
 const secondaryClass = "min-h-11 rounded-md border border-[var(--pf-brand-blue-border)] px-4 py-2.5 text-sm font-semibold text-[var(--pf-text)] hover:bg-[var(--pf-navy-elevated)] disabled:opacity-50";
 type InboxItem = Pick<Announcement, "id" | "title" | "body" | "category" | "publish_at"> & { announcement_user_state: { read_at: string }[] };
 
@@ -28,9 +32,10 @@ function isPopupBackdrop(event: React.MouseEvent<HTMLDialogElement>) {
 export function AnnouncementBell() {
   const inbox = useContext(InboxContext);
   if (!inbox) return null;
-  return <button aria-label={`Open announcements${inbox.unread ? ` (${inbox.unread} unread)` : ""}`} className="relative flex h-9 w-9 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] focus-visible:outline-2 focus-visible:outline-[var(--pf-brand-blue)] sm:h-10 sm:w-10" onClick={(event) => inbox.open(event.currentTarget)} type="button">
+  return <button id="announcement-bell" aria-label={`Open announcements${inbox.unread ? ` (${inbox.unread} unread)` : ""}`} className="relative flex h-9 w-9 items-center justify-center rounded-md border border-[var(--pf-brand-blue-border)] bg-[var(--pf-navy-elevated)] text-[var(--pf-brand-blue)] focus-visible:outline-2 focus-visible:outline-[var(--pf-brand-blue)] sm:h-10 sm:w-10" onClick={(event) => inbox.open(event.currentTarget)} type="button">
+    {inbox.cue ? <span key={inbox.cue.sequence} aria-hidden="true" className="announcement-bell-arrival pointer-events-none absolute inset-0 rounded-md" /> : null}
     <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-    {inbox.unread > 0 ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-[var(--pf-brand-blue)] px-1 text-[10px] font-black leading-5 text-[var(--pf-navy-deep)]">{inbox.unread > 99 ? "99+" : inbox.unread}</span> : null}
+    {inbox.unread > 0 ? <span key={`${inbox.unread}:${inbox.cue?.sequence ?? 0}`} aria-hidden="true" className={`absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-[var(--pf-brand-blue)] px-1 text-[10px] font-black leading-5 text-[var(--pf-navy-deep)] ${inbox.cue?.unread === inbox.unread && inbox.unread > 1 ? "announcement-badge-fade" : ""}`}>{inbox.unread > 99 ? "99+" : inbox.unread}</span> : null}
   </button>;
 }
 
@@ -41,11 +46,13 @@ export function Announcements({ children, ready }: {
   const router = useRouter();
   const savingDismissal = useRef(false);
   const backdropPointerDown = useRef(false);
-  const refreshing = useRef<Promise<void> | null>(null);
+  const refreshing = useRef<Promise<AnnouncementSummary | undefined> | null>(null);
+  const exitAnimation = useRef<Animation | null>(null);
   const popup = useRef<HTMLDialogElement>(null);
   const inbox = useRef<HTMLDialogElement>(null);
   const inboxAnchor = useRef<HTMLButtonElement | null>(null);
   const [summary, setSummary] = useState<AnnouncementSummary | null>(null);
+  const [bellCue, setBellCue] = useState<BellCue | null>(null);
   const [queue, setQueue] = useState<AnnouncementCandidate[]>([]);
   const [progress, setProgress] = useState(1);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -65,6 +72,8 @@ export function Announcements({ children, ready }: {
   const [detailError, setDetailError] = useState(false);
   const [retry, setRetry] = useState(0);
   useBodyScrollLock((inboxOpen && inboxModal) || popupOpen);
+
+  useEffect(() => () => exitAnimation.current?.cancel(), []);
 
   const positionInbox = useCallback(() => {
     const dialog = inbox.current;
@@ -107,12 +116,12 @@ export function Announcements({ children, ready }: {
     };
   }, [inboxOpen, positionInbox]);
 
-  const refresh = useCallback(async function refreshSummary(force = false): Promise<void> {
+  const refresh = useCallback(async function refreshSummary(force = false): Promise<AnnouncementSummary | undefined> {
     // A post-save refresh must follow any read that started before the save.
     if (refreshing.current) {
-      await refreshing.current;
+      const next = await refreshing.current;
       if (force) return refreshSummary(true);
-      return;
+      return next;
     }
     setChecking(true);
     const request = (async () => {
@@ -121,12 +130,15 @@ export function Announcements({ children, ready }: {
       if (failure) throw failure;
       const next = data as AnnouncementSummary;
       setSummary(next);
-      if (!popup.current?.open) setProgress(1);
+      if (!popup.current?.open && !savingDismissal.current) setProgress(1);
       const eligible = next.pending;
       setQueue((previous) => {
+        // Keep the saved item on screen until its flight to the bell finishes.
+        if (savingDismissal.current && popup.current?.open) return previous;
         const current = popup.current?.open && eligible.find((item) => item.id === previous[0]?.id);
         return current ? [current, ...eligible.filter((item) => item.id !== current.id)] : eligible;
       });
+      return next;
     } catch {
       setError("Announcements could not be loaded. Please try again.");
     } finally {
@@ -134,7 +146,7 @@ export function Announcements({ children, ready }: {
     }
     })();
     refreshing.current = request;
-    try { await request; } finally { if (refreshing.current === request) refreshing.current = null; }
+    try { return await request; } finally { if (refreshing.current === request) refreshing.current = null; }
   }, [supabase]);
 
   useEffect(() => {
@@ -221,7 +233,7 @@ export function Announcements({ children, ready }: {
       if (dialog.open) dialog.close();
       return;
     }
-    if (checking || document.visibilityState !== "visible") return;
+    if (checking || saving || document.visibilityState !== "visible") return;
     const blocker = document.querySelector('dialog[open]:not(#announcement-popup), [aria-modal="true"]:not(dialog)');
     if (blocker) {
       // Squad actions use a portal rather than a native dialog with a close event.
@@ -230,7 +242,35 @@ export function Announcements({ children, ready }: {
       return () => observer.disconnect();
     }
     if (!dialog.open) { dialog.showModal(); }
-  }, [queue, inboxOpen, ready, checking, refresh]);
+  }, [queue, inboxOpen, ready, checking, saving, refresh]);
+
+  async function closePopupToBell() {
+    const dialog = popup.current;
+    if (!dialog?.open) return;
+    const target = document.getElementById("announcement-bell")?.getBoundingClientRect();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // The header may be off screen after scrolling. Never move the page merely
+    // to play a closing effect, or aim at a bell the user cannot see.
+    if (!reducedMotion && target && target.top >= 0 && target.bottom <= window.innerHeight &&
+        target.left >= 0 && target.right <= window.innerWidth) {
+      const bounds = dialog.getBoundingClientRect();
+      const dx = target.left + target.width / 2 - bounds.left - bounds.width / 2;
+      const dy = target.top + target.height / 2 - bounds.top - bounds.height / 2;
+      dialog.dataset.closing = "true";
+      const animation = dialog.animate([
+        { transform: "translate(0, 0) scale(1)", opacity: 1, offset: 0 },
+        { transform: `translate(${dx * 0.12}px, ${dy * 0.08}px) scale(0.94, 1.04)`, opacity: 1, offset: 0.3 },
+        { transform: `translate(${dx * 0.8}px, ${dy * 0.72}px) scale(0.2, 0.32)`, opacity: 0.8, offset: 0.76 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.02)`, opacity: 0, offset: 1 },
+      ], { duration: 480, easing: "cubic-bezier(0.55, 0.06, 0.72, 0.2)", fill: "forwards" });
+      exitAnimation.current = animation;
+      await animation.finished.catch(() => {});
+    }
+    dialog.close();
+    exitAnimation.current?.cancel();
+    exitAnimation.current = null;
+    delete dialog.dataset.closing;
+  }
 
   async function dismiss(destination?: string) {
     if (savingDismissal.current || !queue[0]) return;
@@ -242,8 +282,10 @@ export function Announcements({ children, ready }: {
     const result = await recordAnnouncementInteraction(id, true).catch(() => ({ error: "Could not save. Please try again." }));
     if (result.error) setDismissalError({ message: result.error, destination });
     else {
+      await closePopupToBell();
       setProgress((value) => value + 1);
-      await refresh(true);
+      const next = await refresh(true);
+      if (next) setBellCue((previous) => ({ sequence: (previous?.sequence ?? 0) + 1, unread: next.unread_count }));
       // A successful save must advance even if refreshing the summary failed.
       setQueue((previous) => previous.filter((item) => item.id !== id));
       if (destination) {
@@ -257,6 +299,7 @@ export function Announcements({ children, ready }: {
 
   function openInbox(anchor: HTMLButtonElement) {
     inboxAnchor.current = anchor;
+    setBellCue(null);
     setDetailId(null);
     setError(null);
     setInboxOpen(true);
@@ -277,7 +320,7 @@ export function Announcements({ children, ready }: {
     {!loading && visibleContent ? <AnnouncementContent announcement={visibleContent} imageUrl={imageUrl} showMetadata={inboxOpen} onFollowLink={inboxOpen ? undefined : (url) => void dismiss(url)} /> : null}
   </>;
 
-  return <InboxContext.Provider value={{ unread: summary?.unread_count ?? 0, open: openInbox }}>
+  return <InboxContext.Provider value={{ unread: summary?.unread_count ?? 0, open: openInbox, cue: bellCue }}>
     {children}
     <dialog
       aria-label="Announcement"
@@ -285,7 +328,7 @@ export function Announcements({ children, ready }: {
       className="m-auto max-h-[85dvh] w-[90vw] max-w-md overflow-hidden rounded-2xl border border-[var(--pf-card-border)] bg-[var(--pf-navy)] p-0 text-[var(--pf-text)] shadow-2xl backdrop:bg-[var(--pf-navy-deep)]/55"
       id="announcement-popup"
       onCancel={(event) => { event.preventDefault(); void dismiss(); }}
-      onClose={() => { setPopupOpen(false); setDismissalError(null); }}
+      onClose={() => { if (!popup.current?.open) { setPopupOpen(false); setDismissalError(null); } }}
       onToggle={(event) => setPopupOpen((event.target as HTMLDialogElement).open)}
       onPointerDown={(event) => { backdropPointerDown.current = isPopupBackdrop(event); }}
       onClick={(event) => {

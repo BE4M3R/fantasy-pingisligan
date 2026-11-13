@@ -186,6 +186,11 @@ The isolated stack is necessary because the production snapshot function
 processes every team in an active gameweek. No local database reset is needed.
 
 Competition regression coverage reuses existing journeys to limit setup time.
+The publication suite checks account-specific pre-reveal content/artwork access,
+default-off permissions, denied self-elevation, withdrawal and unchanged public
+reads. Existing promotion cases cover next-enterable-round selection, deadlines,
+disabled rounds and embargoed teaser/reveal dates. Announcement journeys retain
+one fixture while checking save-before-animation, badge fading and reduced motion.
 The Home journey also checks winner publication/withdrawal, the 48-hour entry
 window, all future teasers and mobile/desktop banner layouts. The Leagues
 journey covers top-five/own-position display, panel-only switching without

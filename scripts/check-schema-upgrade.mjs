@@ -20,7 +20,9 @@ const withoutAutomaticBanners = (sql) => sql.replace(/^begin;/m,
   "begin;\nalter table public.fantasy_gameweeks disable trigger create_gameweek_homepage_banners;")
   // Older migrations restore the prior Home RPC's smaller return shape.
   .replaceAll("create or replace function public.get_homepage_competitions()",
-    "drop function if exists public.get_homepage_competitions();\ncreate function public.get_homepage_competitions()");
+    "drop function if exists public.get_homepage_competitions();\ncreate function public.get_homepage_competitions()")
+  .replaceAll("create or replace function public.get_public_competition_promotions()",
+    "drop function if exists public.get_public_competition_promotions();\ncreate function public.get_public_competition_promotions()");
 
 // Test the exact migration statements inside a larger rollback-only transaction.
 // Production keeps its own transaction boundaries, including SET LOCAL limits.
@@ -128,6 +130,12 @@ for (const duplicate of [null, "gameweek", "season"]) {
     drop policy "Revealed homepage competition artwork is readable" on storage.objects;
     drop function public.get_public_competition(uuid);
     drop function public.get_homepage_competitions();
+    -- The new account preview shares this table's composite row type. Remove
+    -- that dependency only inside this rollback-only historical fixture.
+    drop policy "Permitted accounts can preview competition prize artwork" on storage.objects;
+    drop function public.can_preview_competition_artwork(text);
+    drop function public.get_competition_preview(uuid);
+    drop function private.previewable_competition_banners();
     drop table public.homepage_banners;
     drop function public.homepage_gameweek_states();
     ${originalBanners}

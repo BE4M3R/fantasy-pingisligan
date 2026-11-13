@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { LeagueTable } from "@/app/dashboard/league-table";
 import { showLeagueCompetitionLink } from "@/lib/competitions";
@@ -127,6 +128,7 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
         const target = { view: mode, gameweekId: selection.gameweekId };
         return <Link key={mode} href={href(target)} prefetch={false} scroll={false} aria-current={selected ? "page" : undefined}
           onClick={(event) => {
+            trackAnalyticsEvent(mode === "gameweek" ? "Gameweek League Clicked" : "Season League Clicked");
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
             void navigate(target);

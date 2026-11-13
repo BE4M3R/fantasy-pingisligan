@@ -63,7 +63,8 @@ chronological number used by the carousel. Internal relationships still use UUID
 The carousel keeps its ordering, entry selection and interaction;
 only its generated destination changes. Future prize content remains embargoed.
 
-The same competition page serves everyone. Only the header action uses the cached
+The same competition layout serves everyone. Accounts with an explicit preview
+permission can read unrevealed ready prizes as described below. The header action uses the cached
 verified session helper: signed-in visitors see “Back to Fantasy”; others see
 “Play Fantasy” linking to signup. A small Suspense boundary keeps this session
 read from blocking competition content. Internal links use Next.js navigation.
@@ -72,6 +73,39 @@ For a same-site dashboard referral with browser history, the return action uses
 and new tabs fall back to `/dashboard/overview`; no navigation tracker or custom
 scroll storage is introduced. This referral hint changes navigation only, never
 authorization or the public data projection.
+
+## Account-specific preview before reveal
+
+After migration `20261113120000_account_competition_preview.sql` is deployed,
+open **Supabase Studio → Table Editor → profiles**, find your account by its Auth
+user ID, and set **`can_preview_competitions = true`**. It defaults to false for
+every existing and new account. Ordinary application users cannot change it;
+signup metadata does not grant permission.
+
+While signed in to that account, open the normal URL, for example
+`/competitions/gameweek/5`. Ready prize text, product links and prize artwork
+appear before the scheduled reveal. Anonymous visitors and accounts without the
+permission keep seeing the public placeholder. Reload after granting or revoking
+the permission; no logout or new sign-in is needed.
+
+Global and the matching Gameweek publication switch must still be enabled, and
+the banner must have `content_ready = true`. Season previews require global and
+season enabled plus a `published` season banner that has not expired; they bypass
+its future `publish_at`. Draft/unready prizes and draft rules stay private.
+Standings and winner announcements retain their ordinary public timing rules.
+
+The Home banner, links, promotions, social metadata and public prize projections
+continue to follow the scheduled reveal, including for the preview account.
+Only page content uses the authenticated `get_competition_preview()` projection;
+prize artwork has a matching account-checked Storage policy. The app never uses a
+service-role client. Preview responses depend on the session and are not shared
+through a persistent application cache.
+
+Set the account flag back to false to revoke preview access. Existing downloaded
+content cannot be recalled, and previously signed image URLs may remain usable
+for their five-minute lifetime. No Vercel variables are required. Hosted migrations
+follow the normal reviewed `develop` → staging → `main` release process; the
+account permission is a separate operator edit in each environment.
 
 ## Enter a new Gameweek competition prize in Supabase
 
@@ -353,17 +387,32 @@ popups and Season winner selection are unchanged.
 
 ## Public homepage promotion
 
-Signed-out `/` and `/en` visitors see two compact entry points beneath the signup
-CTA, using the current Gameweek competition (latest completed if no current round) and the
-independently scheduled Season Competition. Missing content uses generic copy;
-with no Gameweeks, only season is shown when opted in. When season is disabled,
-only the weekly promotion is shown, or no promotion if no selected round is available. The entire card links to the public page.
-The existing signup action and dashboard carousel remain available unchanged.
+Signed-out `/` and `/en` visitors see the nearest enabled Gameweek competition
+whose entry deadline (`lock_at`) has not passed, alongside the independently
+enabled Season Competition. An already-open round qualifies; closed/completed
+rounds and disabled competitions are skipped. At the deadline, the weekly card
+automatically moves to the next eligible prize round. With no eligible round,
+only the season card appears if enabled; otherwise no competition card appears.
+
+Before prize reveal, the weekly card shows its generic Gameweek title, public
+teaser and scheduled reveal date (Stockholm time). Ready, revealed prizes show
+their prize title and optional value. The start-page cards omit sponsor names and
+artwork. A bordered header above the cards reads “Compete for exciting Gameweek
+prizes every week!” (localized in Swedish), with competition details below
+and each arrow in the bottom-right corner. Two cards stack on phones and share
+a row from the small breakpoint.
+The entire card links to the ordinary competition page. The signup action stays
+prominent above these promotions, with the static Yasaka sponsorship caption and
+logo directly beneath it, independently of competition publication switches.
+Account preview permissions never publish
+prizes on this anonymous start page.
 
 `get_public_competition_promotions()` reuses the detail-page projection and the
 same RLS reveal rules. It returns only compact published fields, never long rules,
-private data or unrevealed sponsor/prize metadata. There is one metadata request
-and one batch artwork-signing request, without polling or persistent content caching.
+private data or unrevealed sponsor/prize metadata. Its legacy `description` field
+contains only the public teaser before reveal; `prize_reveal_at` supplies the
+scheduled date without extra application queries. There is one metadata request
+without artwork signing, polling or persistent content caching.
 Signed-in users continue to redirect to their dashboard before promotions load.
 
 ## Validation and remaining delivery work
