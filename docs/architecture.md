@@ -254,6 +254,14 @@ publication policies also guard private artwork. Individual dismissals persist
 per user across devices without snoozing, polling or publication jobs. See
 [announcements](announcements.md) for publishing and reader behavior.
 
+The operator-only, default-off `profiles.can_preview_announcements` permission
+extends announcement RLS, artwork reads and the interaction writer to drafts and
+future publications for that account. The existing security-invoker summary,
+popup and inbox use the same boundary without additional queries or privileged
+application clients. Other accounts retain the published-and-due rule. This
+permission is independent of competition previews; preview read/dismissal state
+is saved normally and cannot affect another account.
+
 Public Supabase URL and anonymous keys may be used by the web app. The service
 role key bypasses RLS and is restricted to local/server import jobs. Scraping,
 source parsing and service-role writes belong in `scripts/`, a scheduled GitHub

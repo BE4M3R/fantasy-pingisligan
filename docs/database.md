@@ -186,8 +186,11 @@ and announcement. The legacy `announcement_user_preferences` table and snooze
 RPC remain unused; the app ignores snooze values. Ordinary users cannot modify
 content or directly rewrite interaction state. Authenticated RPCs provide a
 compact summary and irreversible interaction writes. Published due content remains
-in the inbox after popup expiry; drafts/future content and their private Storage
-artwork are protected by RLS. See [publishing](announcements.md).
+in the inbox after popup expiry. The operator-only, default-off profile boolean
+`can_preview_announcements` permits selected accounts to preview drafts/future
+content and its private Storage artwork through the same RLS boundary, summary
+and interaction RPC. It is independent of competition preview permission and
+never publishes content to other accounts. See [publishing](announcements.md).
 
 ## Player statistics
 

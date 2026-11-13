@@ -182,7 +182,7 @@ test("public homepage promotes two competitions and approved shared terms remain
     const promotions = page.getByRole("region", { name: "Competitions", exact: true });
     await expect(promotions.getByRole("link")).toHaveCount(2);
     await expect(promotions.getByRole("heading", { name: "Training bag", exact: true })).toBeVisible();
-    await expect(promotions.getByRole("heading", { name: "Compete for exciting Gameweek prizes every week!", exact: true })).toBeVisible();
+    await expect(promotions.getByRole("heading", { name: "Compete for exciting Gameweek prizes", exact: true })).toBeVisible();
     await expect(promotions.locator("img")).toHaveCount(0);
     await expect(promotions.getByText("Current test partner", { exact: true })).toHaveCount(0);
     await expect(page.getByAltText("Yasaka", { exact: true })).toBeVisible();

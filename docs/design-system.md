@@ -61,7 +61,7 @@ a black `--pf-sponsor-logo-bg` tile. Center
 the sponsorship on phones and align it with the signup action on wider screens.
 
 Start-page competition promotions share a rounded navy panel with a bordered
-header and a centered white invitation to compete for Gameweek prizes every week,
+header and a centered white invitation to compete for Gameweek prizes,
 larger than the card copy.
 Competition copy and optional value sit
 below it, with the destination arrow at the bottom right. These cards omit prize

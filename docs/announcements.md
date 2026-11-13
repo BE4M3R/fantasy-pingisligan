@@ -47,15 +47,37 @@ credentials in the application or run local scripts against production.
    appears only in the inbox. Set optional `popup_until` after `publish_at` to
    end automatic promotion while preserving inbox history.
 8. Review all fields, then set `published = true`. If `publish_at` is in the
-   future, both content and artwork remain unavailable until that time. No deploy
-   or job is required. An already-open app discovers content on opening/return,
-   not at the exact publication instant.
+   future, both content and artwork remain unavailable to ordinary readers until
+   that time. No deploy or job is required. An already-open app discovers content
+   on opening/return, not at the exact publication instant.
 
-Set `published = false` to withdraw an item from subsequent reads. Editing a
+Set `published = false` to withdraw an item from ordinary readers. Editing a
 published announcement never resets anyone's dismissal. Publish a new row when
 users need to acknowledge a materially new notice. Keep historical rows and
 artwork; do not delete them as routine cleanup. Existing signed artwork links
 can remain usable for their five-minute lifetime after withdrawal.
+
+### Preview with a selected account
+
+In Supabase Table Editor, find the account's row in `profiles` by its Auth user
+ID and set `can_preview_announcements = true`. This operator-only boolean is
+separate from `can_preview_competitions` and defaults to false for every account.
+Users cannot enable it through signup metadata or profile updates.
+
+Keep the announcement's `published = false` while editing. Sign in with the
+selected account and reload the dashboard: draft and future-scheduled
+announcements appear in its ordinary inbox and unread count, with private
+artwork. Set `popup_enabled = true` to test the automatic popup too;
+`popup_until` still controls popup expiry. Other accounts see only published,
+due announcements. The permission covers all announcements, rather than one
+selected draft, and never enables competition previews.
+
+Read and dismissal state is saved normally for the preview account. A dismissed
+draft remains in its inbox and does not replay automatically when published;
+other users' state is unaffected. Publish normally when ready. Set the profile
+boolean back to false to remove preview access; already signed artwork links
+can remain usable for their five-minute lifetime. Hosted schema changes use the
+normal migration workflow before this field is available.
 
 ### Field choices in Table Editor
 
@@ -136,9 +158,10 @@ Inbox pages load in batches of 20, including body text for previews. Full Markdo
 rendering and short-lived artwork URLs load when an item opens. No shared cache
 contains authenticated state.
 
-Existing browser journeys cover popup order, saved dismissals, failure/retry,
+Browser journeys cover account preview, popup order, saved dismissals, failure/retry,
 the flight to the bell, delayed multi-unread badge fading, the persistent single
-unread badge and reduced-motion queue advancement. Database publication, RLS,
-private Storage and irreversible dismissal behavior are unchanged.
+unread badge and reduced-motion queue advancement. Functional tests verify
+preview account isolation, blocked self-grants, private Storage, permission
+revocation and saved dismissals across publication.
 Follow [rendered inspection](automated-testing.md#rendered-ui-inspection)
 and `$verify-ui`; screenshot assertions alone are insufficient.

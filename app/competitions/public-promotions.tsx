@@ -24,7 +24,7 @@ export async function PublicCompetitionPromotions({ language }: { language: "sv"
   return <section aria-label={sv ? "Tävlingar" : "Competitions"} className="mt-6 overflow-hidden rounded-xl border border-[var(--pf-logo-gold)]/30 bg-[var(--pf-navy)]">
     <header className="border-b border-[var(--pf-logo-gold)]/25 bg-[var(--pf-navy-elevated)] px-4 py-4">
       <h2 className="text-center text-lg font-bold leading-6 text-[var(--pf-text)] sm:text-xl sm:leading-7">
-        {sv ? "Tävla om spännande Gameweek-priser varje vecka!" : "Compete for exciting Gameweek prizes every week!"}
+        {sv ? "Tävla om spännande Gameweek-priser" : "Compete for exciting Gameweek prizes"}
       </h2>
     </header>
     <div className={`grid grid-cols-1 gap-px bg-[var(--pf-logo-gold)]/25 ${promotions.length > 1 ? "sm:grid-cols-2" : ""}`}>
