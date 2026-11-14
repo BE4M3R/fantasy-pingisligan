@@ -107,6 +107,10 @@ flowchart LR
 round and stores the first and last match times plus the transfer lock window.
 The individual team fixtures are rows in `matches`, linked back to their
 gameweek through `fantasy_gameweek_id`.
+The Fixtures page groups by the latest imported `stupa_round_id`; that schedule
+can differ from `fantasy_gameweek_id` after a locked round is moved upstream.
+The fantasy link remains authoritative for scoring against saved squads, and
+the page identifies that scoring gameweek when it differs from the displayed round.
 
 While a gameweek transfer window is closed, Supabase Cron calls the idempotent
 `snapshot_locked_squads()` database function every five minutes. It creates one

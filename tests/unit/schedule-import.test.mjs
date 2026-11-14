@@ -82,7 +82,7 @@ test("schedule changes at or after the existing deadline preserve lock and unloc
   }
 });
 
-test("an existing fixture keeps its original gameweek when STUPA moves its round", () => {
+test("round corrections follow STUPA only while both gameweeks are unlocked", () => {
   const existingMatches = new Map([
     [88977, { fantasy_gameweek_id: "original-gameweek" }],
     [88983, { fantasy_gameweek_id: null }],
@@ -91,16 +91,27 @@ test("an existing fixture keeps its original gameweek when STUPA moves its round
     [2, { id: "new-round-gameweek" }],
   ]);
 
+  for (const unlockedIds of [[], ["original-gameweek"], ["new-round-gameweek"]]) {
+    assert.equal(
+      resolveFixtureGameweekId(88977, 2, existingMatches, currentGameweeks, new Set(unlockedIds)),
+      "original-gameweek",
+    );
+  }
   assert.equal(
-    resolveFixtureGameweekId(88977, 2, existingMatches, currentGameweeks),
+    resolveFixtureGameweekId(88977, 2, existingMatches, currentGameweeks,
+      new Set(["original-gameweek", "new-round-gameweek"])),
+    "new-round-gameweek",
+  );
+  assert.equal(
+    resolveFixtureGameweekId(88983, 2, existingMatches, currentGameweeks, new Set()),
+    "new-round-gameweek",
+  );
+  assert.equal(
+    resolveFixtureGameweekId(99999, 2, existingMatches, currentGameweeks, new Set()),
+    "new-round-gameweek",
+  );
+  assert.equal(
+    resolveFixtureGameweekId(88977, 999, existingMatches, currentGameweeks, new Set(["original-gameweek"])),
     "original-gameweek",
-  );
-  assert.equal(
-    resolveFixtureGameweekId(88983, 2, existingMatches, currentGameweeks),
-    "new-round-gameweek",
-  );
-  assert.equal(
-    resolveFixtureGameweekId(99999, 2, existingMatches, currentGameweeks),
-    "new-round-gameweek",
   );
 });
