@@ -5,6 +5,7 @@ import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { DashboardHeader } from "@/app/dashboard/dashboard-header";
 import { getClaims } from "@/lib/supabase/server";
+import { groupFixturesByGameweek } from "@/lib/fixture-schedule";
 
 const STOCKHOLM_TIME_ZONE = "Europe/Stockholm";
 
@@ -13,11 +14,13 @@ type GameweekRow = {
   lock_at: string;
   name: string;
   round_order: number | null;
+  stupa_round_id: number | null;
 };
 
 type FixtureRow = {
   id: string;
   fantasy_gameweek_id: string | null;
+  stupa_round_id: number | null;
   home_team_name: string | null;
   away_team_name: string | null;
   starts_at: string | null;
@@ -136,13 +139,13 @@ export default async function FixturesPage() {
   const [gameweeksResult, fixturesResult] = await Promise.all([
     supabase
       .from("fantasy_gameweeks")
-      .select("id, name, round_order, lock_at")
+      .select("id, name, round_order, lock_at, stupa_round_id")
       .order("round_order", { ascending: true })
       .order("first_match_starts_at", { ascending: true }),
     supabase
       .from("matches")
       .select(
-        "id, fantasy_gameweek_id, home_team_name, away_team_name, starts_at",
+        "id, fantasy_gameweek_id, stupa_round_id, home_team_name, away_team_name, starts_at",
       )
       .order("starts_at", { ascending: true }),
   ]);
@@ -150,12 +153,8 @@ export default async function FixturesPage() {
 
   const gameweeks = (gameweeksResult.data ?? []) as GameweekRow[];
   const fixtures = (fixturesResult.data ?? []) as FixtureRow[];
-  const fixturesByGameweek = new Map<string | null, FixtureRow[]>();
-  for (const fixture of fixtures) {
-    const group = fixturesByGameweek.get(fixture.fantasy_gameweek_id) ?? [];
-    group.push(fixture);
-    fixturesByGameweek.set(fixture.fantasy_gameweek_id, group);
-  }
+  const fixturesByGameweek = groupFixturesByGameweek(fixtures, gameweeks);
+  const gameweeksById = new Map(gameweeks.map((week) => [week.id, week]));
   const fixtureError = gameweeksResult.error ?? fixturesResult.error;
 
   return (
@@ -250,6 +249,12 @@ export default async function FixturesPage() {
                                   name={fixture.away_team_name}
                                   side="away"
                                 />
+                                {fixture.fantasy_gameweek_id && fixture.fantasy_gameweek_id !== gameweek.id &&
+                                  gameweeksById.has(fixture.fantasy_gameweek_id) ? (
+                                    <p className="col-span-3 text-center text-[10px] text-[var(--pf-text-muted)] sm:text-xs">
+                                      Fantasy points count towards Gameweek {gameweeksById.get(fixture.fantasy_gameweek_id)?.round_order ?? gameweeksById.get(fixture.fantasy_gameweek_id)?.name}.
+                                    </p>
+                                  ) : null}
                               </li>
                             ))}
                           </ul>
