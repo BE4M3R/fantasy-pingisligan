@@ -46,8 +46,9 @@ test("development children discard inherited provider credentials and remote Doc
 test("local database entry points reject all target overrides before starting the CLI", () => {
   assert.deepEqual(localSupabaseArgs("reset", []), ["db", "reset", "--local"]);
   assert.deepEqual(localSupabaseArgs("status", []), ["migration", "list", "--local"]);
+  assert.deepEqual(localSupabaseArgs("migrate", []), ["migration", "up", "--local"]);
   assert.deepEqual(localSupabaseArgs("new", ["safe_migration"]), ["migration", "new", "safe_migration"]);
-  for (const command of ["start", "stop", "reset", "lint", "status", "new"]) {
+  for (const command of ["start", "stop", "reset", "lint", "status", "migrate", "new"]) {
     for (const args of [["--linked"], ["--db-url", "synthetic"], ["--workdir", "elsewhere"]]) {
       assert.throws(() => localSupabaseArgs(command, args), /reject extra options/);
     }

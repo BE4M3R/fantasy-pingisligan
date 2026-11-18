@@ -36,6 +36,11 @@ const migrations = await Promise.all([
   return migration.replace(/^begin;$/m, "").replace(/^commit;$/m, "");
 }));
 const statements = migrations.join("\n");
+// Replaying the historical reconciliation restores its historical snapshot
+// body. Reapply the current snapshot definition before comparing with today's
+// fresh schema; all preservation and legacy-behavior assertions still run.
+const bucketMigration = await readFile(path.join(root, "supabase/migrations/20261118120000_persist_gameweek_midpoint_buckets.sql"), "utf8");
+const currentSnapshot = bucketMigration.slice(bucketMigration.indexOf("create or replace function public.snapshot_locked_squads()"), bucketMigration.lastIndexOf("commit;"));
 const legacy = await readFile(path.join(root, "tests/fixtures/schema-upgrade/legacy-snapshots.sql"), "utf8");
 const legacySave = await readFile(path.join(root, "tests/fixtures/schema-upgrade/legacy-squad-save.sql"), "utf8");
 const formatting = await readFile(path.join(root, "tests/fixtures/schema-upgrade/editor-formatting.sql"), "utf8");
@@ -99,10 +104,12 @@ for (const [label, schema, failure, followupOnly] of [
       end;
       perform pg_temp.assert_unchanged(true);
     end; $test$;` : `${caseStatements}
+      ${currentSnapshot}
       select pg_temp.assert_unchanged(false);
       ${saveAssertions}
       ${assertions}
       ${caseStatements}
+      ${currentSnapshot}
       select pg_temp.assert_canonical_schema();`}
     rollback;`;
   const result = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,

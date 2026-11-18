@@ -417,3 +417,14 @@ For manual local scenarios use the
 [local state controls](staging-testing.md#local-state-controls), including kickoff
 and one-result stepping. The same guide documents separately authorized staging
 verification; those commands are not used as the pull request gate.
+
+## Gameweek bucket regressions
+
+`tests/unit/schedule-import.test.mjs` uses the metadata-only 2026/27 STUPA
+snapshot in `tests/fixtures/stupa-bucket-schedule.json` to cover dominant weeks,
+medians, Stockholm/DST boundaries and all four agreed fixture assignments.
+`tests/functional/gameweek-buckets.test.mjs` exercises real transactional moves,
+locked selections, finished guards, source completion, undated/cancelled
+fixtures, empty weeks and repeated imports on disposable infrastructure.
+The fixtures browser journey captures Fantasy grouping on mobile and desktop.
+See [the populated local migration demo](gameweek-buckets.md#local-migration-demonstration).

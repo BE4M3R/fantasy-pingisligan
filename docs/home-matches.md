@@ -35,9 +35,8 @@ with two players. Final scores stay visible. A final without imported scores
 shows a dash instead of an invented 0–0 result.
 
 The existing production results job updates statuses even before the first
-singles finishes. Nightly and full manual results workflows import the latest
-schedule before importing results; match-window polls and a standalone
-`npm run import:results` update results without refetching the schedule. Home
+singles finishes. Every non-dry results import, including nightly, manual and match-window
+runs, imports the latest schedule and Fantasy bucket assignments before results. Home
 refreshes only its match card every minute while visible, with
 database reads shared through the existing 60-second public-data cache. While
 every fixture is still far from kickoff, it checks time each minute and fetches

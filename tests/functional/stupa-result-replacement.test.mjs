@@ -237,7 +237,7 @@ test("withdrawing every result rescores the gameweek even with no remaining scor
   const failingScorer = {
     from: f.admin.from.bind(f.admin),
     rpc(name, args) {
-      return name === "calculate_fantasy_gameweek_points"
+      return name === "score_gameweek_refresh"
         ? Promise.resolve({ error: { message: "Scoring temporarily unavailable" } })
         : f.admin.rpc(name, args);
     },

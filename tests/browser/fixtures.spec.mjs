@@ -3,7 +3,7 @@ import { randomInt } from "node:crypto";
 import { persistSchedule } from "../../scripts/import-stupa-schedule.mjs";
 import { checked, cleanupFixture, createFixture, lock, save, squad } from "../functional/fixture.mjs";
 
-test("Fixtures follows latest STUPA rounds and identifies the original locked scoring gameweek", async ({ page }, testInfo) => {
+test("Fixtures groups midpoint assignments and preserves locked selections", async ({ page }, testInfo) => {
   const fixture = await createFixture({ gameweeks: 2 });
   try {
     checked(await save(fixture, squad([fixture.players[0], fixture.players[2], fixture.players[4],
@@ -44,9 +44,9 @@ test("Fixtures follows latest STUPA rounds and identifies the original locked sc
     }).format(new Date(value));
     await expect(first).toContainText(date(firstStart));
     await expect(first).not.toContainText(date(returnStart));
-    await expect(first).toContainText("Fantasy points count towards Gameweek 2.");
+    await expect(first).not.toContainText("Fantasy points count towards");
     await expect(returning).toContainText(date(returnStart));
-    await expect(returning).toContainText("Fantasy points count towards Gameweek 1.");
+    await expect(returning).not.toContainText("Fantasy points count towards");
     await expect(first.getByRole("listitem")).toHaveCount(1);
     await expect(returning.getByRole("listitem")).toHaveCount(1);
     const preserved = checked(await fixture.admin.from("fantasy_team_gameweek_snapshots")
@@ -59,7 +59,7 @@ test("Fixtures follows latest STUPA rounds and identifies the original locked sc
       await page.setViewportSize({ width, height });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (width === 390 || width === 1440) {
-        const screenshot = testInfo.outputPath(`fixtures-latest-round-locked-scoring-${width}.png`);
+        const screenshot = testInfo.outputPath(`fixtures-midpoint-assignment-${width}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         await testInfo.attach(`fixtures-${width}`, { path: screenshot, contentType: "image/png" });
       }

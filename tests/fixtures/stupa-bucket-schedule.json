@@ -1,0 +1,464 @@
+[
+  {
+    "id": 88977,
+    "round_id": 35113,
+    "round": {
+      "name": "Round 1",
+      "order": 1
+    },
+    "start_time": "2026-09-22T18:00:00",
+    "end_time": "2026-09-22T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88994,
+    "round_id": 35113,
+    "round": {
+      "name": "Round 1",
+      "order": 1
+    },
+    "start_time": "2026-09-22T18:30:00",
+    "end_time": "2026-09-22T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88983,
+    "round_id": 35113,
+    "round": {
+      "name": "Round 1",
+      "order": 1
+    },
+    "start_time": "2026-09-22T18:30:00",
+    "end_time": "2026-09-22T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89006,
+    "round_id": 35114,
+    "round": {
+      "name": "Round 2",
+      "order": 2
+    },
+    "start_time": "2026-10-08T18:00:00",
+    "end_time": "2026-10-08T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88984,
+    "round_id": 35114,
+    "round": {
+      "name": "Round 2",
+      "order": 2
+    },
+    "start_time": "2026-10-13T18:00:00",
+    "end_time": "2026-10-13T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88986,
+    "round_id": 35114,
+    "round": {
+      "name": "Round 2",
+      "order": 2
+    },
+    "start_time": "2026-10-13T18:30:00",
+    "end_time": "2026-10-13T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89001,
+    "round_id": 35115,
+    "round": {
+      "name": "Round 3",
+      "order": 3
+    },
+    "start_time": "2026-10-20T18:00:00",
+    "end_time": "2026-10-20T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88988,
+    "round_id": 35115,
+    "round": {
+      "name": "Round 3",
+      "order": 3
+    },
+    "start_time": "2026-10-20T18:30:00",
+    "end_time": "2026-10-20T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89014,
+    "round_id": 35115,
+    "round": {
+      "name": "Round 3",
+      "order": 3
+    },
+    "start_time": "2026-10-20T18:30:00",
+    "end_time": "2026-10-20T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88976,
+    "round_id": 35116,
+    "round": {
+      "name": "Round 4",
+      "order": 4
+    },
+    "start_time": "2026-11-10T18:00:00",
+    "end_time": "2026-11-10T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89003,
+    "round_id": 35116,
+    "round": {
+      "name": "Round 4",
+      "order": 4
+    },
+    "start_time": "2026-11-10T18:30:00",
+    "end_time": "2026-11-10T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89002,
+    "round_id": 35116,
+    "round": {
+      "name": "Round 4",
+      "order": 4
+    },
+    "start_time": "2026-11-12T18:00:00",
+    "end_time": "2026-11-12T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88999,
+    "round_id": 35117,
+    "round": {
+      "name": "Round 5",
+      "order": 5
+    },
+    "start_time": "2026-11-17T18:00:00",
+    "end_time": "2026-11-17T21:00:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88987,
+    "round_id": 35117,
+    "round": {
+      "name": "Round 5",
+      "order": 5
+    },
+    "start_time": "2026-11-17T18:30:00",
+    "end_time": "2026-11-17T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 88990,
+    "round_id": 35117,
+    "round": {
+      "name": "Round 5",
+      "order": 5
+    },
+    "start_time": "2026-11-17T18:30:00",
+    "end_time": "2026-11-17T21:30:00",
+    "status": "SCORED"
+  },
+  {
+    "id": 89012,
+    "round_id": 35118,
+    "round": {
+      "name": "Round 6",
+      "order": 6
+    },
+    "start_time": "2026-12-08T18:00:00",
+    "end_time": "2026-12-08T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89017,
+    "round_id": 35118,
+    "round": {
+      "name": "Round 6",
+      "order": 6
+    },
+    "start_time": "2026-12-08T18:30:00",
+    "end_time": "2026-12-08T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88995,
+    "round_id": 35118,
+    "round": {
+      "name": "Round 6",
+      "order": 6
+    },
+    "start_time": "2026-12-16T18:00:00",
+    "end_time": "2026-12-16T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88979,
+    "round_id": 35119,
+    "round": {
+      "name": "Round 7",
+      "order": 7
+    },
+    "start_time": "2026-12-15T18:00:00",
+    "end_time": "2026-12-15T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88992,
+    "round_id": 35119,
+    "round": {
+      "name": "Round 7",
+      "order": 7
+    },
+    "start_time": "2026-12-15T18:00:00",
+    "end_time": "2026-12-15T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89010,
+    "round_id": 35119,
+    "round": {
+      "name": "Round 7",
+      "order": 7
+    },
+    "start_time": "2026-12-15T18:00:00",
+    "end_time": "2026-12-15T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89015,
+    "round_id": 35120,
+    "round": {
+      "name": "Round 8",
+      "order": 8
+    },
+    "start_time": "2027-01-12T18:00:00",
+    "end_time": "2027-01-12T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89004,
+    "round_id": 35120,
+    "round": {
+      "name": "Round 8",
+      "order": 8
+    },
+    "start_time": "2027-01-12T18:00:00",
+    "end_time": "2027-01-12T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88998,
+    "round_id": 35120,
+    "round": {
+      "name": "Round 8",
+      "order": 8
+    },
+    "start_time": "2027-01-12T18:30:00",
+    "end_time": "2027-01-12T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89005,
+    "round_id": 35121,
+    "round": {
+      "name": "Round 9",
+      "order": 9
+    },
+    "start_time": "2027-01-19T18:00:00",
+    "end_time": "2027-01-19T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88985,
+    "round_id": 35121,
+    "round": {
+      "name": "Round 9",
+      "order": 9
+    },
+    "start_time": "2027-01-19T18:30:00",
+    "end_time": "2027-01-19T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89007,
+    "round_id": 35121,
+    "round": {
+      "name": "Round 9",
+      "order": 9
+    },
+    "start_time": "2027-01-21T18:00:00",
+    "end_time": "2027-01-21T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89009,
+    "round_id": 35122,
+    "round": {
+      "name": "Round 10",
+      "order": 10
+    },
+    "start_time": "2027-02-02T18:00:00",
+    "end_time": "2027-02-02T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88980,
+    "round_id": 35122,
+    "round": {
+      "name": "Round 10",
+      "order": 10
+    },
+    "start_time": "2027-02-09T18:00:00",
+    "end_time": "2027-02-09T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88993,
+    "round_id": 35122,
+    "round": {
+      "name": "Round 10",
+      "order": 10
+    },
+    "start_time": "2027-02-11T18:30:00",
+    "end_time": "2027-02-11T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88982,
+    "round_id": 35123,
+    "round": {
+      "name": "Round 11",
+      "order": 11
+    },
+    "start_time": "2027-02-16T18:30:00",
+    "end_time": "2027-02-16T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88997,
+    "round_id": 35123,
+    "round": {
+      "name": "Round 11",
+      "order": 11
+    },
+    "start_time": "2027-02-16T18:30:00",
+    "end_time": "2027-02-16T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88981,
+    "round_id": 35123,
+    "round": {
+      "name": "Round 11",
+      "order": 11
+    },
+    "start_time": "2027-02-18T18:00:00",
+    "end_time": "2027-02-18T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88978,
+    "round_id": 35124,
+    "round": {
+      "name": "Round 12",
+      "order": 12
+    },
+    "start_time": "2027-03-02T18:00:00",
+    "end_time": "2027-03-02T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89008,
+    "round_id": 35124,
+    "round": {
+      "name": "Round 12",
+      "order": 12
+    },
+    "start_time": "2027-03-02T18:00:00",
+    "end_time": "2027-03-02T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89011,
+    "round_id": 35124,
+    "round": {
+      "name": "Round 12",
+      "order": 12
+    },
+    "start_time": "2027-03-04T18:00:00",
+    "end_time": "2027-03-04T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89016,
+    "round_id": 35125,
+    "round": {
+      "name": "Round 13",
+      "order": 13
+    },
+    "start_time": "2027-02-17T18:30:00",
+    "end_time": "2027-02-17T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88996,
+    "round_id": 35125,
+    "round": {
+      "name": "Round 13",
+      "order": 13
+    },
+    "start_time": "2027-03-09T18:00:00",
+    "end_time": "2027-03-09T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88991,
+    "round_id": 35125,
+    "round": {
+      "name": "Round 13",
+      "order": 13
+    },
+    "start_time": "2027-03-11T18:30:00",
+    "end_time": "2027-03-11T21:30:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89000,
+    "round_id": 35126,
+    "round": {
+      "name": "Round 14",
+      "order": 14
+    },
+    "start_time": "2027-03-16T18:00:00",
+    "end_time": "2027-03-16T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 88989,
+    "round_id": 35126,
+    "round": {
+      "name": "Round 14",
+      "order": 14
+    },
+    "start_time": "2027-03-16T18:00:00",
+    "end_time": "2027-03-16T21:00:00",
+    "status": "NOT_STARTED"
+  },
+  {
+    "id": 89013,
+    "round_id": 35126,
+    "round": {
+      "name": "Round 14",
+      "order": 14
+    },
+    "start_time": "2027-03-16T18:00:00",
+    "end_time": "2027-03-16T21:00:00",
+    "status": "NOT_STARTED"
+  }
+]

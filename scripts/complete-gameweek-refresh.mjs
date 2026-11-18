@@ -1,6 +1,6 @@
 export async function completeOldestUnlockedGameweek(supabase, refreshedAt, { gameweekId, stageId } = {}) {
   let pending = supabase
-    .from("fantasy_gameweeks")
+    .from("gameweeks_ready_for_refresh")
     .select("id, name, unlock_at")
     .lt("unlock_at", refreshedAt)
     .is("data_refreshed_at", null);

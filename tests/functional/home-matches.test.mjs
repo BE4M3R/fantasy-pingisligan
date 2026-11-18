@@ -25,9 +25,9 @@ test("schedule refresh updates home fixtures without mixing gameweeks or duplica
   try {
     const stageId = fixture.weeks[0].stupa_stage_id;
     const matchId = randomInt(100000000, 1000000000);
-    const firstStart = new Date(Date.now() + 120 * 60_000).toISOString();
-    const secondStart = new Date(Date.now() + 180 * 60_000).toISOString();
-    const otherWeekStart = new Date(Date.now() + 300 * 60_000).toISOString();
+    const firstStart = "2032-09-07T16:00:00.000Z";
+    const secondStart = "2032-09-07T17:00:00.000Z";
+    const otherWeekStart = "2032-09-21T17:00:00.000Z";
     const initialSchedule = [
       scheduledMatch(matchId, fixture.weeks[0], firstStart, fixture.clubs[0].name, fixture.clubs[1].name),
       scheduledMatch(matchId + 10, fixture.weeks[0], secondStart, fixture.clubs[2].name, fixture.clubs[3].name),
@@ -100,62 +100,6 @@ test("schedule refresh repairs swapped future rounds and remains idempotent", as
     await cleanupFixture(fixture);
   }
 });
-
-for (const lockedIndex of [0, 1]) {
-  test(`schedule round corrections preserve assignment when ${lockedIndex === 0 ? "original" : "destination"} gameweek is locked`, async () => {
-    const fixture = await createFixture({ gameweeks: 2 });
-    try {
-      const stageId = fixture.weeks[0].stupa_stage_id;
-      const matchId = randomInt(100000000, 1000000000);
-      const futureStart = new Date(Date.now() + 3 * 86400_000).toISOString();
-      const initial = [0, 1].map((index) => scheduledMatch(matchId + index * 10,
-        fixture.weeks[index], futureStart, fixture.clubs[0].name, fixture.clubs[1].name));
-      await persistSchedule(fixture.admin, initial, stageId);
-      const lockedAt = new Date(Date.now() - 60_000).toISOString();
-      checked(await fixture.admin.from("fantasy_gameweeks").update({ lock_at: lockedAt })
-        .eq("id", fixture.weeks[lockedIndex].id), "Lock round before refresh");
-      const revisedStart = new Date(Date.parse(futureStart) + 86400_000).toISOString();
-      await persistSchedule(fixture.admin, [
-        scheduledMatch(matchId, fixture.weeks[1], revisedStart, fixture.clubs[1].name, fixture.clubs[0].name),
-        initial[1],
-      ], stageId);
-      const row = checked(await fixture.admin.from("matches")
-        .select("fantasy_gameweek_id, stupa_round_id, starts_at").eq("stupa_match_id", matchId).single(), "Read protected fixture");
-      assert.equal(row.fantasy_gameweek_id, fixture.weeks[0].id);
-      assert.equal(row.stupa_round_id, fixture.weeks[1].stupa_round_id);
-      assert.equal(Date.parse(row.starts_at), Date.parse(revisedStart));
-      const locked = checked(await fixture.admin.from("fantasy_gameweeks").select("lock_at")
-        .eq("id", fixture.weeks[lockedIndex].id).single(), "Read protected deadline");
-      assert.equal(Date.parse(locked.lock_at), Date.parse(lockedAt));
-    } finally {
-      await cleanupFixture(fixture);
-    }
-  });
-}
-
-for (const lockedIndex of [0, 1]) {
-  test(`a revised deadline that immediately locks ${lockedIndex === 0 ? "the original" : "the destination"} round prevents reassignment`, async () => {
-    const fixture = await createFixture({ gameweeks: 2 });
-    try {
-      const stageId = fixture.weeks[0].stupa_stage_id;
-      const matchId = randomInt(100000000, 1000000000);
-      const futureStart = new Date(Date.now() + 3 * 86400_000).toISOString();
-      const closingStart = new Date(Date.now() + 60 * 60_000).toISOString();
-      const match = (id, index, start) => scheduledMatch(id, fixture.weeks[index], start,
-        fixture.clubs[0].name, fixture.clubs[1].name);
-      await persistSchedule(fixture.admin, [match(matchId, 0, futureStart),
-        match(matchId + 10, 0, futureStart), match(matchId + 20, 1, futureStart)], stageId);
-      await persistSchedule(fixture.admin, [match(matchId, 1, futureStart),
-        match(matchId + 10, 0, lockedIndex === 0 ? closingStart : futureStart),
-        match(matchId + 20, 1, lockedIndex === 1 ? closingStart : futureStart)], stageId);
-      const row = checked(await fixture.admin.from("matches").select("fantasy_gameweek_id")
-        .eq("stupa_match_id", matchId).single(), "Read fixture after deadline correction");
-      assert.equal(row.fantasy_gameweek_id, fixture.weeks[0].id);
-    } finally {
-      await cleanupFixture(fixture);
-    }
-  });
-}
 
 test("public match summaries count singles and golden doubles once, isolate the gameweek and protect raw data", async () => {
   const fixture = await createFixture({ gameweeks: 2 });

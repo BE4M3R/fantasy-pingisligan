@@ -69,7 +69,7 @@ export function resultsRefreshDecision({ now, eventName, schedule, dispatchKind,
   });
   return {
     shouldRun: withinMatchWindow,
-    refreshSchedule: false,
+    refreshSchedule: withinMatchWindow,
     reason: withinMatchWindow ? "Between a playing day's first fixture start and five hours after its last fixture start" : "Outside fixture polling windows",
     ...window,
   };
@@ -90,7 +90,7 @@ export async function checkResultsRefresh({ now = new Date(), eventName, schedul
   if (!response.ok) throw new Error(`Could not check the fixture window: HTTP ${response.status}`);
   const due = await response.json();
   if (typeof due !== "boolean") throw new Error("Unexpected fixture-window response from Supabase.");
-  return { ...base, shouldRun: due, reason: due ? "Within a fixture polling window" : "Outside fixture polling windows" };
+  return { ...base, shouldRun: due, refreshSchedule: due, reason: due ? "Within a fixture polling window" : "Outside fixture polling windows" };
 }
 
 async function main() {

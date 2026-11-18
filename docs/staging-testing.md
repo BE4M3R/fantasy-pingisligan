@@ -331,6 +331,10 @@ The following accounts already exist in the staging environment:
 
 ## Local synthetic lifecycle: JSON format
 
+For the separate pre-bucket fixture migration scenario, use the
+[local bucket controls](gameweek-buckets.md#local-migration-demonstration).
+They preserve existing accounts, squads and lifecycle-demo gameweeks.
+
 The following lifecycle commands target local Supabase. To run a deliberate,
 short staging smoke test instead, replace `test:local` with `test:staging` and
 clean up the synthetic gameweeks immediately afterward. Never leave synthetic

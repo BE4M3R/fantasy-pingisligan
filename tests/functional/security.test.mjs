@@ -225,6 +225,9 @@ test("administrative RPCs reject API users, including player merges that would b
       ["calculate_player_match_stats", { target_gameweek_id: f.weeks[0].id }],
       ["calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }],
       ["complete_gameweek_refresh", { p_gameweek_id: f.weeks[0].id, p_refreshed_at: new Date().toISOString() }],
+      ["persist_gameweek_schedule", { p_stage_id: f.weeks[0].stupa_stage_id, p_gameweeks: [], p_matches: [] }],
+      ["update_gameweek_result_matches", { p_matches: [] }],
+      ["score_gameweek_refresh", { p_stage_id: f.weeks[0].stupa_stage_id, p_gameweek_ids: [f.weeks[0].id] }],
     ]) {
       const result = await client.rpc(name, args);
       assert.equal(result.error?.code, "42501", `${name} must deny API users before any mutation`);
