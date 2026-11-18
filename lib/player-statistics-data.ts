@@ -40,7 +40,7 @@ export async function getPlayerStatistics(id: string): Promise<PlayerStatistics 
       .select("id, starts_at, home_club_id, home_team_name, away_team_name, home_club:clubs!matches_home_club_id_fkey(name), away_club:clubs!matches_away_club_id_fkey(name), gameweek:fantasy_gameweeks!matches_fantasy_gameweek_id_fkey(name, round_order)")
       .or(`home_club_id.eq.${clubId},away_club_id.eq.${clubId}`)
       .gte("starts_at", since)
-      .neq("status", "scored")
+      .not("status", "in", "(scored,cancelled,canceled,deleted)")
       .order("starts_at").order("id").limit(3);
     if (result.error) throw new Error("Could not load upcoming fixtures.");
     fixtures = result.data as unknown as PlayerFixture[];

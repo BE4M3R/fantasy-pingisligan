@@ -50,6 +50,11 @@ erDiagram
 - `fantasy_gameweeks` is created from Stupa rounds. Its first and last match
   timestamps produce the transfer lock window; `data_refreshed_at` records when
   the post-gameweek results import and scoring has reopened transfers.
+  From GW6, separate persisted midpoint-period and anchor columns determine
+  fixture membership. Private stage policies protect the historical cutover;
+  a durable rescoring worklist records both sides of a fixture move. The
+  job-only `gameweeks_ready_for_refresh` projection selects eligible completion
+  candidates independently of older unfinished weeks. See [gameweek buckets](gameweek-buckets.md).
 - `matches` contains the parent team fixtures required before results can load.
 - `stupa_submatches` retains each source submatch and its raw payload.
 - `player_submatch_results` retains per-player set and point details. Its

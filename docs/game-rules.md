@@ -4,7 +4,7 @@
 
 ## Definitions
 
-- A **gameweek** is one imported Stupa league round.
+- A **gameweek** starts from a STUPA round, with fixtures assigned by persisted chronological periods from GW6 onward; see [gameweek buckets](gameweek-buckets.md).
 - A **team fixture** is one club-versus-club fixture in that round.
 - An **individual match** is one player-versus-player match within a fixture.
 - A **set** is one set within an individual match.
@@ -222,26 +222,28 @@ Both bench players' points count toward the gameweek total.
 
 ## Postponed and rescheduled fixtures
 
-The schedule importer should refresh match dates and times at least once per
-day. Before a gameweek locks, every confirmed schedule change updates its
-deadline to two hours before the new scheduled start of its earliest team
-fixture. If that updated deadline has already passed when the change is
-imported, the gameweek locks immediately.
+From GW6, the scheduled kickoff determines a fixture's Fantasy Gameweek using
+persisted midpoint periods, independently of its original STUPA round. Periods
+are initialized from dominant-week median kickoffs and never silently move.
+See [gameweek buckets](gameweek-buckets.md) for boundaries and exceptions.
 
-While both affected gameweeks remain unlocked, a fixture follows confirmed STUPA round
-corrections. A fixture's scoring assignment cannot move once either the original
-or destination gameweek's deadline has passed, including a deadline brought
-forward by that same schedule refresh.
-The Fixtures page always displays the latest imported STUPA round; if the
-scoring gameweek remains different, the fixture identifies which gameweek
-receives its fantasy points.
+Fixtures may move between any two unfinished gameweeks, including locked ones.
+A passed selection deadline and locked manager selections stay unchanged. Both
+source and destination are rescored. Moves into or out of a completed gameweek,
+or across the protected GW1–GW5 cutover, require manual resolution and reject
+the entire schedule transaction.
 
-Once a deadline has passed, its lock and unlock boundaries are frozen and the
-gameweek is not reopened. The schedule importer still updates individual
-fixture times and statuses. A postponed fixture remains attached to its
-original gameweek and is scored against that gameweek's locked squads when it
-is eventually played. Transfers for later gameweeks do not change the earlier
-snapshot.
+An unfinished gameweek's earliest/latest required fixtures determine its
+lifecycle. Reopening follows Stockholm midnight after its last fixture ends,
+then successful results processing and scoring. A moved fixture no longer
+holds its source gameweek open. Explicitly postponed undated fixtures retain
+their current assignment and do not block completion; cancelled/deleted fixtures
+receive no points. Empty gameweeks retain their last planned lifecycle and are
+reported rather than deleted. A later date for a fixture retained in a now
+completed gameweek requires manual handling under the completed-membership rule.
+
+The existing shared squad and global transfer lock remain: another started,
+uncompleted gameweek can keep transfers closed even after this one completes.
 
 ## Possible later additions
 

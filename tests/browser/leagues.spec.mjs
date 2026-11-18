@@ -128,7 +128,13 @@ test.describe.serial("private league journey", () => {
     const guestRow = table.getByRole("row").filter({ hasText: guest.teamName });
     const rank = await guestRow.getByRole("cell").first().innerText();
     const points = await guestRow.getByRole("cell").last().innerText();
+    // Search must dispatch a request even when typing immediately after hydration.
+    const searched = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/leaderboard" && url.searchParams.get("search") === "league rival";
+    });
     await search.getByLabel("Search team name").fill("league rival");
+    expect((await searched).ok()).toBe(true);
     await expect(table.getByRole("button", { name: guest.teamName })).toBeVisible();
     await expect(guestRow.getByRole("cell").first()).toHaveText(rank);
     await expect(guestRow.getByRole("cell").last()).toHaveText(points);

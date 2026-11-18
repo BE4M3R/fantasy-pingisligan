@@ -219,8 +219,10 @@ export async function RulesContent() {
           <ul className="space-y-2">
             <li>The gameweek locks <strong className="text-[var(--pf-fantasy-yellow)]">2 hours before</strong> its earliest fixture.</li>
             <li>Schedule changes can move the deadline before it locks.</li>
-            <li>Once locked, the gameweek is not reopened.</li>
-            <li>Postponed fixtures still score in their original gameweek.</li>
+            <li>Locked squad selections stay fixed when fixtures move.</li>
+            <li>From GW6, rescheduled fixtures follow their kickoff dates into fixed gameweek periods. Some clubs may play twice or have no fixture.</li>
+            <li>Reassignment is automatic while both gameweeks are unfinished. Finished gameweeks and GW1–GW5 keep their fixture assignments.</li>
+            <li>Transfers reopen after midnight following the last required fixture, once results and scoring succeed. Undated official postponements and cancelled fixtures do not delay completion.</li>
           </ul>
         </RuleCard>
 

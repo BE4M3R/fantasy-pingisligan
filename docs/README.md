@@ -38,6 +38,7 @@ Start with the root [README](../README.md) to install and run the application.
 16. [Public competition pages and provisional results](competitions.md)
 17. [Anonymous production Web Analytics](analytics.md)
 18. [Dependency security exceptions](dependency-security.md)
+19. [Gameweek periods, postponements and migration verification](gameweek-buckets.md)
 
 ## Task shortcuts
 

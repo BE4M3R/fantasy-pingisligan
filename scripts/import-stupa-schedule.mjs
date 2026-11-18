@@ -1,18 +1,15 @@
 import { importEnvironment } from "./environment.mjs";
 import { canonicalClubName } from "../lib/clubs.ts";
-import { getOrCreateClubId } from "./club-identity.mjs";
+import { findExistingClub } from "./club-identity.mjs";
+import { initializeBuckets, normalizeSchedule, validatePeriods } from "./gameweek-buckets.mjs";
+import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import {
-  localDateTimeToUtcIso,
-  nextStockholmMidnightUtcIso,
-} from "./stockholm-time.mjs";
 
 const STUPA_API_BASE_URL = "https://testbackend.stupaevents.com";
 const STUPA_TENANT = "sbtf";
 const DEFAULT_STAGE_ID = 5727;
-const LOCK_WINDOW_HOURS = 2;
 
 function requireEnv(name, fallbackName) {
   const value = process.env[name] ?? process.env[fallbackName];
@@ -25,12 +22,7 @@ function requireEnv(name, fallbackName) {
   return value;
 }
 
-function addHours(isoValue, hours) {
-  return new Date(new Date(isoValue).getTime() + hours * 60 * 60 * 1000)
-    .toISOString();
-}
-
-async function fetchStage(stageId) {
+export async function fetchStage(stageId) {
   const url = new URL("/ott/v1/get_group_matches", STUPA_API_BASE_URL);
   url.searchParams.set("stage_id", String(stageId));
   url.searchParams.set("view", "standard");
@@ -58,276 +50,72 @@ async function fetchStage(stageId) {
   }
 
   return payload.data
-    .flatMap((group) => group.matches ?? [])
-    .filter((match) => !match.is_deleted);
+    .flatMap((group) => group.matches ?? []);
 }
 
-function getParticipant(match, order) {
-  const participants = match.participants ?? [];
-  return (
-    participants.find((participant) => participant.order === order) ??
-    participants[order - 1]
-  );
-}
-
-function nullableInteger(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-function getParticipantName(match, order) {
-  const participantName = getParticipant(match, order)?.participant_name?.trim() ?? null;
-
-  return participantName ? canonicalClubName(participantName) : null;
-}
-
-function buildGameweeks(matches, stageId) {
-  const byRoundId = new Map();
-
-  for (const match of matches) {
-    const endTime = match.end_time ?? match.slot?.end_time;
-    if (!match.round_id || !match.start_time || !endTime) {
-      continue;
-    }
-
-    const startsAt = localDateTimeToUtcIso(match.start_time);
-    const endsAt = localDateTimeToUtcIso(endTime);
-    const current = byRoundId.get(match.round_id) ?? {
-      stupa_stage_id: stageId,
-      stupa_round_id: match.round_id,
-      name: match.round?.name ?? `Round ${match.round_id}`,
-      round_order: match.round?.order ?? null,
-      first_match_starts_at: startsAt,
-      last_match_ends_at: endsAt,
-    };
-
-    if (new Date(startsAt) < new Date(current.first_match_starts_at)) {
-      current.first_match_starts_at = startsAt;
-    }
-
-    if (new Date(endsAt) > new Date(current.last_match_ends_at)) {
-      current.last_match_ends_at = endsAt;
-    }
-
-    byRoundId.set(match.round_id, current);
-  }
-
-  return [...byRoundId.values()]
-    .map((gameweek) => ({
-      ...gameweek,
-      lock_at: addHours(gameweek.first_match_starts_at, -LOCK_WINDOW_HOURS),
-      unlock_at: nextStockholmMidnightUtcIso(gameweek.last_match_ends_at),
-      imported_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }))
-    .sort((left, right) => (left.round_order ?? 0) - (right.round_order ?? 0));
-}
-
-export function preserveLockedGameweekBoundaries(
-  gameweeks,
-  existingGameweeks,
-  refreshedAt = new Date().toISOString(),
-) {
-  const refreshTime = Date.parse(refreshedAt);
-  if (!Number.isFinite(refreshTime)) {
-    throw new Error(`Invalid schedule refresh time: ${refreshedAt}`);
-  }
-
-  const existingByRoundId = new Map(
-    existingGameweeks.map((gameweek) => [gameweek.stupa_round_id, gameweek]),
-  );
-
-  return gameweeks.map((gameweek) => {
-    const existing = existingByRoundId.get(gameweek.stupa_round_id);
-    if (!existing) return gameweek;
-
-    const existingLockTime = Date.parse(existing.lock_at);
-    if (!Number.isFinite(existingLockTime)) {
-      throw new Error(
-        `Existing gameweek ${gameweek.stupa_round_id} has an invalid lock time.`,
-      );
-    }
-    if (existingLockTime > refreshTime) return gameweek;
-
-    // Squad snapshots are keyed to the deadline that actually passed. Moving
-    // either boundary afterwards could reopen transfers or delay completion
-    // against a different window than the stored snapshots.
-    return {
-      ...gameweek,
-      lock_at: existing.lock_at,
-      unlock_at: existing.unlock_at,
-    };
+// Kept for callers that preview deadlines; reopening may now change after lock.
+export function preserveLockedGameweekBoundaries(gameweeks, existingGameweeks, refreshedAt = new Date().toISOString()) {
+  const existing = new Map(existingGameweeks.map(w => [w.stupa_round_id, w]));
+  return gameweeks.map(w => {
+    const old = existing.get(w.stupa_round_id);
+    if (!old) return w;
+    if (old.data_refreshed_at) return { ...w, lock_at: old.lock_at, unlock_at: old.unlock_at };
+    return Date.parse(old.lock_at) <= Date.parse(refreshedAt) ? { ...w, lock_at: old.lock_at } : w;
   });
 }
 
-export function resolveFixtureGameweekId(
-  stupaMatchId,
-  stupaRoundId,
-  existingMatchesByStupaId,
-  gameweeksByRoundId,
-  unlockedGameweekIds,
-) {
-  const existingId = existingMatchesByStupaId.get(stupaMatchId)?.fantasy_gameweek_id;
-  const upstreamId = gameweeksByRoundId.get(stupaRoundId)?.id;
-  if (!existingId) return upstreamId ?? null;
-
-  // Before either deadline, upstream round corrections should repair stale
-  // links. After locking, the original squad snapshots must remain authoritative.
-  if (upstreamId && unlockedGameweekIds.has(existingId) && unlockedGameweekIds.has(upstreamId)) {
-    return upstreamId;
-  }
-  return existingId;
+export function buildGameweeks(matches, stageId) {
+  return initializeBuckets(normalizeSchedule(matches, stageId), stageId);
 }
 
-async function getClubs(supabase) {
-  const { data, error } = await supabase.from("clubs").select("id, name");
-
-  if (error) {
-    throw new Error(`Could not fetch clubs: ${error.message}`);
+export async function planSchedule(supabase, matches, stageId) {
+  const fixtures = normalizeSchedule(matches, stageId).map(m => ({ ...m,
+    home_team_name: m.home_team_name ? canonicalClubName(m.home_team_name) : null,
+    away_team_name: m.away_team_name ? canonicalClubName(m.away_team_name) : null,
+  }));
+  const { data: existing, error } = await supabase.from("fantasy_gameweeks")
+    .select("id, stupa_round_id, stupa_stage_id, round_order, name, anchor_week, anchor_at, bucket_starts_at, bucket_ends_at, bucket_initialized_at")
+    .eq("stupa_stage_id", stageId).order("round_order");
+  if (error) throw new Error(`Could not load gameweek periods: ${error.message}`);
+  const initialized = (existing ?? []).filter(w => w.bucket_initialized_at);
+  const { data: clubs, error: clubError } = await supabase.from("clubs").select("id, name");
+  if (clubError) throw new Error(`Could not load clubs: ${clubError.message}`);
+  for (const fixture of fixtures) {
+    fixture.home_club_id = fixture.home_team_name ? findExistingClub(clubs ?? [], fixture.home_team_name)?.id ?? null : null;
+    fixture.away_club_id = fixture.away_team_name ? findExistingClub(clubs ?? [], fixture.away_team_name)?.id ?? null : null;
   }
-
-  return data ?? [];
+  let gameweeks;
+  if (initialized.length) {
+    validatePeriods(initialized);
+    const known = new Map((existing ?? []).map(w => [w.stupa_round_id, w]));
+    for (const m of fixtures) {
+      const w = known.get(m.stupa_round_id);
+      if (!w || w.round_order !== m.round_order) throw new Error(`Unexpected or reordered STUPA round ${m.stupa_round_id}; explicit bucket amendment required.`);
+    }
+    gameweeks = existing;
+  } else {
+    gameweeks = initializeBuckets(fixtures, stageId);
+  }
+  return { fixtures, gameweeks };
 }
 
-async function upsertGameweeks(supabase, gameweeks, existingGameweeks, refreshedAt) {
-  const safeGameweeks = preserveLockedGameweekBoundaries(
-    gameweeks,
-    existingGameweeks,
-    refreshedAt,
-  );
-
-  for (const [index, gameweek] of safeGameweeks.entries()) {
-    const proposed = gameweeks[index];
-    if (
-      gameweek.lock_at !== proposed.lock_at ||
-      gameweek.unlock_at !== proposed.unlock_at
-    ) {
-      console.log(
-        `${gameweek.name}: preserved locked boundaries ` +
-          `${gameweek.lock_at} to ${gameweek.unlock_at}; fixture schedule still updates.`,
-      );
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("fantasy_gameweeks")
-    .upsert(safeGameweeks, { onConflict: "stupa_round_id" })
-    .select("id, stupa_round_id, name, lock_at, unlock_at");
-
-  if (error) {
-    throw new Error(`Could not upsert gameweeks: ${error.message}`);
-  }
-
-  return new Map(data.map((gameweek) => [gameweek.stupa_round_id, gameweek]));
+export async function persistSchedule(supabase, matches, stageId) {
+  const { fixtures, gameweeks } = await planSchedule(supabase, matches, stageId);
+  const { data, error: writeError } = await supabase.rpc("persist_gameweek_schedule", {
+    p_stage_id: stageId, p_gameweeks: gameweeks, p_matches: fixtures,
+  });
+  if (writeError) throw new Error(`Schedule import rejected: ${writeError.message}${writeError.details ? `; ${writeError.details}` : ""}`);
+  return { gameweeks, importedMatches: data.imported_matches, moves: data.moves };
 }
 
-async function upsertMatches(supabase, matches, gameweeksByRoundId, stageId, unlockedGameweekIds) {
-  const clubs = await getClubs(supabase);
-  const stupaMatchIds = matches
-    .map((match) => nullableInteger(match.id))
-    .filter((matchId) => matchId !== null);
-  const { data: existingMatches, error: existingError } = await supabase
-    .from("matches")
-    .select("stupa_match_id, fantasy_gameweek_id")
-    .in("stupa_match_id", stupaMatchIds);
-
-  if (existingError) {
-    throw new Error(`Could not load existing fixtures: ${existingError.message}`);
-  }
-
-  const existingMatchesByStupaId = new Map(
-    (existingMatches ?? []).map((match) => [match.stupa_match_id, match]),
-  );
-  const payload = [];
-
-  for (const match of matches) {
-    const homeTeam = getParticipant(match, 1);
-    const awayTeam = getParticipant(match, 2);
-    const homeTeamName = getParticipantName(match, 1);
-    const awayTeamName = getParticipantName(match, 2);
-    const startsAt = localDateTimeToUtcIso(match.start_time);
-    const endsAt = localDateTimeToUtcIso(match.end_time ?? match.slot?.end_time);
-
-    if (!match.id || !match.round_id || !startsAt || !endsAt) {
-      continue;
-    }
-
-    const gameweekId = resolveFixtureGameweekId(
-      match.id,
-      match.round_id,
-      existingMatchesByStupaId,
-      gameweeksByRoundId,
-      unlockedGameweekIds,
-    );
-    const previousGameweekId = existingMatchesByStupaId.get(match.id)?.fantasy_gameweek_id;
-    if (previousGameweekId && gameweekId !== previousGameweekId) {
-      console.log(`Fixture ${match.id}: reassigned unlocked gameweek ${previousGameweekId} to ${gameweekId} (STUPA round ${match.round_id}).`);
-    }
-
-    payload.push({
-      profixio_id: `stupa:${match.id}`,
-      stupa_match_id: match.id,
-      fantasy_gameweek_id: gameweekId,
-      stupa_event_match_id: match.event_match_id ?? null,
-      stupa_stage_id: stageId,
-      stupa_round_id: match.round_id,
-      stupa_group_id: match.group_id ?? null,
-      home_team_stupa_participant_id: nullableInteger(homeTeam?.participant_id),
-      away_team_stupa_participant_id: nullableInteger(awayTeam?.participant_id),
-      winning_team_stupa_participant_id: nullableInteger(match.winner),
-      home_club_id: await getOrCreateClubId(supabase, clubs, homeTeamName),
-      away_club_id: await getOrCreateClubId(supabase, clubs, awayTeamName),
-      home_team_name: homeTeamName,
-      away_team_name: awayTeamName,
-      starts_at: startsAt,
-      ends_at: endsAt,
-      status: String(match.status ?? "scheduled").toLowerCase(),
-      source_updated_at: new Date().toISOString(),
-    });
-  }
-
-  const { error } = await supabase
-    .from("matches")
-    .upsert(payload, { onConflict: "stupa_match_id" });
-
-  if (error) {
-    throw new Error(`Could not upsert matches: ${error.message}`);
-  }
-
-  return payload.length;
-}
-
-export async function persistSchedule(
-  supabase,
-  matches,
-  stageId,
-  gameweeks = buildGameweeks(matches, stageId),
-) {
-  const refreshedAt = new Date().toISOString();
-  const { data: existingGameweeks, error } = await supabase
-    .from("fantasy_gameweeks")
-    .select("id, stupa_round_id, lock_at, unlock_at")
-    .eq("stupa_stage_id", stageId);
-  if (error) throw new Error(`Could not load existing gameweeks: ${error.message}`);
-
-  const gameweeksByRoundId = await upsertGameweeks(supabase, gameweeks, existingGameweeks ?? [], refreshedAt);
-  const refreshTime = Date.parse(refreshedAt);
-  const existingById = new Map((existingGameweeks ?? []).map((week) => [week.id, week]));
-  const unlockedGameweekIds = new Set((existingGameweeks ?? [])
-    .filter((week) => Date.parse(week.lock_at) > refreshTime).map((week) => week.id));
-  for (const week of gameweeksByRoundId.values()) {
-    const previous = existingById.get(week.id);
-    // Check both deadlines: a correction can lock a previously open round
-    // immediately, and must never make an already locked round movable again.
-    if (Date.parse(week.lock_at) > refreshTime && (!previous || Date.parse(previous.lock_at) > refreshTime)) {
-      unlockedGameweekIds.add(week.id);
-    } else {
-      unlockedGameweekIds.delete(week.id);
-    }
-  }
-  const importedMatches = await upsertMatches(supabase, matches, gameweeksByRoundId, stageId, unlockedGameweekIds);
-  return { gameweeks, importedMatches };
+const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+const githubActions = process.env.GITHUB_ACTIONS === "true";
+export async function reportScheduleError(error) {
+  const message = error.message ?? String(error);
+  const escape = s => s.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+  if (githubActions) console.error(`::error title=Gameweek schedule requires manual resolution::${escape(message)}`);
+  else console.error(message);
+  if (summaryFile) await appendFile(summaryFile, `\n## Gameweek schedule import failed\n\n${message.replaceAll("<", "&lt;")}\n\nNo partial schedule changes were committed. Review the reported fixtures, anchors or lifecycle states before retrying.\n`);
 }
 
 async function main() {
@@ -343,21 +131,7 @@ async function main() {
   }
 
   const matches = await fetchStage(stageId);
-  const gameweeks = buildGameweeks(matches, stageId);
-
   console.log(`Fetched ${matches.length} Stupa matches from stage ${stageId}.`);
-  console.log(`Built ${gameweeks.length} fantasy gameweeks.`);
-
-  for (const gameweek of gameweeks) {
-    console.log(
-      `${gameweek.name}: lock ${gameweek.lock_at}, unlock ${gameweek.unlock_at}`,
-    );
-  }
-
-  if (dryRun) {
-    return;
-  }
-
   const supabaseUrl = requireEnv("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -367,16 +141,20 @@ async function main() {
     },
   });
 
-  const { importedMatches } = await persistSchedule(supabase, matches, stageId, gameweeks);
+  if (dryRun) {
+    const { gameweeks } = await planSchedule(supabase, matches, stageId);
+    for (const week of gameweeks) console.log(`${week.name}: ${week.bucket_starts_at ?? "unbounded / protected legacy"} to ${week.bucket_ends_at ?? "unbounded / protected legacy"}`);
+    console.log("Schedule preview only; no database writes.");
+    return;
+  }
+  const { importedMatches, gameweeks: stored } = await persistSchedule(supabase, matches, stageId);
 
-  console.log(`Imported ${gameweeks.length} gameweeks and ${importedMatches} matches.`);
+  console.log(`Imported ${stored.length} gameweeks and ${importedMatches} matches.`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(1);
+  main().catch(async (error) => {
+    await reportScheduleError(error);
+    process.exitCode = 1;
   });
 }
-
-export { buildGameweeks };

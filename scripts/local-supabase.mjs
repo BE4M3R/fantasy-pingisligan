@@ -8,6 +8,7 @@ export function localSupabaseArgs(command, args) {
     start: ["start"], stop: ["stop"], reset: ["db", "reset", "--local"],
     lint: ["db", "lint", "--local", "--level", "error", "--fail-on", "error"],
     status: ["migration", "list", "--local"], new: ["migration", "new"],
+    migrate: ["migration", "up", "--local"],
   };
   if (!Object.hasOwn(commands, command) ||
       (command === "new" ? args.length !== 1 || !/^[a-z0-9][a-z0-9_-]*$/i.test(args[0]) : args.length !== 0)) {

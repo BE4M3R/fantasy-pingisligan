@@ -12,7 +12,6 @@ verifyStagingImportTarget({
 });
 
 for (const [script, args] of [
-  ["import-stupa-schedule.mjs", ["--target", "staging"]],
   ["import-stupa-results.mjs", ["--target", "staging", "--complete-gameweek-refresh"]],
   ["verify-staging-refresh.mjs", []],
 ]) {
