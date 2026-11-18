@@ -3,6 +3,7 @@ import test from "node:test";
 import { randomInt } from "node:crypto";
 import { persistSchedule } from "../../scripts/import-stupa-schedule.mjs";
 import { completeOldestUnlockedGameweek } from "../../scripts/complete-gameweek-refresh.mjs";
+import { buildImportRows, loadDatabaseLookups, persistScoreAndComplete } from "../../scripts/import-stupa-results.mjs";
 import { addMatch, addResult, checked, cleanupFixture, createFixture, complete, lock, save, squad } from "./fixture.mjs";
 
 const later = (at, days) => new Date(Date.parse(at) + days * 86400_000).toISOString();
@@ -147,29 +148,101 @@ test("durable rescoring removes source points, credits destination snapshots and
   }finally{await cleanupFixture(f);}
 });
 
-test("GW5 history and scores survive cutover initialization and full-stage scoring",async()=>{
-  const f=await createFixture({gameweeks:2});
+test("unfinished GW5 imports and completes; historical corrections rescore without moving fixtures or reopening completion", async () => {
+  const f = await createFixture({ gameweeks: 2 });
   try {
-    checked(await save(f,squad([f.players[0],f.players[2],f.players[4],f.players[6],f.players[1],f.players[3]])),"Save historical squad");
+    checked(await save(f, squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]])), "Save GW5 squad");
     await lock(f);
-    const game=await addMatch(f);await addResult(f,game,{home:[f.players[0]],away:[f.players[2]]});
-    await complete(f);
-    for(let i=0;i<2;i++) {
-      checked(await f.admin.from("fantasy_gameweeks").update({stupa_stage_id:5727,round_order:i+5}).eq("id",f.weeks[i].id),"Prepare historical stage");
-      f.weeks[i].stupa_stage_id=5727;f.weeks[i].round_order=i+5;
+    for (const [index, week] of f.weeks.entries()) {
+      Object.assign(week, { stupa_stage_id: 5727, round_order: index + 5 });
+      checked(await f.admin.from("fantasy_gameweeks").update({ stupa_stage_id: 5727, round_order: week.round_order })
+        .eq("id", week.id), "Prepare unfinished historical round");
     }
-    const id=randomInt(100000000,1000000000);
-    checked(await f.admin.from("matches").update({stupa_match_id:id,stupa_stage_id:5727}).eq("id",game.match.id),"Identify legacy fixture");
-    const before=(await weeks(f))[0], fixtureBefore=(await rows(f)).find(m=>m.id===game.match.id);
-    const scoreBefore=checked(await f.admin.from("fantasy_team_gameweek_points").select("*").eq("fantasy_gameweek_id",f.weeks[0].id),"Read historical score");
-    const sourceMatches=source(f).filter((_,i)=>i===0||i>=3).map((m,i)=>({...m,id:i===0?id:m.id,round:{...m.round,order:i===0?5:6}}));
-    await importSource(f,sourceMatches);await rescore(f);
-    const after=(await weeks(f))[0];for(const key of ["lock_at","unlock_at","data_refreshed_at","first_match_starts_at","last_match_ends_at"]) assert.equal(after[key],before[key]);
-    assert.deepEqual((await rows(f)).find(m=>m.id===game.match.id),fixtureBefore);
-    assert.deepEqual(checked(await f.admin.from("fantasy_team_gameweek_points").select("*").eq("fantasy_gameweek_id",f.weeks[0].id),"Read protected score"),scoreBefore);
-    assert.equal(checked(await f.admin.rpc("calculate_fantasy_gameweek_points",{target_gameweek_id:f.weeks[0].id}),"Protected historical scoring"),0);
-    await assert.rejects(importSource(f,sourceMatches.map((m,i)=>i===0?{...m,start_time:later(m.start_time,14),end_time:later(m.end_time,14)}:m)),/historical protection|Protected fixture/);
-  }finally{await cleanupFixture(f);}
+    const game = await addMatch(f);
+    const id = randomInt(100000000, 1000000000);
+    checked(await f.admin.from("matches").update({ stupa_stage_id: 5727, stupa_match_id: id, status: "not_started" })
+      .eq("id", game.match.id), "Prepare unimported results");
+    checked(await f.admin.from("fantasy_gameweeks").update({ unlock_at: new Date(Date.now() - 60000).toISOString() })
+      .eq("id", f.weeks[0].id), "Pass GW5 unlock time");
+    const participants = [
+      { order: 1, participant_id: game.homeId, participant_name: f.clubs[0].name },
+      { order: 2, participant_id: game.awayId, participant_name: f.clubs[1].name },
+    ];
+    const sourceMatches = f.weeks.map((week, index) => ({
+      id: id + index, round_id: week.stupa_round_id, round: { name: week.name, order: week.round_order },
+      start_time: later(game.match.starts_at, index * 21), end_time: later(game.match.ends_at, index * 21),
+      status: "NOT_STARTED", participants,
+    }));
+    await importSource(f, sourceMatches);
+    await rescore(f);
+    const before = (await weeks(f))[0];
+    const readLock = async () => checked(await f.user.rpc("current_transfer_lock"), "Read GW5 transfer lock")[0];
+    assert.equal((await readLock()).is_locked, true);
+    assert.equal(await completeOldestUnlockedGameweek(f.admin, new Date().toISOString(), { stageId: 5727 }), null);
+    const premature = await f.admin.rpc("complete_gameweek_refresh", {
+      p_gameweek_id: before.id, p_refreshed_at: new Date().toISOString(),
+    });
+    assert.match(premature.error?.message ?? "", /Required gameweek fixture results/);
+
+    const parent = { ...sourceMatches[0], status: "SCORED", winner: game.homeId,
+      sub_matches: Array.from({ length: 5 }, (_, index) => ({
+        id: id + 100 + index, order: index + 1, status: "SCORED", winner: game.homeId,
+        participants: participants.map((side, sideIndex) => ({ ...side,
+          sets_won: sideIndex === 0 ? 3 : 1, sets_lost: sideIndex === 0 ? 1 : 3,
+          participant_details: [{ user_role_id: f.players[sideIndex * 2].stupa_user_role_id, name: `Player ${sideIndex}` }],
+        })),
+      })),
+    };
+    const importRows = async (observed) => {
+      const lookup = await loadDatabaseLookups(f.admin);
+      return buildImportRows([observed], lookup.matchesByStupaId, lookup.playersByLicenseId, lookup.playersByRoleId,
+        false, lookup.manualPlayersByNameAndClub);
+    };
+    const imported = await importRows(parent);
+    assert.equal(imported.submatches.length, 5);
+    assert.equal(imported.playerResults.length, 10);
+    const options = { complete: true, refreshStartedAt: new Date().toISOString(), stageId: 5727 };
+    await assert.rejects(persistScoreAndComplete(f.admin, { ...imported, gameweekIds: ["invalid-uuid"] }, options));
+    assert.equal((await weeks(f))[0].data_refreshed_at, null, "a scoring failure must leave transfers closed");
+    assert.equal((await readLock()).is_locked, true);
+    assert.equal(await persistScoreAndComplete(f.admin, imported, options), 1);
+    const finished = (await weeks(f))[0];
+    assert.ok(finished.data_refreshed_at);
+    assert.equal((await readLock()).is_locked, false);
+    for (const key of ["lock_at", "unlock_at", "first_match_starts_at", "last_match_ends_at"])
+      assert.equal(finished[key], before[key]);
+    const fixtureAfter = (await rows(f)).find(m => m.id === game.match.id);
+    assert.equal(fixtureAfter.status, "scored");
+    assert.equal(fixtureAfter.fantasy_gameweek_id, before.id);
+    const score = async () => checked(await f.admin.from("fantasy_team_gameweek_points").select("points")
+      .eq("fantasy_gameweek_id", before.id).eq("fantasy_team_id", f.teamId).single(), "Read GW5 score").points;
+    const originalScore = await score();
+    assert.ok(originalScore > 0);
+
+    await importSource(f, sourceMatches);
+    await rescore(f);
+    assert.deepEqual((await rows(f)).find(m => m.id === game.match.id), fixtureAfter,
+      "schedule reimports preserve historical fixture metadata and membership");
+    for (const key of ["lock_at", "unlock_at", "first_match_starts_at", "last_match_ends_at", "data_refreshed_at"])
+      assert.equal((await weeks(f))[0][key], finished[key]);
+    assert.equal(await persistScoreAndComplete(f.admin, await importRows(parent), {
+      ...options, refreshStartedAt: new Date().toISOString(),
+    }), 1, "a completed historical week is still included in later results imports");
+    assert.equal(await score(), originalScore, "unchanged results preserve points");
+    const withdrawn = { ...parent, status: "IN_PROGRESS", winner: null,
+      sub_matches: parent.sub_matches.map(child => ({ ...child, status: "NOT_STARTED" })) };
+    const corrected = await importRows(withdrawn);
+    assert.equal(corrected.retractedSubmatches.length, 5);
+    assert.equal(await persistScoreAndComplete(f.admin, corrected, { stageId: 5727 }), 1);
+    assert.equal(await score(), 0, "upstream result corrections rescore completed historical weeks");
+    assert.equal((await rows(f)).find(m => m.id === game.match.id).status, "in_progress");
+    assert.equal((await weeks(f))[0].data_refreshed_at, finished.data_refreshed_at);
+    assert.equal((await rows(f)).find(m => m.id === game.match.id).fantasy_gameweek_id, before.id);
+    await assert.rejects(importSource(f, sourceMatches.map((m, index) => index === 0
+      ? { ...m, start_time: later(m.start_time, 21), end_time: later(m.end_time, 21) } : m)), /historical protection|Protected fixture/);
+  } finally {
+    await cleanupFixture(f);
+  }
 });
 
 test("concurrent schedule movement and completion cannot both commit stale source membership",async()=>{

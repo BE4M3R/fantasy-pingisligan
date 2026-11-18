@@ -62,6 +62,22 @@ function stupaRows(detail, licensePlayer, rolePlayer) {
   );
 }
 
+test("results include every round in current and future seasons, including completed historical rounds", () => {
+  const parent = stupaParent(stupaDetail());
+  for (const [stage, round, completed] of [
+    [5727, 5, false], [5727, 5, true], [5727, 6, true], [5727, 1, true], [9999, 1, true],
+  ]) {
+    const gameweek = { stupa_stage_id: stage, round_order: round,
+      data_refreshed_at: completed ? "2026-11-18T00:00:00Z" : null };
+    const rows = buildImportRows([parent], new Map([[100, { id: "match", fantasy_gameweek_id: "week", gameweek }]]),
+      new Map(), new Map());
+    assert.equal(rows.submatches.length, 1);
+    assert.equal(rows.matchUpdates.length, 1);
+    assert.equal(rows.playerResults.length, 1);
+    assert.equal(rows.gameweekIds.length, 1);
+  }
+});
+
 test("Stupa refreshes a live fixture before its first completed singles without scoring an empty gameweek", () => {
   const parent = { ...stupaParent(stupaDetail()), status: "IN_PROGRESS", winner: null, sub_matches: [] };
   const rows = buildImportRows([parent], new Map([[100, { fantasy_gameweek_id: "week", id: "match" }]]), new Map(), new Map());

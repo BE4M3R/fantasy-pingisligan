@@ -216,10 +216,12 @@ The database applies clubs, periods, fixtures, lifecycle updates and durable
 rescoring requests in one transaction. Protected or invalid moves roll it back
 and fail the workflow with an error annotation and summary.
 
-GW1–GW5 of stage 5727 retain their assignments, results and scores. Imports and
-scoring RPCs exclude protected history. Completed gameweek membership is also
-immutable. The Fixtures page, Home and player fixtures use the Fantasy scoring
-assignment; STUPA round IDs remain source metadata.
+GW1–GW5 of stage 5727 retain their fixture assignments and lifecycle. All
+gameweeks, including completed historical rounds, receive result updates and
+scoring against their saved selections. An unfinished legacy round still needs
+all required fixture results and successful scoring before completion. Completed
+gameweek membership is immutable. The Fixtures page, Home and player fixtures
+use the Fantasy scoring assignment; STUPA round IDs remain source metadata.
 
 See [gameweek buckets](gameweek-buckets.md) for initialization, lifecycle,
 exceptional statuses, retry behavior and the local migration demonstration.
@@ -312,7 +314,7 @@ The results importer has two triggers:
 
 - **GitHub Actions every night at 00:07 Stockholm time:** refresh the STUPA
   fixture schedule, then import available stage results and recalculate
-  affected unprotected gameweeks, including corrections to their existing results. This runs
+  affected gameweeks, including corrections to their existing results. This runs
   even on days without matches.
 - **Supabase Cron every 15 minutes (:07, :22, :37, and :52):** check the real
   stage's fixture dates in the database. It starts a GitHub Actions results
@@ -526,7 +528,9 @@ still blocks gameweek completion.
 - **Unexpected source response:** use a dry run and confirm that the configured
   stage exists and the upstream endpoint still returns its expected shape.
 
-Every results import reloads the full Stupa stage while excluding protected GW1–GW5 from writes and scoring. New or changed source rows
+Every results import reloads the full Stupa stage and updates results for every
+gameweek, including GW1–GW5 and completed rounds. Fixture membership protection
+does not freeze results. New or changed source rows
 replace their stored rows, and every gameweek present in that result set is
 recalculated against its locked squad snapshots. This means a later import also
 repairs points for an earlier gameweek when a previously missing or inaccurate

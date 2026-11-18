@@ -2,7 +2,8 @@
 
 STUPA supplies the initial round skeleton. Fantasy fixture membership follows
 persisted chronological periods from GW6 of the 2026/27 men's stage (5727).
-GW1–GW5 retain their fixture assignments, scores, lifecycle and prize records.
+GW1–GW5 retain their fixture assignments, lifecycle and prize records. Results
+continue to import and score against their saved squads, as for every round.
 
 ## Initialization
 
@@ -70,7 +71,23 @@ after an assignment commit; `score_gameweek_refresh` rescores both old and new
 weeks transactionally and clears work only on success. Completion rechecks the
 current schedule timestamp, required fixture statuses and pending scoring.
 Completed weeks retain their marker and lifecycle when their existing results
-are corrected. Historical GW1–GW5 imports/scoring are excluded.
+are corrected. GW1–GW5 retain their original fixture membership but still
+receive result updates and scoring. An unfinished legacy round must persist
+all required fixture results and score successfully before completing; a failed
+step leaves transfers closed. Unchanged results preserve points, while source
+corrections or scoring fixes can change historical totals. For example, the
+cutover migration also corrected the clincher bonus to use a deciding golden
+doubles as the final submatch; rescoring can correct older affected fixtures.
+Saved squads,
+captaincy, chips, player prices and team budgets are not replaced by imports.
+All rounds in future stages use the same results path without a season switch.
+
+Migration `20261118144700_refresh_all_gameweek_results.sql` removes the former
+result freeze without changing historical membership protection. Deploy it
+through the normal staging migration workflow before running the updated
+importer; then rerun `npm run import:results:staging -- --complete-gameweek-refresh`
+to import the missing GW5 results and finish the round. Production migration
+and imports remain subject to the normal release and authorized Actions flow.
 
 The nightly 00:07 Stockholm run and 15-minute playing-day polling cadence stay
 unchanged. Newly moved playing days are discovered by schedule synchronization;
