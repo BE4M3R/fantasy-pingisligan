@@ -221,7 +221,6 @@ function buildImportRows(
 
   for (const parent of parentMatches) {
     const databaseMatch = matchesByStupaId.get(integer(parent.id));
-    if (databaseMatch?.historical_protected) continue;
     const { counted: completedSubmatches, excess } = scoredResultsBeforeClincher(parent);
     // Missing rows are not deletions. An explicitly reset/deleted child is
     // evidence that its previously imported score must stop contributing.
@@ -413,7 +412,7 @@ export function reportUnmatchedPlayers(players, {
   }
 }
 
-async function loadDatabaseLookups(supabase) {
+export async function loadDatabaseLookups(supabase) {
   const [
     { data: matches, error: matchError },
     { data: players, error: playerError },
@@ -421,7 +420,7 @@ async function loadDatabaseLookups(supabase) {
   ] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, stupa_match_id, fantasy_gameweek_id, gameweek:fantasy_gameweeks!matches_fantasy_gameweek_id_fkey(stupa_stage_id, round_order)")
+      .select("id, stupa_match_id, fantasy_gameweek_id")
       .not("stupa_match_id", "is", null),
     supabase.from("players").select(
       "id, profixio_id, stupa_user_role_id, first_name, last_name, active, clubs(name)",
@@ -468,9 +467,7 @@ async function loadDatabaseLookups(supabase) {
   }
 
   return {
-    matchesByStupaId: new Map(matches.map((match) => [integer(match.stupa_match_id), {
-      ...match, historical_protected: match.gameweek?.stupa_stage_id === 5727 && match.gameweek?.round_order < 6,
-    }])),
+    matchesByStupaId: new Map(matches.map((match) => [integer(match.stupa_match_id), match])),
     playersByLicenseId,
     playersByRoleId,
     manualPlayersByNameAndClub: buildManualPlayerLookup(players),
