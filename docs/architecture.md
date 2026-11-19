@@ -107,10 +107,9 @@ flowchart LR
 round and stores the first and last match times plus the transfer lock window.
 The individual team fixtures are rows in `matches`, linked back to their
 gameweek through `fantasy_gameweek_id`.
-The Fixtures page groups by the latest imported `stupa_round_id`; that schedule
-can differ from `fantasy_gameweek_id` after a locked round is moved upstream.
+The Fixtures page groups by persisted `fantasy_gameweek_id`; source STUPA round IDs may differ after midpoint assignment.
 The fantasy link remains authoritative for scoring against saved squads, and
-the page identifies that scoring gameweek when it differs from the displayed round.
+the page displays fixtures in their assigned Fantasy Gameweek.
 
 While a gameweek transfer window is closed, Supabase Cron calls the idempotent
 `snapshot_locked_squads()` database function every five minutes. It creates one
@@ -122,7 +121,7 @@ team/gameweek/player keys and ignore conflicts. Later scoring must use these
 rows rather than the live squad.
 After the scheduled unlock time, transfers remain closed until the scheduled results job
 has imported available STUPA results and scored them successfully. The results
-importer then scores the oldest pending unlocked gameweek and atomically records
+importer then scores an eligible pending gameweek independently of older unresolved weeks and atomically records
 `fantasy_gameweeks.data_refreshed_at` with the locked chips as used, clearing
 its refresh lock. Prices and budgets remain unchanged; the scheduled results
 job never imports or reprices players.
@@ -270,3 +269,12 @@ Public Supabase URL and anonymous keys may be used by the web app. The service
 role key bypasses RLS and is restricted to local/server import jobs. Scraping,
 source parsing and service-role writes belong in `scripts/`, a scheduled GitHub
 Action, or another trusted server environment—not a Client Component.
+
+## Persisted Gameweek periods
+
+From GW6, [gameweek buckets](gameweek-buckets.md) separate immutable assignment
+periods from mutable unfinished-gameweek lifecycle times. The schedule RPC owns
+transactional fixture moves and enqueues both affected weeks for scoring. A
+stage transaction lock serializes schedules, result writes, snapshots, scoring
+and completion. Finished membership and GW1–GW5 history are protected centrally.
+The existing shared squad, global transfer lock and snapshot model remain.

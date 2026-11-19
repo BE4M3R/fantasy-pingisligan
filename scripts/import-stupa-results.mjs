@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { completeOldestUnlockedGameweek } from "./complete-gameweek-refresh.mjs";
+import { fetchStage as fetchSchedule, persistSchedule, reportScheduleError } from "./import-stupa-schedule.mjs";
 import { persistStupaResults } from "./persist-stupa-results.mjs";
 import roster from "../data/sbtf-rosters.json" with { type: "json" };
 import { canonicalClubName, normalizeClubName } from "../lib/clubs.ts";
@@ -411,7 +412,7 @@ export function reportUnmatchedPlayers(players, {
   }
 }
 
-async function loadDatabaseLookups(supabase) {
+export async function loadDatabaseLookups(supabase) {
   const [
     { data: matches, error: matchError },
     { data: players, error: playerError },
@@ -533,9 +534,7 @@ async function persistPlayerIdentities(supabase, playerResults) {
 
 async function persistRows(supabase, rows) {
   if (rows.matchUpdates.length > 0) {
-    const { error } = await supabase
-      .from("matches")
-      .upsert(rows.matchUpdates, { onConflict: "id" });
+    const { error } = await supabase.rpc("update_gameweek_result_matches", { p_matches: rows.matchUpdates });
     if (error) throw new Error(`Could not update parent matches: ${error.message}`);
   }
 
@@ -565,21 +564,6 @@ async function persistRows(supabase, rows) {
   return retractedGameweekIds;
 }
 
-async function scoreAffectedGameweeks(supabase, gameweekIds) {
-  // The source response covers the full stage, so this intentionally revisits
-  // earlier gameweeks whenever their results are still present in that response.
-  for (const gameweekId of gameweekIds) {
-    const { error } = await supabase.rpc("calculate_fantasy_gameweek_points", {
-      target_gameweek_id: gameweekId,
-    });
-    if (error) {
-      throw new Error(`Could not score fantasy gameweek ${gameweekId}: ${error.message}`);
-    }
-  }
-
-  return gameweekIds.length;
-}
-
 export async function persistScoreAndComplete(supabase, rows, { complete = false, refreshStartedAt, stageId = DEFAULT_STAGE_ID } = {}) {
   if (complete && !Number.isFinite(Date.parse(refreshStartedAt))) {
     throw new Error("Gameweek completion requires the results import start time.");
@@ -589,9 +573,13 @@ export async function persistScoreAndComplete(supabase, rows, { complete = false
     throw new Error("Missing scheduled parent matches; import the schedule before completing a gameweek.");
   }
   const retractedGameweekIds = await persistRows(supabase, rows);
-  const scored = await scoreAffectedGameweeks(supabase, [...new Set([
+  const gameweekIds = [...new Set([
     ...rows.gameweekIds, ...retractedGameweekIds,
-  ])]);
+  ])];
+  const { data: scored, error: scoreError } = await supabase.rpc("score_gameweek_refresh", {
+    p_stage_id: stageId, p_gameweek_ids: gameweekIds,
+  });
+  if (scoreError) throw new Error(`Could not score affected gameweeks: ${scoreError.message}`);
   if (complete) await completeOldestUnlockedGameweek(supabase, refreshStartedAt, { stageId });
   return scored;
 }
@@ -603,8 +591,7 @@ async function main() {
 
   const dryRun = process.argv.includes("--dry-run") || process.env.DRY_RUN === "1";
   const stageId = integer(process.env.STUPA_STAGE_ID, DEFAULT_STAGE_ID);
-  const refreshStartedAt = new Date().toISOString();
-  const parentMatches = await fetchStage(stageId);
+  let refreshStartedAt;
 
   let supabase = null;
   let lookups = {
@@ -624,8 +611,12 @@ async function main() {
     supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    if (!dryRun) await persistSchedule(supabase, await fetchSchedule(stageId), stageId);
+    refreshStartedAt = new Date().toISOString();
     lookups = await loadDatabaseLookups(supabase);
   }
+
+  const parentMatches = await fetchStage(stageId);
 
   const rows = buildImportRows(
     parentMatches,
@@ -672,8 +663,8 @@ async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
-    console.error(error);
+  main().catch(async (error) => {
+    await reportScheduleError(error);
     process.exitCode = 1;
   });
 }

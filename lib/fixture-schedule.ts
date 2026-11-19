@@ -10,9 +10,9 @@ export function groupFixturesByGameweek<T extends ScheduleFixture>(
     .map((week) => [week.stupa_round_id, week.id]));
   const groups = new Map<string | null, T[]>();
   for (const fixture of fixtures) {
-    // Schedule presentation follows STUPA; the fantasy link may be frozen for
-    // scoring against an earlier gameweek's locked squad snapshots.
-    const id = gameweeksByRound.get(fixture.stupa_round_id) ?? fixture.fantasy_gameweek_id;
+    // Persisted Fantasy assignment is authoritative. Upstream round labels
+    // remain a display fallback only for legacy unassigned fixtures.
+    const id = fixture.fantasy_gameweek_id ?? gameweeksByRound.get(fixture.stupa_round_id) ?? null;
     const group = groups.get(id) ?? [];
     group.push(fixture);
     groups.set(id, group);

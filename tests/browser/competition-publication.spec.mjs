@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 import { checked, cleanupFixture, createFixture } from "../functional/fixture.mjs";
 
 test("competitions stay unpublished through links, direct URLs, metadata and APIs until explicitly enabled", async ({ page }, testInfo) => {
+  // This journey compiles several public, authenticated and 404 routes on the
+  // guarded development server before checking publication and withdrawal.
+  test.setTimeout(60_000);
   const f = await createFixture({ gameweeks: 2, prizeGameweeks: true });
   const seasonId = randomUUID();
   const rulesId = randomUUID();

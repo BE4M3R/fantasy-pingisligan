@@ -37,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # Keep the cadence check, schedule importer and results importer aligned.
       STUPA_STAGE_ID: "5727"
 
     steps:
@@ -64,16 +63,8 @@ jobs:
         if: steps.cadence.outputs.should_run == 'true'
         run: npm ci
 
-      - name: Refresh fixtures before the daily or manual results import
-        if: steps.cadence.outputs.refresh_schedule == 'true'
-        run: npm run import:schedule
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-      # The shared importer atomically reconciles republished child IDs before
-      # scoring. Deploy its database migration before running the new importer.
-      - name: Refresh match statuses, reconcile results, score and complete the pending gameweek
+      # Deploy the database migrations before running the new importer.
+      - name: Refresh schedule, reconcile results, score and complete eligible gameweeks
         if: steps.cadence.outputs.should_run == 'true'
         run: |
           if npm run import:results -- --complete-gameweek-refresh; then

@@ -209,29 +209,22 @@ completed submatch. Only gameweeks with completed results enter scoring. Home
 reads compact club-score summaries and automatically refreshes during play;
 see [Home matches and stream links](home-matches.md) to configure Watch links.
 
-The daily and manual schedule imports recalculate a future gameweek's deadline
-from its earliest fixture. Once the existing deadline has passed, imports keep
-that gameweek's lock and unlock boundaries unchanged but continue updating its
-individual fixture times and statuses. While both the original and destination
-gameweeks remain unlocked, existing fixtures follow STUPA round corrections, repairing stale
-gameweek links on the next import without recreating matches. Reassignments are
-logged by fixture ID and old/new gameweek IDs. If either gameweek's deadline has
-passed, the fixture retains its original gameweek link to protect locked squads.
-The importer checks deadlines both before and after refreshing the schedule;
-a correction that immediately locks a round cannot move fixtures into or out of it.
+Every non-dry results import refreshes the STUPA schedule before loading
+results. Schedule imports initialize persisted midpoint periods and thereafter
+assign fixtures by kickoff, including moves between locked unfinished weeks.
+The database applies clubs, periods, fixtures, lifecycle updates and durable
+rescoring requests in one transaction. Protected or invalid moves roll it back
+and fail the workflow with an error annotation and summary.
 
-After deploying this correction through staging and the normal `develop` → `main`
-release, run **Import Pingisligan results** on `main` with `kind=full` to repair
-unlocked round assignments, refresh results and score. Rerunning the older
-importer only updates dates/teams and cannot repair an existing gameweek link.
-Already locked assignments require separate review; this import preserves them.
+GW1–GW5 of stage 5727 retain their fixture assignments and lifecycle. All
+gameweeks, including completed historical rounds, receive result updates and
+scoring against their saved selections. An unfinished legacy round still needs
+all required fixture results and successful scoring before completion. Completed
+gameweek membership is immutable. The Fixtures page, Home and player fixtures
+use the Fantasy scoring assignment; STUPA round IDs remain source metadata.
 
-The Fixtures page groups by the latest imported STUPA round independently of
-the fantasy scoring link. A fixture moved out of a locked round appears under
-its latest scheduled round, with a note identifying the original gameweek that
-receives its fantasy points. The schedule and scoring history can therefore
-stay accurate together. Fixtures without a known STUPA round fall back to their
-fantasy gameweek.
+See [gameweek buckets](gameweek-buckets.md) for initialization, lifecycle,
+exceptional statuses, retry behavior and the local migration demonstration.
 
 ## Availability and prices
 
@@ -320,8 +313,8 @@ retainable by existing owners but cannot be newly selected.
 The results importer has two triggers:
 
 - **GitHub Actions every night at 00:07 Stockholm time:** refresh the STUPA
-  fixture schedule, then import all available stage results and recalculate
-  affected gameweeks, including older corrected or delayed results. This runs
+  fixture schedule, then import available stage results and recalculate
+  affected gameweeks, including corrections to their existing results. This runs
   even on days without matches.
 - **Supabase Cron every 15 minutes (:07, :22, :37, and :52):** check the real
   stage's fixture dates in the database. It starts a GitHub Actions results
@@ -396,7 +389,7 @@ expired token stops match-window dispatches but leaves the nightly import in
 place; replace it in production Vault when needed.
 
 Every due results import uses `--complete-gameweek-refresh`.
-Only after result persistence and scoring succeed does it score the oldest
+Only after result persistence and scoring succeed does it score an eligible
 pending gameweek in the imported STUPA stage that was already unlocked when
 the import began, then atomically
 record `data_refreshed_at` and mark that round's locked chips as used. That
@@ -413,10 +406,13 @@ STUPA/Supabase configuration stays in use.
 
 ## Schedule behavior
 
-One fantasy gameweek is built per Stupa round. Transfers lock two hours before
-the first match. The earliest reopening is 00:00 Swedish time on the day after
-the last match; actual reopening happens when the subsequent results import and scoring succeed. Source times are interpreted in `Europe/Stockholm` and stored
-as UTC timestamps.
+STUPA rounds define the initial skeleton. From GW6, persisted chronological
+midpoint periods determine fixture assignments. Selection locks two hours
+before the earliest assigned fixture and stays fixed after passing. Reopening
+can move for unfinished gameweeks and follows midnight after the last required
+fixture ends, subject to results/scoring readiness. See
+[gameweek buckets](gameweek-buckets.md). All calendar operations use
+`Europe/Stockholm`; stored timestamps use UTC.
 
 ## Result identity matching
 
@@ -532,7 +528,9 @@ still blocks gameweek completion.
 - **Unexpected source response:** use a dry run and confirm that the configured
   stage exists and the upstream endpoint still returns its expected shape.
 
-Every results import reloads the full Stupa stage. New or changed source rows
+Every results import reloads the full Stupa stage and updates results for every
+gameweek, including GW1–GW5 and completed rounds. Fixture membership protection
+does not freeze results. New or changed source rows
 replace their stored rows, and every gameweek present in that result set is
 recalculated against its locked squad snapshots. This means a later import also
 repairs points for an earlier gameweek when a previously missing or inaccurate

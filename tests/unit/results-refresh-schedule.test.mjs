@@ -63,7 +63,7 @@ test("15-minute polling stays continuous until five hours after the last match s
   assert.equal(interval("2026-09-21T23:07:00Z", [first, second]).shouldRun, false);
   assert.equal(interval("2026-09-21T16:52:00Z", ["2026-09-21T12:00:00Z"]).shouldRun, true);
   assert.equal(interval("2026-09-21T17:00:00Z", ["2026-09-21T12:00:00Z"]).shouldRun, false);
-  assert.equal(interval("2026-09-21T18:22:00Z", [first, second]).refreshSchedule, false);
+  assert.equal(interval("2026-09-21T18:22:00Z", [first, second]).refreshSchedule, true);
 });
 
 test("a gameweek spanning several dates polls on each playing day but skips gaps and pre-start hours", () => {
@@ -112,7 +112,7 @@ test("dispatched polls ask the shared database window rule without contacting ST
     });
     assert.equal(requests, 1);
     assert.equal(result.shouldRun, due);
-    assert.equal(result.refreshSchedule, false);
+    assert.equal(result.refreshSchedule, due);
   }
 });
 
@@ -147,9 +147,15 @@ test("GitHub schedules one nightly run and accepts a gated match-window dispatch
   const install = steps.findIndex((step) => step.run === "npm ci");
   const schedule = steps.findIndex((step) => step.run === "npm run import:schedule");
   const results = steps.findIndex((step) => step.run?.includes("npm run import:results"));
-  assert.ok(gate < install && install < schedule && schedule < results);
+  assert.ok(gate < install && install < results);
+  // The importer owns schedule refresh. A separately committed workflow cleanup
+  // may remove this redundant step without changing gating or execution order.
+  if (schedule >= 0) {
+    assert.ok(install < schedule && schedule < results);
+    assert.match(steps[schedule].if, /refresh_schedule == 'true'/);
+  }
   assert.match(steps[install].if, /should_run == 'true'/);
-  assert.match(steps[schedule].if, /refresh_schedule == 'true'/);
+
   assert.match(steps[results].if, /should_run == 'true'/);
   assert.match(steps[results].run, /--complete-gameweek-refresh/);
   assert.match(steps[gate].env.RESULTS_DISPATCH_KIND, /inputs\.kind/);

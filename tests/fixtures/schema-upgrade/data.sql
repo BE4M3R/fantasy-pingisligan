@@ -45,7 +45,9 @@ create temporary table expected_schema as select pg_temp.schema_state() as state
 create function pg_temp.assert_canonical_schema() returns void language plpgsql as $$
 begin
   if pg_temp.schema_state() is distinct from (select state from expected_schema) then
-    raise exception 'Upgraded schema differs from the fresh migration rebuild';
+    raise exception 'Upgraded schema differs from the fresh migration rebuild'
+      using detail = (select jsonb_agg(item->>0)::text from jsonb_array_elements(pg_temp.schema_state()->'functions') item
+        where not exists(select 1 from jsonb_array_elements((select state->'functions' from expected_schema)) expected where expected = item));
   end if;
   if 'public.snapshot_locked_squads()'::regprocedure::oid <>
     (select snapshot_oid from expected_schema) then

@@ -51,8 +51,8 @@ function createSupabase({
       async rpc(name, args) {
         calls.push(["rpc", name, args]);
         if (name === "persist_stupa_results") return { data: { removed_count: 0, retracted_gameweek_ids: [] }, error: persistenceError };
-        if (name === "calculate_fantasy_gameweek_points") {
-          return { error: scoringError };
+        if (["calculate_fantasy_gameweek_points", "score_gameweek_refresh"].includes(name)) {
+          return { data: args.p_gameweek_ids?.length ?? 1, error: scoringError };
         }
         if (name === "complete_gameweek_refresh") {
           return { data: Boolean(completed), error: completionError };
@@ -139,7 +139,7 @@ test("scheduled completion only considers its own stage; synthetic unlock target
   const completed = [];
   const client = {
     from(table) {
-      assert.equal(table, "fantasy_gameweeks");
+      assert.equal(table, "gameweeks_ready_for_refresh");
       const filters = new Map();
       return {
         select() { return this; }, lt() { return this; }, is() { return this; },
@@ -163,7 +163,7 @@ test("scheduled completion only considers its own stage; synthetic unlock target
 test("failed result writes or scoring cannot reopen transfers", async () => {
   for (const failure of ["persist", "score"]) {
     const { client, calls } = createSupabase({ scoringError: failure === "score" ? { message: "failed" } : null });
-    if (failure === "persist") client.from = () => ({ upsert: async () => ({ error: { message: "failed" } }) });
+    if (failure === "persist") client.rpc = async () => ({ error: { message: "failed" } });
     await assert.rejects(persistScoreAndComplete(client, {
       ...rows, matchUpdates: failure === "persist" ? [{ id: "match" }] : [],
     }, options), /failed/);
@@ -207,6 +207,7 @@ test("a retraction-only import rescores only gameweeks whose stored results were
     const client = {
       async rpc(name, args) {
         calls.push([name, args]);
+        if (name === "score_gameweek_refresh") return { data: affected.length, error: null };
         return { data: { removed_count: affected.length, retracted_gameweek_ids: affected }, error: null };
       },
     };
@@ -215,7 +216,7 @@ test("a retraction-only import rescores only gameweeks whose stored results were
     assert.deepEqual(calls[0], ["persist_stupa_results", {
       p_submatches: [], p_player_results: [], p_retracted_submatches: retractedSubmatches,
     }]);
-    assert.deepEqual(calls.slice(1), affected.map((id) => ["calculate_fantasy_gameweek_points", { target_gameweek_id: id }]));
+    assert.deepEqual(calls.slice(1), [["score_gameweek_refresh", { p_stage_id: 5727, p_gameweek_ids: affected }]]);
   }
 });
 
@@ -230,7 +231,7 @@ test("unmatched players are stored unlinked while known players score and the ga
       return pending.client.rpc(name, args);
     },
     from(table) {
-      if (table === "fantasy_gameweeks") return pending.client.from(table);
+      if (["fantasy_gameweeks", "gameweeks_ready_for_refresh"].includes(table)) return pending.client.from(table);
       return {
         async upsert(payload) {
           writes.push({ table, payload });
@@ -282,7 +283,7 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
   const chipSelections = [];
   const client = {
     async rpc(name, args) {
-      if (name === "calculate_fantasy_gameweek_points") {
+      if (["calculate_fantasy_gameweek_points", "score_gameweek_refresh"].includes(name)) {
         events.push(["score", name, args]);
         return { error: scoringFailure ? { message: "scoring failed" } : null };
       }
@@ -299,7 +300,7 @@ function localRefreshDatabase({ unlocked = true, refreshed = false, scoringFailu
     },
     from(table) {
       assert.ok(
-        ["fantasy_gameweeks", "matches", "fantasy_team_chip_selections"].includes(table),
+        ["fantasy_gameweeks", "gameweeks_ready_for_refresh", "matches", "fantasy_team_chip_selections"].includes(table),
         "Unlock must not write player prices or budgets",
       );
       const predicates = [];

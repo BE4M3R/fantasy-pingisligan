@@ -32,8 +32,9 @@ ongoing, current and all future rounds, followed by the Season Competition when
 the `season` publication row is enabled. There is no limit on future cards.
 Numbers come from `round_order`, falling back to chronological
 position. Schedule changes follow Fantasy's existing rules: future deadlines can
-move, locked boundaries remain frozen, and postponed fixtures keep their original
-gameweek. Reordering a future gameweek can return its content to embargo;
+move, passed selection deadlines stay fixed, and unfinished reopening follows
+assigned fixtures. [Persisted midpoint periods](gameweek-buckets.md) determine
+postponed fixture membership from GW6. Reordering a future gameweek can return its content to embargo;
 previously downloaded information cannot be recalled.
 
 On each Home entry, select the most recently completed Gameweek's manually selected

@@ -532,11 +532,11 @@ test("late results rescore the original locked squad after the manager transfers
   const first = squad([f.players[0], f.players[2], f.players[4], f.players[6], f.players[1], f.players[3]]);
   checked(await save(f, first), "Save first squad");
   await lock(f);
+  const match = await addMatch(f, { week: f.weeks[0] });
   await complete(f);
   const second = [...first];
   second[0] = { ...second[0], player_id: f.players[8].id };
   checked(await save(f, second, null, f.weeks[1]), "Transfer out original captain");
-  const match = await addMatch(f, { week: f.weeks[0] });
   await addResult(f, match, { home: [f.players[0]], away: [f.players[2]] });
   checked(await f.admin.rpc("calculate_fantasy_gameweek_points", { target_gameweek_id: f.weeks[0].id }), "Rescore delayed fixture");
   assert.equal(await points(f), 23, "original captain still doubles the late result, including the clincher");

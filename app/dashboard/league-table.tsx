@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type MouseEvent, useEffect, useRef, useState } from "react";
+import { Fragment, type MouseEvent, useLayoutEffect, useRef, useState } from "react";
 import { GameweekResultNavigation } from "@/app/dashboard/gameweek-result-navigation";
 import { LeagueSquadPreview, type LeagueSnapshotPlayer } from "@/app/dashboard/league-squad-preview";
 import { animatePopupOpen } from "@/app/dashboard/popup-animation";
@@ -169,7 +169,9 @@ export function LeagueTable({
       ]
     : rankedRows;
 
-  useEffect(() => () => {
+  // Install cleanup before accepting input: a delayed mount-effect cleanup in
+  // development Strict Mode can otherwise cancel the first debounced search.
+  useLayoutEffect(() => () => {
     ++searchRequestRef.current;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchAbortRef.current?.abort();
