@@ -45,7 +45,7 @@ const staticPaths = new Set([
   "/forgot-password", "/reset-password", "/auth/confirmation-error",
   "/dashboard", "/dashboard/overview", "/dashboard/fixtures",
   "/dashboard/leaderboard", "/dashboard/leagues", "/dashboard/progress",
-  "/dashboard/rules", "/competitions/season", "/test-supabase",
+  "/dashboard/rules", "/competitions", "/competitions/season", "/test-supabase",
 ]);
 
 export function beforeSendAnalytics(event: BeforeSendEvent): BeforeSendEvent | null {

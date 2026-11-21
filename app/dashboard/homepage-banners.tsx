@@ -1,6 +1,6 @@
 import { competitionsEnabled } from "@/lib/competition-publication";
 import { createClient } from "@/lib/supabase/server";
-import { getCompetitionHighlights } from "@/lib/competition-highlights";
+import { getCompetitionHighlights, getCompetitionSponsorUrls } from "@/lib/competition-highlights";
 import { buildHomepageCards, defaultHomepageSlideIndex } from "@/lib/homepage-banners";
 import { SponsoredCarousel } from "./sponsored-carousel";
 
@@ -21,11 +21,7 @@ export async function HomepageBanners() {
   // Decide once on the server so hydration and browser clocks cannot change
   // which card leads Home. Older winners never inherit this priority window.
   const initialIndex = defaultHomepageSlideIndex(banners, previousGameweek.data);
-  const paths = [...new Set(banners.flatMap((banner) => banner.image_path ? [banner.image_path] : []))];
-  const signed = paths.length
-    ? await supabase.storage.from("announcement-artwork").createSignedUrls(paths, 300)
-    : null;
-  const urls = new Map(signed?.data?.map((item) => [item.path, item.signedUrl]));
+  const urls = await getCompetitionSponsorUrls(banners.map((banner) => banner.image_path));
   return <div className="homepage-banner-breakout">
     {winnerError ? <p role="status" className="px-4 py-2 text-sm text-[var(--pf-text-muted)]">Winner announcements temporarily unavailable.</p> : null}
     <SponsoredCarousel initialIndex={initialIndex} slides={banners.map(({ image_path, ...banner }) => ({

@@ -134,7 +134,7 @@ export function DashboardBottomNavigation() {
       // Safari moves fixed footers above the keyboard; conceal the covered bar without moving it.
       style={{ visibility: isKeyboardOpen ? "hidden" : undefined }}
     >
-      <div className="mx-auto grid max-w-6xl grid-cols-5 gap-0.5 py-1 sm:gap-1 sm:py-1.5">
+      <div className="mx-auto grid max-w-6xl grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.25fr)_repeat(2,minmax(0,1fr))] gap-0.5 py-1 min-[360px]:grid-cols-5 sm:gap-1 sm:py-1.5">
         {tabs.map((tab) => {
           const isActive = isActiveTab(pathname, tab.value);
 

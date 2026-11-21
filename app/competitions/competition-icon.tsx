@@ -5,3 +5,11 @@ export function CompetitionIcon({ className, season = false }: { className: stri
     </svg>
   );
 }
+
+export function CompetitionChevron({ className }: { className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`text-[var(--pf-logo-gold)] ${className}`}>
+      <path d="m9 5 7 7-7 7" />
+    </svg>
+  );
+}

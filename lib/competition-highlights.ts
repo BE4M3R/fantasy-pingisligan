@@ -17,3 +17,16 @@ export async function getCompetitionHighlights() {
     winnerError: announcements.error,
   };
 }
+
+export async function getCompetitionSponsorUrls(imagePaths: (string | null | undefined)[]) {
+  const paths = [...new Set(imagePaths.filter((path): path is string => Boolean(path)))];
+  if (!paths.length) return new Map<string, string>();
+
+  const supabase = await createClient();
+  const { data } = await supabase.storage.from("announcement-artwork").createSignedUrls(paths, 300);
+  const urls = new Map<string, string>();
+  for (const { path, signedUrl } of data ?? []) {
+    if (path && signedUrl) urls.set(path, signedUrl);
+  }
+  return urls;
+}
