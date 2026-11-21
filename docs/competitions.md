@@ -15,8 +15,8 @@ use a centered celebration card with static gold/blue confetti in the corners;
 the winner card has no trophy, points or confirmation-status line. Pending notices stay plain.
 Weekly pages show a Competition leaderboard and a dedicated winner box above the prize
 when an operator selects a winner. Completed Gameweeks without a selection show
-a pending announcement notice. The Rules tab and public `/rules` page contain the approved
-shared terms in one “Competition rules and policy” section. It shows the latest
+a pending announcement notice. Settings → Rules opens the public `/rules` page
+with the approved shared terms in one “Competition rules and policy” section. It shows the latest
 approved Gameweek policy and, when enabled, the latest approved Season policy. Each
 document uses four independent native accordions:
 Participation, Winner Selection, Winner Announcement & Claiming,
@@ -58,6 +58,14 @@ this local flag or demo content.
   UUID. Never choose an arbitrary row or silently redirect to another season.
   Season-aware URLs and separate season history require later work.
 
+The signed-in Competitions tab opens `/competitions`. It shows the current
+Gameweek, upcoming prize rounds and completed history with confirmed winners.
+It reuses the Home competition and winner reads, while placing rounds by
+Fantasy lifecycle so early or delayed prize reveals do not change their section.
+Upcoming locked rounds show only their public teaser and reveal timing. The
+overview includes the Season Competition when enabled. Completed rounds link
+directly to their public details and competition leaderboard.
+
 `competition_gameweek_routes()` reuses `round_order`, falling back to the same
 chronological number used by the carousel. Internal relationships still use UUIDs.
 The carousel keeps its ordering, entry selection and interaction;
@@ -68,7 +76,7 @@ permission can read unrevealed ready prizes as described below. The header actio
 verified session helper: signed-in visitors see “Back to Fantasy”; others see
 “Play Fantasy” linking to signup. A small Suspense boundary keeps this session
 read from blocking competition content. Internal links use Next.js navigation.
-For a same-site dashboard referral with browser history, the return action uses
+For a same-site dashboard or Competitions overview referral with browser history, the return action uses
 `router.back()` so Next can restore the previous route and scroll. Direct visits
 and new tabs fall back to `/dashboard/overview`; no navigation tracker or custom
 scroll storage is introduced. This referral hint changes navigation only, never

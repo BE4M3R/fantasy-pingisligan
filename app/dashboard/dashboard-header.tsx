@@ -231,6 +231,11 @@ export async function DashboardHeader() {
                     currentName={team?.name ?? "My team"}
                   />
 
+                  <Link className={`${settingsMenuLinkClassName} mt-2`} href="/rules">
+                    <span>Rules</span>
+                    <span aria-hidden="true" className="text-[var(--pf-text-muted)]">→</span>
+                  </Link>
+
                   <Link
                     className={`${settingsMenuLinkClassName} mt-2`}
                     href="/about"

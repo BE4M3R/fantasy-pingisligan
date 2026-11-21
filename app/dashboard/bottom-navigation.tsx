@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CompetitionIcon } from "@/app/competitions/competition-icon";
 
-type DashboardTab = "overview" | "squad" | "leagues" | "fixtures" | "rules";
+type DashboardTab = "overview" | "squad" | "competitions" | "leagues" | "fixtures";
 
 const tabs: { href: string; label: string; value: DashboardTab }[] = [
   { href: "/dashboard/overview", label: "Home", value: "overview" },
   { href: "/dashboard", label: "Squad", value: "squad" },
+  { href: "/competitions", label: "Competitions", value: "competitions" },
   { href: "/dashboard/leagues", label: "Leagues", value: "leagues" },
   { href: "/dashboard/fixtures", label: "Fixtures", value: "fixtures" },
-  { href: "/dashboard/rules", label: "Rules", value: "rules" },
 ];
 
 function TabIcon({ tab }: { tab: DashboardTab }) {
@@ -55,17 +56,14 @@ function TabIcon({ tab }: { tab: DashboardTab }) {
           <path d="M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2" />
         </svg>
       );
-    case "rules":
-      return (
-        <svg {...commonProps}>
-          <path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5ZM20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
-        </svg>
-      );
+    case "competitions":
+      return <CompetitionIcon className={commonProps.className} />;
   }
 }
 
 function isActiveTab(pathname: string, tab: DashboardTab) {
   if (tab === "squad") return pathname === "/dashboard";
+  if (tab === "competitions") return pathname === "/competitions";
   return pathname.startsWith(`/dashboard/${tab}`);
 }
 

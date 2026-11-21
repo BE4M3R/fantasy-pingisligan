@@ -56,7 +56,7 @@ export function formatPrizeValue(value: number | string | null | undefined, lang
   }).format(Number(value));
 }
 
-export function competitionStatus(competition: Competition) {
+export function competitionStatus(competition: Pick<Competition, "gameweek_number" | "state">) {
   if (competition.gameweek_number === null) return competition.state === "upcoming" ? "Upcoming" : "Season competition";
   if (competition.state === "upcoming") return "Upcoming";
   if (competition.state === "open") return "Open";
