@@ -10,6 +10,7 @@ import { WinnerAnnouncement } from "./winner";
 import { CompetitionArtwork as Artwork } from "./artwork";
 import { CompetitionStandings } from "./standings";
 import { CompetitionReturnLink } from "./return-link";
+import { CompetitionIcon } from "./competition-icon";
 
 export function CompetitionPage({ competition: c, artwork = {}, gameweekId, standings, winner = null, winnerError = false }: {
   competition: Competition; artwork?: Record<string, string | undefined>;
@@ -25,7 +26,7 @@ export function CompetitionPage({ competition: c, artwork = {}, gameweekId, stan
       <div className={`sponsored-slide relative px-5 py-5 sm:px-8 sm:py-7 ${season ? "sponsored-slide-season" : ""}`}>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest">
-            <span className="flex min-w-0 items-center gap-2 text-[var(--pf-logo-gold)]"><CompetitionIcon season={season} /><span className="break-words">{c.title}{!season && c.title !== gameweekCompetitionTitle(c.gameweek_number) ? ` · Gameweek ${c.gameweek_number}` : ""}</span></span>
+            <span className="flex min-w-0 items-center gap-2 text-[var(--pf-logo-gold)]"><CompetitionIcon className="h-6 w-6 shrink-0" season={season} /><span className="break-words">{c.title}{!season && c.title !== gameweekCompetitionTitle(c.gameweek_number) ? ` · Gameweek ${c.gameweek_number}` : ""}</span></span>
           </div>
           <h1 id="competition-heading" className={`mt-4 max-w-3xl break-words text-3xl font-black leading-tight tracking-tight sm:text-5xl ${season ? "text-[var(--pf-logo-gold)]" : ""}`}>{c.prize_title ?? "Prize details coming soon"}</h1>
           {c.sponsor ? <p className="mt-3 break-words text-sm text-[var(--pf-text-muted)]">Sponsored by <span className="font-bold text-[var(--pf-text)]">{c.sponsor}</span></p> : null}
@@ -52,27 +53,25 @@ export function CompetitionPage({ competition: c, artwork = {}, gameweekId, stan
   </CompetitionShell>;
 }
 
-function CompetitionIcon({ season }: { season: boolean }) {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 shrink-0">
-    <path d={season ? "m3 6 5 4 4-6 4 6 5-4-2 12H5L3 6Zm3 15h12" : "M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4M12 13v5m-4 3h8m-6-3h4l1 3H9l1-3Z"} />
-  </svg>;
-}
-
 const navigationClassName = "inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-[var(--pf-logo-gold)] px-2.5 py-1.5 text-center text-xs font-bold text-[var(--pf-navy-deep)] hover:bg-[var(--pf-logo-gold-hover)] max-[360px]:max-w-[84px] sm:px-3";
 
 async function CompetitionNavigation() {
   // Only this small navigation action depends on auth. Public page reads and
   // standings keep the same anonymous projection for every visitor.
   const [{ data }, requestHeaders] = await Promise.all([getClaims(), headers()]);
-  let fromDashboard = false;
+  let returnTo: "/competitions" | "/dashboard/overview" | undefined;
   try {
     const referer = new URL(requestHeaders.get("referer") ?? "");
-    fromDashboard = referer.host === requestHeaders.get("host") &&
-      (referer.pathname === "/dashboard" || referer.pathname.startsWith("/dashboard/"));
+    if (referer.host === requestHeaders.get("host")) {
+      if (referer.pathname === "/competitions") returnTo = "/competitions";
+      if (referer.pathname === "/dashboard" || referer.pathname.startsWith("/dashboard/")) {
+        returnTo = "/dashboard/overview";
+      }
+    }
   } catch {
     // No usable same-site origin hint: the link uses its normal fallback.
   }
-  return <CompetitionReturnLink signedIn={Boolean(data?.claims.sub)} fromDashboard={fromDashboard} className={navigationClassName} />;
+  return <CompetitionReturnLink signedIn={Boolean(data?.claims.sub)} returnTo={returnTo} className={navigationClassName} />;
 }
 
 export function CompetitionShell({ children }: { children: React.ReactNode }) {

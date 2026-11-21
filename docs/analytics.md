@@ -34,7 +34,7 @@ custom events:
 
 | Actual page | Reported path |
 | --- | --- |
-| Known static page such as `/dashboard/overview` | Same path |
+| Known static page such as `/dashboard/overview` or `/competitions` | Same path |
 | `/dashboard/leagues/<any identifier>` | `/dashboard/leagues/[leagueId]` |
 | `/competitions/gameweek/<number or identifier>` | `/competitions/gameweek/[gameweekId]` |
 

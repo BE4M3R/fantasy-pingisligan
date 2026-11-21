@@ -48,7 +48,7 @@ individual banners. Prize-specific notes are no longer fetched or displayed.
 
 ## Mobile presentation
 
-The Rules tab and public `/rules` page show one Competition rules and policy
+Settings → Rules opens the public `/rules` page with one Competition rules and policy
 section. The latest approved Gameweek policy and, when enabled, Season policy
 appear there as four native, independently expandable sections:
 Participation; Winner Selection; Winner Announcement & Claiming;
