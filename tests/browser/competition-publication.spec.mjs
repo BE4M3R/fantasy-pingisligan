@@ -34,7 +34,8 @@ test("competitions stay unpublished through links, direct URLs, metadata and API
     expect((await page.request.get(`/api/leaderboard?gameweek=${f.weeks[0].id}`)).status()).toBe(401);
     expect(await (await page.request.get("/robots.txt")).text()).toContain("Disallow: /competitions");
     expect(await (await page.request.get("/sitemap.xml")).text()).not.toContain("/competitions");
-    await page.goto("/login");
+    await page.goto("/competitions");
+    await expect(page).toHaveURL(/\/login$/);
     await page.getByLabel("Email").fill(f.email);
     await page.getByLabel("Password").fill(f.password);
     await page.getByRole("button", { name: "Log in", exact: true }).click();
@@ -42,6 +43,9 @@ test("competitions stay unpublished through links, direct URLs, metadata and API
     await page.goto("/dashboard/overview");
     await expect(page.getByRole("region", { name: "Gameweek highlights" })).toHaveCount(0);
     await expect(page.locator('a[href^="/competitions/"]')).toHaveCount(0);
+    await page.getByRole("link", { name: "Competitions", exact: true }).click();
+    await expect(page.getByText("Competitions are currently unavailable.", { exact: true })).toBeVisible();
+    expect(await page.content()).not.toContain("PRIVATE_");
     await page.goto("/dashboard/leagues?view=gameweek");
     await expect(page.getByRole("navigation", { name: "Standings view" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Global league", exact: true })).toBeVisible();
@@ -86,6 +90,9 @@ test("only selected prize rounds have carousel cards, pages and links; Fantasy r
     await expect(carousel.getByRole("button", { name: /^Show highlight/ })).toHaveCount(3);
     await expect(carousel.getByRole("button", { name: /Gameweek 2 Competition/ })).toHaveCount(0);
     await expect(carousel.getByRole("button", { name: /Gameweek 3 Competition/ })).toBeVisible();
+    await page.getByRole("link", { name: "Competitions", exact: true }).click();
+    const upcoming = page.getByRole("region", { name: "Upcoming competitions", exact: true });
+    await expect(upcoming.getByRole("button")).toHaveText([/Gameweek 3/, /Gameweek 4/]);
     expect((await page.goto("/competitions/gameweek/2")).status()).toBe(404);
     expect((await page.goto(`/competitions/gameweek/${f.weeks[1].id}`)).status()).toBe(404);
     expect((await page.request.get(`/api/competitions/gameweek/${f.weeks[1].id}/standings`)).status()).toBe(404);

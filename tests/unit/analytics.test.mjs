@@ -44,6 +44,7 @@ test("page views and events from either origin share canonical URLs with private
           ["/en", "/en"],
           ["/dashboard/overview/", "/dashboard/overview"],
           ["/dashboard/leagues/private-league-id", "/dashboard/leagues/[leagueId]"],
+          ["/competitions", "/competitions"],
           ["/competitions/gameweek/private-gameweek-id", "/competitions/gameweek/[gameweekId]"],
         ]) {
           const event = { type, url: `${eventOrigin}${path}?invite=secret#private-fragment` };

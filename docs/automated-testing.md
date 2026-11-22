@@ -192,9 +192,12 @@ reads. Existing promotion cases cover next-enterable-round selection, deadlines,
 disabled rounds and embargoed teaser/reveal dates. Announcement journeys retain
 one fixture while checking save-before-animation, badge fading and reduced motion.
 The Home journey also checks winner publication/withdrawal, the 48-hour entry
-window, all future teasers and mobile/desktop banner layouts. The Leagues
-journey covers top-five/own-position display, panel-only switching without
-navigation or scroll movement, Back/Forward, cancellation and failure/retry;
+window, all future teasers and mobile/desktop banner layouts. It shares its
+fixture and sign-in with the Competitions tab checks for sponsor artwork,
+reveal popups, Hall of Fame navigation and access to Rules through Settings.
+The publication cases also cover the tab's disabled and selected-round states.
+The Leagues journey covers top-five/own-position display, panel-only switching
+without navigation or scroll movement, Back/Forward, cancellation and failure/retry;
 its response mocks exercise presentation only, while database tests retain the
 real scoring and permission checks. Fast unit cases cover exact time boundaries,
 prize-link eligibility and endpoint authentication/validation. A single populated

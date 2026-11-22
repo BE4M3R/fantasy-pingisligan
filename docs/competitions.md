@@ -2,7 +2,8 @@
 
 Public competition pages lead with the prize title, a small competition label,
 text sponsor attribution and optional prize value. Mobile artwork is contained in
-a shorter frame; per-prize sponsor logos remain in the carousel. Headers
+a shorter frame. The carousel and featured Competitions card use the configured
+per-prize sponsor logo. Headers
 reuse the carousel's blue court and gold trophy/crown styling, with extra gold for
 season. The header uses the existing brand mark and wordmark images. Weekly
 and Season competition headers show a larger Yasaka wordmark from
@@ -15,8 +16,8 @@ use a centered celebration card with static gold/blue confetti in the corners;
 the winner card has no trophy, points or confirmation-status line. Pending notices stay plain.
 Weekly pages show a Competition leaderboard and a dedicated winner box above the prize
 when an operator selects a winner. Completed Gameweeks without a selection show
-a pending announcement notice. The Rules tab and public `/rules` page contain the approved
-shared terms in one “Competition rules and policy” section. It shows the latest
+a pending announcement notice. Settings → Rules opens the public `/rules` page
+with the approved shared terms in one “Competition rules and policy” section. It shows the latest
 approved Gameweek policy and, when enabled, the latest approved Season policy. Each
 document uses four independent native accordions:
 Participation, Winner Selection, Winner Announcement & Claiming,
@@ -58,6 +59,17 @@ this local flag or demo content.
   UUID. Never choose an arbitrary row or silently redirect to another season.
   Season-aware URLs and separate season history require later work.
 
+The signed-in Competitions tab opens `/competitions`. It shows the current
+Gameweek, upcoming prize rounds and a Hall of Fame. The Hall of Fame
+lists completed Gameweeks newest first with their confirmed winners.
+It reuses the Home competition and winner reads, while placing rounds by
+Fantasy lifecycle so early or delayed prize reveals do not change their section.
+Upcoming cards display the Gameweek number and public teaser. Opening a card
+shows the scheduled reveal time in Stockholm or the already revealed prize.
+Current cards and Hall of Fame rows link to the competition detail page, where
+the competition leaderboard is available. The overview includes the Season
+Competition when enabled.
+
 `competition_gameweek_routes()` reuses `round_order`, falling back to the same
 chronological number used by the carousel. Internal relationships still use UUIDs.
 The carousel keeps its ordering, entry selection and interaction;
@@ -68,7 +80,7 @@ permission can read unrevealed ready prizes as described below. The header actio
 verified session helper: signed-in visitors see “Back to Fantasy”; others see
 “Play Fantasy” linking to signup. A small Suspense boundary keeps this session
 read from blocking competition content. Internal links use Next.js navigation.
-For a same-site dashboard referral with browser history, the return action uses
+For a same-site dashboard or Competitions overview referral with browser history, the return action uses
 `router.back()` so Next can restore the previous route and scroll. Direct visits
 and new tabs fall back to `/dashboard/overview`; no navigation tracker or custom
 scroll storage is introduced. This referral hint changes navigation only, never
@@ -134,7 +146,7 @@ operator action; hosted schema changes use reviewed migrations and GitHub Action
 | `teaser` | Public text on locked Gameweek Home cards, readable before prize reveal regardless of `content_ready` |
 | `sponsor` | Sponsor name |
 | `image_path`, `image_alt` | Sponsor logo for carousel/discovery; absent from detail pages |
-| `prize_title` | Prize headline on revealed Home banners and the competition detail page; winner banners show it below the team name as “Won <prize title>” |
+| `prize_title` | Prize headline on revealed Home banners and the competition detail page. Winner banners show the configured text below the team name. |
 | `prize_image_path`, `prize_image_alt` | Separate, prominent prize artwork |
 | `prize_description` | Full prize description; include prize choices where applicable |
 | `prize_product_url` | Optional HTTPS product page; image opens it in a new tab |
@@ -166,9 +178,9 @@ carousel and detail page originally used `description`. Forward migration
 preserving its existing text and grants. Migration
 `20261112120000_home_banner_prize_titles.sql` also returns that headline through
 the Home RPC's existing `description` output, aliased to `prize_title` by the app.
-Home shows the prize title before a winner is selected, and the winning team with
-“Won <prize title>” afterwards. Public landing cards use the generic View competition label;
-their compact RPC does not return the editorial prize title.
+Home shows the prize title before a winner is selected. After selection it shows
+the winning team with the configured prize title beneath it. Public landing
+cards use the generic View competition label from their compact RPC.
 
 Migration `20261101180000_competition_product_links.sql` adds the optional
 `prize_product_url` field, separate from generated internal competition links.
