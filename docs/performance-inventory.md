@@ -31,6 +31,10 @@ below describe code paths, not measured latency or throughput.
 
 ## Cache boundaries and correctness
 
+- Pull-to-refresh and returning after 30 seconds rerender the current route
+  through Next.js's dynamic Server Action refresh. The action leaves the server
+  Data Cache and prefetched routes in place. Mounted panels refetch only data
+  that the route did not already supply, such as an active leaderboard search.
 - React `cache` is scoped to a server render. It never persists another user's
   team or authentication across requests. API routes/actions do not depend on
   React memoization working outside a render.

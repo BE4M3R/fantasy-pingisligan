@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/browser";
 import { announcementCategoryLabels, announcementFields, announcementPreview, type Announcement, type AnnouncementCandidate, type AnnouncementSummary } from "@/lib/announcements";
 import { useBodyScrollLock } from "@/app/dashboard/use-body-scroll-lock";
+import { usePageRefreshTask } from "@/app/page-refresh";
 import { recordAnnouncementInteraction } from "./actions";
 import { AnnouncementCategoryIcon } from "./category-icon";
 import { AnnouncementMetadata } from "./metadata";
@@ -47,6 +48,7 @@ export function Announcements({ children, ready }: {
   const savingDismissal = useRef(false);
   const backdropPointerDown = useRef(false);
   const refreshing = useRef<Promise<AnnouncementSummary | undefined> | null>(null);
+  const listRequest = useRef(0);
   const exitAnimation = useRef<Animation | null>(null);
   const popup = useRef<HTMLDialogElement>(null);
   const inbox = useRef<HTMLDialogElement>(null);
@@ -161,33 +163,49 @@ export function Announcements({ children, ready }: {
       if (event.target !== popup.current && !(event.target === inbox.current && inbox.current?.open)) onReturn();
     };
     queueMicrotask(onReturn);
-    window.addEventListener("focus", onReturn);
-    document.addEventListener("visibilitychange", onReturn);
     // Existing native dialogs emit close; no polling or dialog registry is needed.
     document.addEventListener("close", onDialogClose, true);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", onReturn);
-      document.removeEventListener("visibilitychange", onReturn);
       document.removeEventListener("close", onDialogClose, true);
     };
   }, [ready, refresh]);
 
-  const loadInbox = useCallback(async (offset = 0) => {
-    setListLoading(true);
+  const loadInbox = useCallback(async (offset = 0, visibleCount = 20, signal?: AbortSignal) => {
+    const request = ++listRequest.current;
+    if (!signal) setListLoading(true);
     setError(null);
-    const { data, error: failure } = await supabase.from("announcements")
+    const query = supabase.from("announcements")
       .select("id, title, body, category, publish_at, announcement_user_state(read_at)")
-      .order("publish_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + 19);
+      .order("publish_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + visibleCount - 1);
+    const { data, error: failure } = await (signal ? query.abortSignal(signal) : query);
+    if (signal?.aborted || request !== listRequest.current) return;
     if (failure) setError("Inbox could not be loaded. Please try again.");
     else {
-      setItems((previous) => offset ? [...previous, ...(data as InboxItem[])] : data as InboxItem[]);
-      setMore(data.length === 20);
+      setItems((previous) => {
+        const rows = data as InboxItem[];
+        if (offset) return [...previous, ...rows];
+        if (!signal) return rows;
+        const alreadyRead = new Map(previous.map((item) => [item.id, item.announcement_user_state]));
+        return rows.map((item) => item.announcement_user_state.length ? item : {
+          ...item, announcement_user_state: alreadyRead.get(item.id) ?? [],
+        });
+      });
+      setMore(data.length === visibleCount);
     }
-    setListLoading(false);
+    if (!signal) setListLoading(false);
+    return !failure;
   }, [supabase]);
 
   const activeId = inboxOpen ? detailId : queue[0]?.id;
+  usePageRefreshTask(async (signal) => {
+    if (!ready) return;
+    const [next, refreshedInbox] = await Promise.all([
+      refresh(),
+      inboxOpen && !listLoading ? loadInbox(0, Math.max(20, items.length), signal) : undefined,
+    ]);
+    if (!next || refreshedInbox === false) throw new Error("Announcement refresh failed");
+  });
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;

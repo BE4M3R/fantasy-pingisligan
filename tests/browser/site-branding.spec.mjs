@@ -11,6 +11,13 @@ test("both language roots and account pages advertise branded icons and previews
     await expect(page.locator('link[rel="icon"][href="/favicon.ico"]').first()).toBeAttached();
     await expect(page.locator('link[rel="apple-touch-icon"]'))
       .toHaveAttribute("href", "/branding/apple-touch-icon.png");
+    const manifest = page.locator('link[rel="manifest"]');
+    await expect(manifest).toHaveCount(1);
+    await expect(manifest).toHaveAttribute("href", "/manifest.webmanifest");
+    await expect(page.locator('meta[name="apple-mobile-web-app-title"]'))
+      .toHaveAttribute("content", "PLF");
+    await expect(page.locator('meta[name="apple-mobile-web-app-status-bar-style"]'))
+      .toHaveAttribute("content", "black");
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", socialImage);
     await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute("content", socialImage);
 
@@ -31,10 +38,32 @@ test("both language roots and account pages advertise branded icons and previews
 });
 
 test("icon and preview assets are publicly available at their advertised sizes", async ({ request }) => {
+  const manifestResponse = await request.get("/manifest.webmanifest", { maxRedirects: 0 });
+  expect(manifestResponse.status()).toBe(200);
+  expect(manifestResponse.headers()["content-type"]).toContain("application/manifest+json");
+  expect(manifestResponse.headers()["set-cookie"]).toBeUndefined();
+  const manifest = await manifestResponse.json();
+  expect(manifest).toMatchObject({
+    id: "/",
+    name: "PLF",
+    short_name: "PLF",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    theme_color: "#01213c",
+    background_color: "#0a4d86",
+  });
+  expect(manifest.icons).toEqual([
+    { src: "/branding/pwa-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/branding/pwa-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/branding/pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ]);
+
   for (const [path, size] of [
     ["/branding/icon-96.png", 96],
     ["/branding/apple-touch-icon.png", 180],
     ["/branding/pingisligan-fantasy-logo.png", 1254],
+    ...manifest.icons.map(({ src, sizes }) => [src, Number(sizes.split("x")[0])]),
   ]) {
     const response = await request.get(path);
     expect(response.ok()).toBe(true);

@@ -17,6 +17,7 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
 }) {
   const [selection, setSelection] = useState<Selection>({ view: initial.view, gameweekId: selectedId });
   const [standings, setStandings] = useState(initial);
+  const [serverStandings, setServerStandings] = useState(initial);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(initial.error ?? "");
   const [minHeight, setMinHeight] = useState<number>();
@@ -25,6 +26,13 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
   const abortRef = useRef<AbortController | null>(null);
   // This short-lived cache belongs to this panel, never to another user/session.
   const cache = useRef(new Map<string, { at: number; data: LeagueStandings }>());
+  if (serverStandings !== initial) {
+    setServerStandings(initial);
+    if (initial.view === selection.view && (initial.view === "global" || selectedId === selection.gameweekId) && !pending) {
+      if (!initial.error) setStandings(initial);
+      setError(initial.error ?? "");
+    }
+  }
   const gameweekMode = selection.view === "gameweek";
   const index = weeks.findIndex((week) => week.gameweek_id === selection.gameweekId);
   const selectedWeek = weeks[index];
@@ -95,12 +103,14 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
     }
   }
 
-  const restoreHistory = useEffectEvent(() => {
+  const restoreHistory = useEffectEvent((onlyIfChanged = false) => {
     if (window.location.pathname !== basePath) return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("gameweek");
-    void navigate({ view: params.get("view") === "gameweek" ? "gameweek" : "global",
-      gameweekId: id && weeks.some((week) => week.gameweek_id === id) ? id : selectedId }, false);
+    const target: Selection = { view: params.get("view") === "gameweek" ? "gameweek" : "global",
+      gameweekId: id && weeks.some((week) => week.gameweek_id === id) ? id : selectedId };
+    if (onlyIfChanged && target.view === selection.view && target.gameweekId === selection.gameweekId) return;
+    void navigate(target, false);
   });
   const stopRequests = useEffectEvent(() => {
     ++requestRef.current;
@@ -109,16 +119,19 @@ export function StandingsView({ basePath, userId, weeks, selectedId, initial, we
 
   useEffect(() => {
     if (!initial.error) cache.current.set(cacheKey({ view: initial.view, gameweekId: selectedId }), { at: Date.now(), data: initial });
+    // Next can restore older props after visiting a prize page. Follow the URL
+    // when it differs from the mounted panel's selection.
+    restoreHistory(true);
+  }, [initial, selectedId]);
+
+  useEffect(() => {
     const onPopState = () => restoreHistory();
     window.addEventListener("popstate", onPopState);
-    // Next can restore a cached server snapshot after visiting a prize page.
-    // The native-history URL is authoritative even when those props are older.
-    restoreHistory();
     return () => {
       window.removeEventListener("popstate", onPopState);
       stopRequests();
     };
-  }, [basePath, initial, selectedId]);
+  }, [basePath]);
 
   return <div ref={panelRef} style={{ minHeight, overflowAnchor: "none" }}>
     <h2 className="mb-4 text-xl font-black tracking-tight text-[var(--pf-text)]">Global league</h2>

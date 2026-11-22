@@ -48,12 +48,16 @@ the helper and cannot stop the underlying action.
 
 ## Custom events
 
-All events originate from interaction handlers, except save success, which runs
-once in the successful response branch of that same save attempt. No events run
-during rendering, hydration, automatic mode selection or history restoration.
+Launch events come from the first permitted page view of a new document. The
+standalone display mode or iOS `navigator.standalone` identifies an installed
+launch. Internal navigation, in-place refreshes, browser reloads, and history
+restores do not count as launches. Other custom events come from interaction
+handlers, including the successful response branch of a Squad save.
 
 | Event | Trigger location |
 | --- | --- |
+| App Opened in Standalone | `lib/analytics.ts`: first permitted page view in installed standalone mode. |
+| App Opened in Browser | Same launch check for a regular browser load. |
 | Competition Banner Clicked | `app/dashboard/sponsored-carousel.tsx`: a navigable competition banner link. Locked/non-link banners and carousel arrows/dots do not dispatch it. |
 | Squad Save Clicked | `app/dashboard/squad-editor.tsx`: enabled Save team handler, after the existing disabled guard. |
 | Squad Save Succeeded | Same handler, only after `saveSquadDraft` returns without an error and the saved state is updated. Existing pending/disabled handling prevents repeated submissions; no success effects or retry handlers dispatch it. |
@@ -94,6 +98,9 @@ are not links; they remain unchanged.
    payloads: feature event names should match exactly, with no custom data;
    league/competition paths should be grouped and query strings absent. Save
    clicked should precede success, and failed/disabled saves must not emit success.
+   Open the site in a new browser tab and launch it from an installed app icon.
+   Check for one corresponding launch event in each case, then switch tabs in
+   the app and refresh in place to confirm no additional launch event appears.
 5. In Web Analytics, select Production and the corresponding time range/domain.
    Check Pages/Routes and Custom Events as traffic arrives. Open different players,
    teams and private leagues to confirm they share the same feature event names.

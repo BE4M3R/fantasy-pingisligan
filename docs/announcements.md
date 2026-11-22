@@ -36,9 +36,10 @@ credentials in the application or run local scripts against production.
    possible: white margins embedded in the file cannot be removed by layout CSS.
    Dark logos should include a contrasting background in the uploaded file;
    transparent images sit on navy. The app does not infer logo colors or crop files.
-5. Optionally set both `cta_label` and `cta_url`. Links accept application paths
-   such as `/dashboard/rules`, or HTTPS URLs. Do not use protocol-relative URLs,
-   credentials in URLs, whitespace or backslashes.
+5. Optionally set both `cta_label` and `cta_url`. Use application paths such as
+   `/dashboard/rules` for internal links so they follow the active origin in
+   browsers and installed apps. Use HTTPS URLs for external links. Do not use
+   protocol-relative URLs, credentials in URLs, whitespace or backslashes.
 6. Set `publish_at` to an explicit timestamp with a timezone offset, for example
    `2026-11-01T09:00:00+01:00`. Stockholm uses +01:00 in winter and +02:00 in
    summer. Check the Dashboard's timezone display and the stored instant, especially
@@ -136,8 +137,9 @@ completion flag suppresses announcements published later in the same login.
 New users see all currently popup-eligible items after team
 onboarding. Other open dialogs defer automatic announcements until they close.
 
-Returns refresh eligibility and unread counts; other devices' changes are
-observed at these checks, not streamed live. No automatic popup replaces an
+Pull-to-refresh and returns after at least 30 seconds refresh eligibility and
+unread counts, including changes from other devices. The inbox updates its
+loaded rows when open. No automatic popup replaces an
 announcement currently being read. Newly discovered items join the pending queue
 in priority order after it. Returning after a completed or initially empty visit
 checks new content without requiring the inbox or a fresh login. The inbox always

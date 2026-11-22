@@ -10,6 +10,8 @@ const productionOrigins = new Set([
 ]);
 
 export type AnalyticsEvent =
+  | "App Opened in Browser"
+  | "App Opened in Standalone"
   | "Competition Banner Clicked"
   | "Squad Save Clicked"
   | "Squad Save Succeeded"
@@ -39,6 +41,21 @@ export function trackAnalyticsEvent(event: AnalyticsEvent) {
   }
 }
 
+let launchHandled = false;
+
+function trackAppLaunch() {
+  if (launchHandled) return;
+  launchHandled = true;
+  const navigation = window.performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  if (navigation?.type === "reload" || navigation?.type === "back_forward") return;
+
+  const standalone = window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  // The first permitted page view confirms that Vercel's client is ready.
+  // Dispatch after its filter returns to avoid reentering it on the same stack.
+  queueMicrotask(() => trackAnalyticsEvent(standalone ? "App Opened in Standalone" : "App Opened in Browser"));
+}
+
 // Allow only known page paths. New routes must explicitly opt into collection.
 const staticPaths = new Set([
   "/", "/en", "/about", "/rules", "/login", "/signup",
@@ -59,8 +76,10 @@ export function beforeSendAnalytics(event: BeforeSendEvent): BeforeSendEvent | n
       : /^\/competitions\/gameweek\/[^/]+$/.test(path)
         ? "/competitions/gameweek/[gameweekId]"
         : staticPaths.has(path) ? path : null;
+    if (!groupedPath) return null;
+    if (event.type === "pageview") trackAppLaunch();
     // Construct a fresh URL: never forward query strings, fragments or entity IDs.
-    return groupedPath ? { ...event, url: `${productionOrigin}${groupedPath}` } : null;
+    return { ...event, url: `${productionOrigin}${groupedPath}` };
   } catch {
     return null;
   }

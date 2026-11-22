@@ -5,6 +5,7 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { canSelectPlayer, comparePlayerPrices, hasConfiguredPrice } from "@/lib/player-availability";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePageRefreshTask } from "@/app/page-refresh";
 import { canonicalClubName } from "@/lib/clubs";
 import { getClubLogo } from "@/app/dashboard/club-logos";
 import { canTransferFromClub, MAX_PLAYERS_PER_CLUB } from "@/lib/squad-club-limit";
@@ -140,8 +141,8 @@ function ClubLogo({ player }: { player: DashboardPlayer }) {
 let catalogue: { players: TransferPlayer[]; expiresAt: number } | undefined;
 let catalogueRequest: Promise<TransferPlayer[]> | undefined;
 
-async function loadCatalogue() {
-  if (catalogue && catalogue.expiresAt > Date.now()) return catalogue.players;
+async function loadCatalogue(refresh = false) {
+  if (!refresh && catalogue && catalogue.expiresAt > Date.now()) return catalogue.players;
   if (!catalogueRequest) {
     catalogueRequest = (async () => {
       const response = await fetch("/api/players", { cache: "no-store" });
@@ -183,6 +184,15 @@ export function PlayerPicker({
   const [statisticsPlayer, setStatisticsPlayer] = useState<DashboardPlayer | null>(null);
 
   useBodyScrollLock(pickerOpen);
+
+  usePageRefreshTask(async (signal) => {
+    if (!pickerOpen) return;
+    const next = await loadCatalogue(true);
+    if (!signal.aborted) {
+      setPlayers(next);
+      setError("");
+    }
+  });
 
   async function openPicker() {
     if (transfersLocked || clubRepairBlocked) return;
