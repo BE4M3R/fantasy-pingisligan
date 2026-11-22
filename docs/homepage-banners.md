@@ -51,7 +51,7 @@ autoplay. Arrows are hidden below 640px; reduced motion is respected.
 
 Completed cards show “Winner pending” until an operator selects
 a team in `competition_publication.competition_winner`. Selected cards show that
-team's current name, followed by “Won <prize title>”, linking to the winner box on
+team's current name with the configured prize title beneath it, linking to the winner box on
 the competition page. Lifecycle status appears in a box on the same row as the
 competition heading: “Coming soon” for unrevealed competitions, “Ongoing” as soon as a competition
 is revealed, including before its deadline and while transfers are locked
@@ -179,8 +179,8 @@ insert, update or delete content or upload artwork.
 5. Optional `prize_title` (240 characters) is the headline shown on revealed Home
    banners and the competition detail page. Existing `description` values are
    preserved by the rename migration. Home shows the prize title beside the logo
-   until a winner is selected; afterwards it shows the winning team with
-   “Won <prize title>” underneath. Upcoming cards keep their prize title hidden.
+   until a winner is selected. Afterwards it shows the winning team with the
+   prize title exactly as entered underneath. Upcoming cards keep their prize title hidden.
 6. Revealed weekly banners automatically link to `/competitions/gameweek/<number>`;
    season banners, including Coming soon teasers, link to `/competitions/season`. No URL entry is needed.
    Existing UUID links redirect when their number is unambiguous. Reused numbers

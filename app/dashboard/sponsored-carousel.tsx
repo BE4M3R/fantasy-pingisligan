@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { CompetitionChevron } from "@/app/competitions/competition-icon";
+import { CompetitionSponsorLogo } from "@/app/competitions/sponsor-logo";
+import { CompetitionStatusBadge } from "@/app/competitions/status-badge";
 import type { HomepageSlide } from "@/lib/homepage-banners";
 import { safeBannerUrl } from "@/lib/announcements";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -11,21 +14,14 @@ function slideName(slide: HomepageSlide) {
 }
 
 function Sponsor({ slide, first }: { slide: HomepageSlide; first: boolean }) {
-  const [failed, setFailed] = useState(false);
   const upcoming = slide.state === "upcoming";
-  const showLogo = Boolean(!upcoming && slide.imageUrl && !failed);
   if (slide.winner) return <div className="min-w-0 space-y-1">
     <p className="break-words text-lg font-black leading-snug text-[var(--pf-logo-gold)]">{slide.winner.team_name}</p>
-    {slide.prize_title ? <p className="break-words text-sm leading-snug text-[var(--pf-text)]">Won {slide.prize_title}</p> : null}
+    {slide.prize_title ? <p className="break-words text-sm leading-snug text-[var(--pf-text)]">{slide.prize_title}</p> : null}
   </div>;
   return <div className="sponsored-brand flex min-w-0 items-center gap-3">
-    {showLogo ? (
-      // Reuse the existing private artwork field for a compact, uncropped sponsor logo.
-      // eslint-disable-next-line @next/next/no-img-element
-      <span className="sponsored-logo"><img alt={slide.image_alt ?? slide.sponsor ?? "Sponsor logo"} src={slide.imageUrl} loading={first ? "eager" : "lazy"} onError={() => setFailed(true)} ref={(image) => {
-        // An eager server-rendered image can fail before hydration attaches onError.
-        if (image?.complete && image.naturalWidth === 0) setFailed(true);
-      }} className="max-h-8 w-auto max-w-full object-contain" /></span>
+    {!upcoming && slide.imageUrl ? (
+      <CompetitionSponsorLogo src={slide.imageUrl} alt={slide.image_alt ?? slide.sponsor ?? "Sponsor logo"} eager={first} />
     ) : null}
     <div className="min-w-0 flex-1 space-y-0.5 text-sm font-bold leading-4 text-[var(--pf-text)]">
       <p className="break-words">{upcoming
@@ -110,9 +106,6 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
             const locked = slide.state === "upcoming" && slide.kind === "gameweek";
             const destination = locked ? undefined : safeBannerUrl(slide.cta_url);
             const season = slide.kind === "season";
-            const status = slide.winner ? "Winner announced"
-              : slide.state === "upcoming" ? "Coming soon"
-                : slide.state === "previous" ? "Winner pending" : "Ongoing";
             const content = <>
               <div className="flex min-w-0 flex-col gap-2">
                 <div className="flex min-w-0 items-center gap-2">
@@ -123,9 +116,7 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
                     <span className="truncate" title={slide.title}>{slide.title}</span>
                     {slide.gameweekLabel ? <> <span className="shrink-0 whitespace-nowrap rounded-full border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-brand-blue-hover)]/10 px-2 text-[10px] font-bold leading-5 tracking-wide text-[var(--pf-text)]">{slide.gameweekLabel}</span></> : null}
                   </h2>
-                  <span className="sponsored-status shrink-0 whitespace-nowrap rounded-md border border-[var(--pf-brand-blue-hover)]/30 bg-[var(--pf-navy)]/80 px-1.5 py-0.5 text-[10px] font-bold leading-4 text-[var(--pf-text)] sm:px-2 sm:text-xs">
-                    {status}
-                  </span>
+                  <CompetitionStatusBadge state={slide.state} winner={slide.winner} />
                 </div>
                 <div className={destination ? "pr-10" : undefined}>
                   <Sponsor key={slide.imageUrl} slide={slide} first={index === initialIndex} />
@@ -140,9 +131,7 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
               </div>
               {destination ? <span className="sponsored-hint absolute right-4 top-[calc(50%+1rem)] flex h-11 w-8 -translate-y-1/2 items-center justify-center text-[var(--pf-logo-gold)] sm:right-6">
                 <span className="sr-only">View competition</span>
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="sponsored-hint-arrow h-8 w-8">
-                  <path d="m9 5 7 7-7 7" />
-                </svg>
+                <CompetitionChevron className="sponsored-hint-arrow h-8 w-8" />
               </span> : null}
             </>;
             const contentClass = "sponsored-content relative z-10 flex h-full min-h-28 min-w-0 flex-col justify-center px-4 py-2.5 sm:px-6 sm:py-3";

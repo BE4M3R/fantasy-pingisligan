@@ -5,7 +5,85 @@ import { checked, cleanupFixture, complete, createFixture, lock, save, squad } f
 
 const minutes = (n) => new Date(Date.now() + n * 60_000).toISOString();
 
-test("Home combines winner announcements, 48-hour priority, all locked teasers and weekly/season navigation", async ({ page, browser }, testInfo) => {
+async function checkCompetitionsOverview(page, testInfo, winningName) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const nav = page.getByRole("navigation", { name: "Dashboard", exact: true });
+  await expect(nav.getByRole("link")).toHaveText(["Home", "Squad", "Competitions", "Leagues", "Fixtures"]);
+  const competitionsTab = nav.getByRole("link", { name: "Competitions", exact: true });
+  await competitionsTab.click();
+  await expect(page).toHaveURL(/\/competitions$/);
+  await expect(competitionsTab).toHaveAttribute("aria-current", "page");
+
+  const current = page.getByRole("region", { name: "Current competition", exact: true });
+  await expect(current.getByRole("link")).toHaveAttribute("href", "/competitions/gameweek/2");
+  await expect(current.getByText("Ongoing", { exact: true })).toBeVisible();
+  await expect(current.getByText("Win a premium training kit.", { exact: true })).toBeVisible();
+  await expect.poll(() => current.getByAltText("Test partner artwork").evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
+  expect(await page.content()).not.toContain("Embargoed weekly");
+
+  const upcoming = page.getByRole("region", { name: "Upcoming competitions", exact: true });
+  const scheduled = upcoming.getByRole("button", { name: "Prize reveal for Gameweek 3", exact: true });
+  const revealedEarly = upcoming.getByRole("button", { name: "Prize reveal for Gameweek 4", exact: true });
+  await expect(scheduled.getByText("A surprise for our next champion... 👀")).toBeVisible();
+  await expect(upcoming.getByRole("link")).toHaveCount(0);
+  await expect(upcoming.getByText("Summer training voucher", { exact: true })).toBeHidden();
+  await revealedEarly.click();
+  const earlyPopup = page.getByRole("dialog", { name: "Gameweek 4 prize", exact: true });
+  await expect(earlyPopup.getByText("Summer training voucher", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(earlyPopup).toBeHidden();
+
+  await scheduled.scrollIntoViewIfNeeded();
+  const card = await scheduled.boundingBox();
+  const clickY = card.y + 12;
+  await page.mouse.click(card.x + card.width / 2, clickY);
+  const popup = page.getByRole("dialog", { name: "Gameweek 3 prize reveal", exact: true });
+  await expect(popup.locator("time")).toHaveText("Thu 19 Nov · 18:00");
+  await expect.poll(() => popup.evaluate((dialog, y) => {
+    const bounds = dialog.getBoundingClientRect();
+    return Math.abs(bounds.top + bounds.height / 2 - y);
+  }, clickY)).toBeLessThan(2);
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: testInfo.outputPath("competitions-reveal-mobile-390.png") });
+  const background = await page.locator('button[aria-label="Prize reveal for Gameweek 4"]').boundingBox();
+  // Tap the exposed edge of the neighboring card behind the backdrop.
+  await page.mouse.click(background.x + 4, background.y + background.height / 2);
+  await expect(popup).toBeHidden();
+  await expect(earlyPopup).toBeHidden();
+  await expect(page).toHaveURL(/\/competitions$/);
+
+  const hallOfFame = page.getByRole("region", { name: "Hall of Fame", exact: true });
+  const winnerCard = hallOfFame.getByRole("link", { name: new RegExp(winningName) });
+  await expect(winnerCard.getByRole("heading", { name: "Gameweek 1", exact: true })).toBeVisible();
+  for (const width of [320, 390, 639, 640, 768, 1440]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const overflowingTabs = await nav.getByRole("link").evaluateAll((links) => links.flatMap((link) => {
+      const label = link.querySelector("span");
+      const bounds = label.getBoundingClientRect();
+      const tab = link.getBoundingClientRect();
+      return bounds.left < tab.left || bounds.right > tab.right ? [label.textContent] : [];
+    }));
+    expect(overflowingTabs, `Navigation labels outside their tabs at ${width}px`).toEqual([]);
+    if ([320, 390, 1440].includes(width)) {
+      await page.screenshot({ path: testInfo.outputPath(`competitions-overview-${width}.png`) });
+    }
+  }
+
+  await winnerCard.click();
+  await expect(page).toHaveURL(/\/competitions\/gameweek\/1$/);
+  await expect(page.getByRole("heading", { name: "Competition leaderboard" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Competitions", exact: true }).click();
+  await expect(page).toHaveURL(/\/competitions$/);
+  await page.getByLabel("Open settings", { exact: true }).click();
+  const rules = page.getByRole("link", { name: "Rules", exact: true });
+  await expect(rules).toHaveAttribute("href", "/rules");
+  await rules.click();
+  await expect(page).toHaveURL(/\/rules$/);
+}
+
+test("Home and Competitions share published prizes, upcoming teasers and confirmed winners", async ({ page, browser }, testInfo) => {
   test.setTimeout(180_000);
   const f = await createFixture({ gameweeks: 6, competitions: true, seasonCompetitions: true });
   const ids = Array.from({ length: 4 }, () => randomUUID());
@@ -157,7 +235,6 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
       if (width === 1440) await capture(phone, phoneCarousel, 2, "home-upcoming-desktop-1440.png");
     }
     await phone.setViewportSize({ width: 390, height: 844 });
-    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: null }).eq("id", ids[2]), "Restore normal reveal for remaining lifecycle checks");
     await phone.emulateMedia({ reducedMotion: "reduce" });
     expect(await phoneCarousel.locator(".sponsored-track").evaluate((el) => getComputedStyle(el).scrollBehavior)).toBe("auto");
     await phoneCarousel.getByRole("button", { name: "Show highlight 4: Gameweek 4 Competition" }).tap();
@@ -197,7 +274,7 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
     await expect(phoneStatus).toHaveText("Highlight 1 of 7: Gameweek 1 Competition");
     await expect(active.getByText(winningName, { exact: true })).toBeVisible();
     await expect(active.getByText("Winner announced", { exact: true })).toBeVisible();
-    await expect(active.getByText("Won A champion's shirt", { exact: true })).toBeVisible();
+    await expect(active.getByText("A champion's shirt", { exact: true })).toBeVisible();
     await expect(active.getByText(/^Winner:/)).toHaveCount(0);
     for (const width of [320, 390, 768, 1440]) {
       await phone.setViewportSize({ width, height: 844 });
@@ -207,6 +284,15 @@ test("Home combines winner announcements, 48-hour priority, all locked teasers a
       expect(Math.abs(heading.y + heading.height / 2 - label.y - label.height / 2)).toBeLessThan(2);
       if (width === 390 || width === 1440) await phoneCarousel.screenshot({ path: testInfo.outputPath(`home-confirmed-winner-${width}.png`) });
     }
+
+    // Use the same signed-in fixture with a revealed prize for a later round.
+    checked(await f.admin.from("homepage_banners").insert({
+      gameweek_id: f.weeks[3].id, content_ready: true, prize_title: "Summer training voucher", prize_reveal_at: minutes(-1),
+    }), "Reveal a prize ahead of its Gameweek");
+    await checkCompetitionsOverview(phone, testInfo, winningName);
+    checked(await f.admin.from("homepage_banners").update({ prize_reveal_at: null }).eq("id", ids[2]), "Restore normal reveal for the remaining lifecycle checks");
+    await phone.goto("/dashboard/overview");
+    await expect(phoneStatus).toHaveText("Highlight 1 of 7: Gameweek 1 Competition");
     await phoneCarousel.getByRole("link", { name: /View competition/ }).click();
     const winner = phone.getByRole("region", { name: "Gameweek winner", exact: true });
     await expect(winner.getByText(winningName, { exact: true })).toBeVisible();
