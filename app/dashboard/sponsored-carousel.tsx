@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState } from "react";
 import { CompetitionChevron } from "@/app/competitions/competition-icon";
 import { CompetitionSponsorLogo } from "@/app/competitions/sponsor-logo";
 import { CompetitionStatusBadge } from "@/app/competitions/status-badge";
@@ -32,13 +32,14 @@ function Sponsor({ slide, first }: { slide: HomepageSlide; first: boolean }) {
 }
 
 export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSlide[]; initialIndex: number }) {
-  const [selected, setSelected] = useState(initialIndex);
+  const [selected, setSelected] = useState(() => slides[initialIndex]?.id);
   const initialSelection = useRef(initialIndex);
   const track = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
   const trackId = useId();
   const multiple = slides.length > 1;
-  const active = Math.max(0, Math.min(selected, slides.length - 1));
+  const active = Math.max(0, slides.findIndex((slide) => slide.id === selected));
+  const slideOrder = slides.map((slide) => slide.id).join(",");
 
   // Entry only: never depend on active or refreshed props, which would interrupt
   // browsing. Route unmount/re-entry (including restored React effects) resets
@@ -57,6 +58,13 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
+
+  const keepSelectedSlideVisible = useEffectEvent(() => {
+    const element = track.current;
+    if (element) element.scrollTo({ left: active * element.clientWidth, behavior: "instant" });
+  });
+  // An updated list may place the current slide at a different index.
+  useLayoutEffect(() => { keepSelectedSlideVisible(); }, [slideOrder]);
 
   useEffect(() => {
     const list = pages.current;
@@ -99,7 +107,10 @@ export function SponsoredCarousel({ slides, initialIndex }: { slides: HomepageSl
           className="sponsored-track flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-[var(--pf-brand-blue-hover)]"
           onScroll={() => {
             const element = track.current;
-            if (element?.clientWidth) setSelected(Math.max(0, Math.min(slides.length - 1, Math.round(element.scrollLeft / element.clientWidth))));
+            if (element?.clientWidth) {
+              const index = Math.max(0, Math.min(slides.length - 1, Math.round(element.scrollLeft / element.clientWidth)));
+              setSelected(slides[index]?.id);
+            }
           }}
         >
           {slides.map((slide, index) => {

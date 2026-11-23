@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { canonicalClubName, getClub } from "@/lib/clubs";
 import { matchState, type MatchSummary } from "@/lib/match-summary";
+import { useIsPageRefreshing } from "@/app/page-refresh";
 
 const dateHeadingFormat = new Intl.DateTimeFormat("en-GB", {
   weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Stockholm",
@@ -56,8 +57,21 @@ export function HomeMatches({ gameweekId, initialMatches, initialError, initialN
   const [matches, setMatches] = useState(initialMatches);
   const [failed, setFailed] = useState(initialError);
   const [now, setNow] = useState(initialNow);
+  const [serverMatches, setServerMatches] = useState(initialMatches);
   const lastFetchedAt = useRef(initialNow);
   const lastRequestAt = useRef(Number.NEGATIVE_INFINITY);
+  const isPageRefreshing = useIsPageRefreshing();
+
+  if (serverMatches !== initialMatches) {
+    setServerMatches(initialMatches);
+    if (!initialError) setMatches(initialMatches);
+    setFailed(initialError);
+    setNow((previous) => Math.max(previous, initialNow));
+  }
+
+  useEffect(() => {
+    if (!initialError) lastFetchedAt.current = Math.max(lastFetchedAt.current, initialNow);
+  }, [initialError, initialNow]);
   const hasPendingMatches = matches.some((match) =>
     !["Final", "Cancelled"].includes(matchState(match, now)));
   const matchGroups = groupMatchesByDate(matches);
@@ -68,7 +82,7 @@ export function HomeMatches({ gameweekId, initialMatches, initialError, initialN
     const refreshUrl = `/api/home-matches?gameweek=${encodeURIComponent(gameweekId)}`;
     let controller: AbortController | null = null;
     async function refresh() {
-      if (document.visibilityState !== "visible" || controller) return;
+      if (document.visibilityState !== "visible" || controller || isPageRefreshing?.()) return;
       const currentTime = Date.now();
       setNow(currentTime);
       if (performance.now() - lastRequestAt.current < 60_000) return;
@@ -95,13 +109,11 @@ export function HomeMatches({ gameweekId, initialMatches, initialError, initialN
       }
     }
     const timer = window.setInterval(refresh, 60_000);
-    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
       controller?.abort();
     };
-  }, [gameweekId, hasPendingMatches, failed, matches]);
+  }, [gameweekId, hasPendingMatches, failed, matches, isPageRefreshing]);
 
   return (
     <>

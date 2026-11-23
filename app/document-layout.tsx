@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HOME_DESCRIPTION, SITE_NAME, socialMetadata } from "@/lib/seo";
+import { HOME_DESCRIPTION, PWA_NAME, SITE_NAME, socialMetadata } from "@/lib/seo";
 import { ProductionAnalytics } from "@/app/production-analytics";
 import "./globals.css";
 
@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   ...socialMetadata(),
   title: SITE_NAME,
   description: HOME_DESCRIPTION,
+  appleWebApp: {
+    title: PWA_NAME,
+    statusBarStyle: "black",
+  },
   // Both language roots share these explicit links, including private pages.
   icons: {
     icon: [

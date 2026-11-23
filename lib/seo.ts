@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 export const SITE_URL = "https://www.pingisliganfantasy.se";
 export const SITE_NAME = "Pingisligan Fantasy";
+export const PWA_NAME = "PLF";
 export const HOME_TITLE = `${SITE_NAME} – Fantasy för svensk bordtennis`;
 export const HOME_DESCRIPTION =
   "Spela Pingisligan Fantasy. Bygg ditt lag med spelare från Pingisligan, samla poäng från riktiga matcher och tävla mot dina vänner.";

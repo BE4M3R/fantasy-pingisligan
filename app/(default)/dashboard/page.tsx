@@ -183,7 +183,7 @@ export default async function SquadPage({
           )
           .eq("fantasy_team_id", fantasyTeam.id)
           .order("lineup_order", { ascending: true })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     supabase.rpc("current_transfer_lock"),
     supabase
       .from("fantasy_gameweeks")
@@ -212,7 +212,7 @@ export default async function SquadPage({
   const transferLock = (
     Array.isArray(transferLockRows) ? transferLockRows[0] : transferLockRows
   ) as TransferLock | null;
-  const transfersLocked = Boolean(transferLock?.is_locked);
+  const transfersLocked = Boolean(transferLock?.is_locked || transferLockResult.error);
   const waitingForDataRefresh = Boolean(transferLock?.is_refreshing);
   const upcomingGameweek =
     upcomingGameweekResult.data as UpcomingGameweek | null;
@@ -317,7 +317,8 @@ export default async function SquadPage({
   }
 
   const previousSnapshot = getPreviousSnapshot(previousGameweek);
-  const transferWindowMessage = transfersLocked
+  const transferWindowMessage = transferLockResult.error ? "The transfer window could not be verified."
+    : transfersLocked
     ? waitingForDataRefresh
       ? "Importing results and calculating scores. Transfers reopen automatically when the refresh finishes."
       : `Transfer window opens earliest ${
@@ -348,9 +349,14 @@ export default async function SquadPage({
           budget={fantasyTeam?.budget ?? DEFAULT_BUDGET}
           chipMigrationMissing={chipMigrationMissing}
           chipSelections={chipSelections}
-          initialChip={currentChipSelection?.chip ?? null}
+          initialChip={chipSelectionsResult.error || upcomingGameweekResult.error
+            ? undefined : currentChipSelection?.chip ?? null}
           initialViewMode={view === "results" ? "results" : "transfers"}
           initialSquad={squad}
+          initialSquadLoaded={!squadResult.error}
+          initialResultGameweekId={selectedResultGameweek?.id ?? null}
+          initialResultPinned={Boolean(requestedGameweekId && selectedResultGameweek?.id === requestedGameweekId)}
+          initialResultLoaded={!selectedSquadResult.error && !selectedSetBreakdownResult.error && !resultGameweeksResult.error}
           latestResultSquad={latestResultSquad}
           latestResultTransferPenalty={latestResultTransferPenalty}
           lockedGameweekId={transferLock?.gameweek_id ?? null}
