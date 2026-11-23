@@ -37,12 +37,13 @@ shows a dash instead of an invented 0–0 result.
 The existing production results job updates statuses even before the first
 singles finishes. Every non-dry results import, including nightly, manual and match-window
 runs, imports the latest schedule and Fantasy bucket assignments before results. Home
-refreshes only its match card every minute while visible, with
+refreshes its match card every minute while visible, with
 database reads shared through the existing 60-second public-data cache. While
 every fixture is still far from kickoff, it checks time each minute and fetches
-the latest schedule every five minutes, including when an older open tab becomes
-visible again. Visibility changes cannot trigger another request within a minute
-of the previous attempt. Failed refreshes retain the previous scores and retry.
+the latest schedule every five minutes. Pull-to-refresh and a return after at
+least 30 seconds refresh Home in place, including its match card. Both use the
+same server cache, and the match timer skips requests while a page refresh is
+running. Failed match reads retain the previous scores.
 
 The local functional test reimports a changed schedule and verifies gameweek
 isolation, kickoff times and club names in the public match summary. Browser

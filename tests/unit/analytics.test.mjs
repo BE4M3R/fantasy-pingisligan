@@ -10,13 +10,18 @@ const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS },
 }).outputText;
 
-function loadAnalytics(origin, enabled = "true") {
+function loadAnalytics(origin, enabled = "true", { displayMode = "browser", standalone, navigationType = "navigate" } = {}) {
   const exports = {};
   const calls = [];
   vm.runInNewContext(code, {
-    exports, URL,
+    exports, URL, queueMicrotask,
     process: { env: { NEXT_PUBLIC_ANALYTICS_ENABLED: enabled } },
-    ...(origin ? { window: { location: { origin } } } : {}),
+    ...(origin ? { window: {
+      location: { origin },
+      matchMedia: (query) => ({ matches: query === `(display-mode: ${displayMode})` }),
+      navigator: { standalone },
+      performance: { getEntriesByType: () => navigationType ? [{ type: navigationType }] : [] },
+    } } : {}),
     require(name) {
       assert.equal(name, "@vercel/analytics");
       return { track: (...args) => calls.push(args) };
@@ -31,6 +36,37 @@ test("analytics enables both production origins and sends events without propert
     assert.equal(analytics.isAnalyticsEnabled(), true);
     analytics.trackAnalyticsEvent("Squad Save Clicked");
     assert.deepEqual(analytics.calls, [["Squad Save Clicked"]]);
+  }
+});
+
+test("the first permitted page view sends one property-free launch event for its display mode", async () => {
+  const origin = origins[0];
+  for (const [browser, expected] of [
+    [{}, "App Opened in Browser"],
+    [{ displayMode: "standalone" }, "App Opened in Standalone"],
+    [{ standalone: true }, "App Opened in Standalone"],
+    [{ standalone: false, navigationType: null }, "App Opened in Browser"],
+  ]) {
+    const analytics = loadAnalytics(origin, "true", browser);
+    analytics.beforeSendAnalytics({ type: "event", url: `${origin}/dashboard/overview` });
+    analytics.beforeSendAnalytics({ type: "pageview", url: `${origin}/auth/callback` });
+    await Promise.resolve();
+    assert.deepEqual(analytics.calls, []);
+
+    for (const path of ["/dashboard/overview", "/dashboard", "/dashboard", "/dashboard/leagues"]) {
+      analytics.beforeSendAnalytics({ type: "pageview", url: `${origin}${path}` });
+    }
+    await Promise.resolve();
+    assert.deepEqual(analytics.calls, [[expected]]);
+  }
+});
+
+test("reloads and history restores do not count as new launches", async () => {
+  for (const navigationType of ["reload", "back_forward"]) {
+    const analytics = loadAnalytics(origins[0], "true", { navigationType });
+    analytics.beforeSendAnalytics({ type: "pageview", url: `${origins[0]}/dashboard` });
+    await Promise.resolve();
+    assert.deepEqual(analytics.calls, []);
   }
 });
 

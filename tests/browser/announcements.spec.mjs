@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { checked, cleanupFixture, createFixture, save, squad } from "../functional/fixture.mjs";
+import { returnAfter } from "./page-visibility.mjs";
 
 async function login(page, fixture) {
   await page.goto("/login");
@@ -27,9 +28,9 @@ test("selected account previews draft announcement popup, artwork and inbox befo
     checked(await f.admin.storage.from("announcement-artwork").upload(artwork,
       await readFile(new URL("../../public/branding/pingisligan-fantasy-mark-transparent-v2.png", import.meta.url)),
       { contentType: "image/png" }), "Upload preview artwork");
-    checked(await f.admin.from("announcements").insert({ id, title, body: "Review **this draft** before sharing it with managers.",
+    checked(await f.admin.from("announcements").insert({ id, title, body: "Review **this draft** and [return home](/dashboard/overview?source=announcement).",
       published: false, publish_at: ago(-60), popup_enabled: true,
-      image_path: artwork, image_alt: "Private announcement artwork", cta_label: "Read the rules", cta_url: "/dashboard/rules" }), "Prepare draft announcement");
+      image_path: artwork, image_alt: "Private announcement artwork", cta_label: "Read the rules", cta_url: "/dashboard/rules#competition-rules" }), "Prepare draft announcement");
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, f);
     await expect(page.getByRole("button", { name: "Open announcements", exact: true })).toBeVisible();
@@ -47,13 +48,19 @@ test("selected account previews draft announcement popup, artwork and inbox befo
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`dashboard-announcement-preview-popup-${viewport.width}.png`) });
     }
-    await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
+    const documentStart = await page.evaluate(() => performance.timeOrigin);
+    await popup.getByRole("link", { name: "Read the rules", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/rules#competition-rules$/);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStart);
     await expect(popup).not.toBeVisible();
     await page.getByRole("button", { name: "Open announcements", exact: true }).click();
     await expect(inbox.getByRole("button", { name: new RegExp(title) })).toBeVisible();
     await inbox.getByRole("button", { name: new RegExp(title) }).click();
     await expect(inbox.getByRole("heading", { name: title, exact: true })).toBeVisible();
     await expect(inbox.getByAltText("Private announcement artwork", { exact: true })).toBeVisible();
+    await inbox.getByRole("link", { name: "return home", exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/overview\?source=announcement$/);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStart);
 
     checked(await f.admin.from("profiles").update({ can_preview_announcements: false }).eq("id", f.userId), "Revoke account preview");
     await page.reload();
@@ -282,7 +289,7 @@ test("announcement sequence, dismissal across devices, inbox and safe responsive
 
     // A new High notice is discovered on return after the sequence was dismissed.
     checked(await f.admin.from("announcements").insert({ id: ids[4], title: "Urgent maintenance notice", body: "A rare important notice.", published: true, priority: "high", popup_enabled: true, publish_at: ago(1) }), "Publish urgent notice");
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await returnAfter(page, 30_000);
     await expect(popup.getByRole("heading", { name: "Urgent maintenance notice" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(popup).not.toBeVisible();
@@ -358,7 +365,7 @@ test("an initially empty visit discovers new popups on return and preserves the 
       { id: ids[5], title: "Unpublished draft", published: false },
     ].map((item) => ({ body: "A concise update for managers.", published: true, popup_enabled: true, priority: "normal", publish_at: ago(20), ...item }))), "Publish return fixtures");
     const returnCheck = page.waitForResponse((response) => response.url().includes("/rpc/get_my_announcement_summary") && response.ok());
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await returnAfter(page, 30_000);
     await returnCheck;
     await expect(popup).not.toBeVisible();
     await page.keyboard.press("Escape");
@@ -375,7 +382,7 @@ test("an initially empty visit discovers new popups on return and preserves the 
       { id: ids[7], title: "Normal for the next visit", priority: "normal" },
     ].map((item) => ({ body: "Another concise update.", published: true, popup_enabled: true, publish_at: ago(0), ...item }))), "Publish while reading");
     const activeCheck = page.waitForResponse((response) => response.url().includes("/rpc/get_my_announcement_summary") && response.ok());
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await returnAfter(page, 30_000);
     await activeCheck;
     await expect(popup.getByRole("heading", { name: "New Normal after an empty visit" })).toBeVisible();
     await popup.getByRole("button", { name: "Close announcement" }).click();
@@ -389,7 +396,7 @@ test("an initially empty visit discovers new popups on return and preserves the 
     await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup).not.toBeVisible();
     checked(await f.admin.from("announcements").update({ publish_at: ago(0) }).eq("id", ids[3]), "Reach scheduled publication");
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await returnAfter(page, 30_000);
     await expect(popup.getByRole("heading", { name: "Scheduled for later" })).toBeVisible();
     await popup.getByRole("button", { name: "Close announcement", exact: true }).click();
     await expect(popup).not.toBeVisible();

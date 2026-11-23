@@ -71,6 +71,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@media (any-pointer: coarse) {
+  html[data-page-refresh] {
+    overscroll-behavior-y: contain;
+  }
+}
+
 /* iOS zooms the viewport when a focused form control is smaller than 16px. */
 @media (max-width: 767px) {
   input,
@@ -99,8 +105,21 @@ body {
   backdrop-filter: blur(14px);
 }
 
+:root {
+  --pf-dashboard-bottom-inset: env(safe-area-inset-bottom, 0px);
+}
+
+@media (display-mode: standalone) {
+  @supports (-webkit-touch-callout: none) {
+    :root {
+      /* Clear the iOS home indicator in the installed app. */
+      --pf-dashboard-bottom-inset: calc(env(safe-area-inset-bottom, 0px) + 20px);
+    }
+  }
+}
+
 .dashboard-shell.table-tennis-surface {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(4.5rem + var(--pf-dashboard-bottom-inset));
 }
 
 .dashboard-shell.table-tennis-surface.squad-page {

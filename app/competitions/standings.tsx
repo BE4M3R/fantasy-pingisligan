@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CompetitionStandings as Standings } from "@/lib/competitions";
+import { usePageRefreshTask } from "@/app/page-refresh";
+import { refreshVisibleRows } from "@/app/refresh-visible-rows";
 
 export function CompetitionStandings({ gameweekId, initial }: { gameweekId: string; initial: Standings | null }) {
   const [standings, setStandings] = useState(initial);
+  const [serverStandings, setServerStandings] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initial ? "" : "The leaderboard is temporarily unavailable.");
   const [search, setSearch] = useState("");
@@ -14,6 +17,33 @@ export function CompetitionStandings({ gameweekId, initial }: { gameweekId: stri
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const query = search.trim();
   const displayed = query ? searchResult : standings;
+
+  if (serverStandings !== initial) {
+    setServerStandings(initial);
+    if (initial && (standings?.rows.length ?? 0) <= 5 && !loading) {
+      setStandings(initial);
+      if (!query) setError("");
+    }
+  }
+
+  async function fetchRows(offset: number, term: string, signal: AbortSignal) {
+    const params = new URLSearchParams({ offset: String(offset) });
+    if (term) params.set("search", term);
+    const response = await fetch(`/api/competitions/gameweek/${gameweekId}/standings?${params}`, { cache: "no-store", signal });
+    if (!response.ok) throw new Error("Leaderboard unavailable");
+    return await response.json() as Standings;
+  }
+
+  usePageRefreshTask(async (signal) => {
+    if (loading || (!query && (standings?.rows.length ?? 0) <= 5)) return;
+    const requestId = requestRef.current;
+    const next = await refreshVisibleRows(displayed?.rows.length ?? 0,
+      (offset) => fetchRows(offset, query, signal), (page) => page.total_count);
+    if (signal.aborted || requestId !== requestRef.current) return;
+    if (query) setSearchResult(next);
+    else setStandings(next);
+    setError("");
+  });
 
   useEffect(() => () => {
     ++requestRef.current;
@@ -29,11 +59,7 @@ export function CompetitionStandings({ gameweekId, initial }: { gameweekId: stri
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ offset: String(offset) });
-      if (term) params.set("search", term);
-      const response = await fetch(`/api/competitions/gameweek/${gameweekId}/standings?${params}`, { cache: "no-store", signal: controller.signal });
-      if (!response.ok) throw new Error("Leaderboard unavailable");
-      const next = await response.json() as Standings;
+      const next = await fetchRows(offset, term, controller.signal);
       if (requestId !== requestRef.current) return;
       const update = (previous: Standings | null) => ({ ...next, rows: offset && next.visible ? [...(previous?.rows ?? []), ...next.rows] : next.rows });
       if (term) setSearchResult(update);
@@ -60,7 +86,7 @@ export function CompetitionStandings({ gameweekId, initial }: { gameweekId: stri
     <div className="mb-4" role="search">
       <label htmlFor="competition-team-search" className="mb-1.5 block text-xs font-bold text-[var(--pf-text-muted)]">Search team name</label>
       <div className="flex items-center rounded-md border border-[var(--pf-card-border)] bg-[var(--pf-navy-elevated)] focus-within:border-[var(--pf-brand-blue)] focus-within:ring-2 focus-within:ring-[var(--pf-brand-blue)]/40">
-        <input id="competition-team-search" type="search" maxLength={80} value={search} disabled={initial?.visible === false}
+        <input id="competition-team-search" type="search" maxLength={80} value={search} disabled={standings?.visible === false}
           onChange={(event) => updateSearch(event.target.value)} placeholder="Find a team…"
           className="min-h-11 min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base text-[var(--pf-text)] placeholder:text-[var(--pf-text-muted)] focus:outline-none disabled:opacity-50" />
         {search ? <button type="button" aria-label="Clear team search" onClick={() => updateSearch("")}

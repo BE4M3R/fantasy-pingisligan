@@ -46,9 +46,13 @@ type SquadEditorProps = {
   budget: number | string;
   chipMigrationMissing: boolean;
   chipSelections: ChipSelection[];
-  initialChip: Chip | null;
+  initialChip: Chip | null | undefined;
   initialViewMode: "transfers" | "results";
   initialSquad: DraftSquadPlayer[];
+  initialSquadLoaded: boolean;
+  initialResultGameweekId: string | null;
+  initialResultPinned: boolean;
+  initialResultLoaded: boolean;
   latestResultSquad: SquadPlayerResult[];
   latestResultTransferPenalty: number;
   lockedGameweekId: string | null;
@@ -204,6 +208,10 @@ export function SquadEditor({
   initialChip,
   initialViewMode,
   initialSquad,
+  initialSquadLoaded,
+  initialResultGameweekId,
+  initialResultPinned,
+  initialResultLoaded,
   latestResultSquad,
   latestResultTransferPenalty,
   lockedGameweekId,
@@ -220,10 +228,13 @@ export function SquadEditor({
   const allowNavigationRef = useRef(false);
   const [draftSquad, setDraftSquad] =
     useState<DraftSquadPlayer[]>(initialSquad);
-  const [selectedChip, setSelectedChip] = useState<Chip | null>(initialChip);
+  const [selectedChip, setSelectedChip] = useState<Chip | null>(initialChip ?? null);
   const [savedSquad, setSavedSquad] =
     useState<DraftSquadPlayer[]>(initialSquad);
-  const [savedChip, setSavedChip] = useState<Chip | null>(initialChip);
+  const [savedChip, setSavedChip] = useState<Chip | null>(initialChip ?? null);
+  const [serverSquad, setServerSquad] = useState(initialSquad);
+  const [serverChip, setServerChip] = useState(initialChip);
+  const [serverResult, setServerResult] = useState(latestResultSquad);
   const [viewMode, setViewMode] =
     useState<"transfers" | "results">(initialViewMode);
   const [resultSquad, setResultSquad] =
@@ -231,6 +242,8 @@ export function SquadEditor({
   const [resultTransferPenalty, setResultTransferPenalty] = useState(
     latestResultTransferPenalty,
   );
+  const [resultGameweekId, setResultGameweekId] = useState(initialResultGameweekId);
+  const [resultPinned, setResultPinned] = useState(initialResultPinned);
   const [resultLoadError, setResultLoadError] = useState("");
   const [isResultLoading, setIsResultLoading] = useState(false);
   const resultCacheRef = useRef(
@@ -264,6 +277,28 @@ export function SquadEditor({
     [savedChip, savedSquad],
   );
   const isDirty = draftSignature !== savedSignature;
+
+  if (serverSquad !== initialSquad && !isSaving) {
+    setServerSquad(initialSquad);
+    if (initialSquadLoaded) {
+      setSavedSquad(initialSquad);
+      if (!isDirty) setDraftSquad(initialSquad);
+    }
+  }
+  if (serverChip !== initialChip && !isSaving && initialChip !== undefined) {
+    setServerChip(initialChip);
+    setSavedChip(initialChip);
+    setSelectedChip(initialChip);
+  }
+  if (serverResult !== latestResultSquad) {
+    setServerResult(latestResultSquad);
+    if (initialResultLoaded && !isResultLoading && (!resultPinned || resultGameweekId === initialResultGameweekId)) {
+      setResultSquad(latestResultSquad);
+      setResultTransferPenalty(latestResultTransferPenalty);
+      setResultGameweekId(initialResultGameweekId);
+      setResultLoadError("");
+    }
+  }
   const starters = draftSquad.filter(
     (player) => player.position === "starter",
   );
@@ -282,9 +317,7 @@ export function SquadEditor({
     viewMode === "results" ? resultStarters : starters;
   const displayedBench = viewMode === "results" ? resultBench : bench;
   const latestResult = resultSquad[0] ?? null;
-  const selectedResultGameweekIndex = resultGameweeks.findIndex(
-    ({ id }) => id === latestResult?.gameweek_id,
-  );
+  const selectedResultGameweekIndex = resultGameweeks.findIndex(({ id }) => id === resultGameweekId);
   const previousResultGameweek =
     selectedResultGameweekIndex > 0
       ? resultGameweeks[selectedResultGameweekIndex - 1]
@@ -322,6 +355,14 @@ export function SquadEditor({
     pending.set(gameweekId, request);
     return request;
   }, []);
+
+  useEffect(() => {
+    if (!initialResultLoaded || !initialResultGameweekId) return;
+    resultCacheRef.current.set(initialResultGameweekId, {
+      squad: latestResultSquad,
+      transferPenalty: latestResultTransferPenalty,
+    });
+  }, [initialResultGameweekId, initialResultLoaded, latestResultSquad, latestResultTransferPenalty]);
 
   useEffect(() => {
     if (viewMode !== "results" || selectedResultGameweekIndex < 0) return;
@@ -464,7 +505,7 @@ export function SquadEditor({
   }
 
   async function selectResultGameweek(gameweek: ResultGameweek) {
-    if (gameweek.id === latestResult?.gameweek_id) return;
+    if (gameweek.id === resultGameweekId) return;
 
     const requestId = resultRequestRef.current + 1;
     resultRequestRef.current = requestId;
@@ -478,6 +519,8 @@ export function SquadEditor({
 
       setResultSquad(payload.squad);
       setResultTransferPenalty(payload.transferPenalty);
+      setResultGameweekId(gameweek.id);
+      setResultPinned(true);
 
       const url = new URL(window.location.href);
       url.searchParams.set("view", "results");

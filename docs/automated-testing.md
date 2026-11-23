@@ -237,6 +237,62 @@ The repository skill `$verify-ui` uses this procedure and the
 [design system](design-system.md#responsive-layout-and-interaction).
 Passing browser assertions alone does not establish that a layout looks correct.
 
+### In-place refresh
+
+The `page-refresh.spec.mjs` journey covers touch direction, distance and scroll
+position, the 30-second return threshold, overlapping refreshes, route and
+client-side data, and preserving an unsaved Squad captain selection. The Home
+match and announcement journeys cover their existing timer and delivery flows.
+Home matches and Fixtures keep the shared 60-second revalidation interval.
+Next.js can serve the cached snapshot while revalidating, so these views may
+take another refresh to show a recent import. The player catalogue and details
+also keep their shared server cache.
+
+On iPhone Safari, the installed iOS web app and Android Chrome (browser and
+installed), check the following on a test deployment.
+
+- [ ] Start at the top of Home and Fixtures. Pull a little and release, then
+  pull past the threshold and release. Check the indicator, in-place update and
+  absence of native browser reload or a second refresh.
+- [ ] Try a horizontal carousel swipe, a downward swipe from a scrolled page,
+  and swipes within an open dialog. Check that the bottom navigation remains
+  reachable and clear of the safe area.
+- [ ] Background the app for under 30 seconds, then for over 30 seconds. On the
+  longer return, verify one refresh and retention of the view and scroll, also
+  with an unsaved Squad change and an open picker or results dialog.
+- [ ] Interrupt the connection during a manual refresh. Check that current
+  content stays visible, the feedback is brief, and retry works once online.
+
+### Installed web app
+
+Use the same HTTPS test origin for installation, sign-in and navigation. Before
+installing, confirm the landing page links to `/manifest.webmanifest` and that it
+responds with `application/manifest+json`, root scope and standalone display.
+Use the deployment that will be promoted for the remaining manual checks.
+
+- [ ] **iPhone Safari.** Use Share → Add to Home Screen and enable Open as Web
+  App when offered. Check the icon and launch from it. Home → Squad and home
+  indicator clearance passed on the reported iPhone. Recheck on the release
+  candidate in portrait and landscape, including with the keyboard open.
+- [ ] **Installed navigation and announcements.** Visit Home, Squad, Leagues,
+  Fixtures, Competitions and Settings. Open an announcement popup and follow
+  an internal CTA. Confirm dismissal persists on relaunch and the bell and
+  inbox still work. Open an inbox link and check that it stays in the app.
+  When both production hostnames are available, also try an absolute app link
+  using the alternate hostname. If a first-party link opens a browser view,
+  capture its resolved URL, redirects and final origin in Safari Web Inspector.
+- [ ] **Installed account flows.** Test both installing while signed in and
+  signing in after installation. Force-quit and relaunch, check that refresh
+  preserves the session after access-token expiry, then sign out. Test signup
+  confirmation and password recovery with the test deployment's actual
+  emails, including returning from Mail to the installed app.
+- [ ] **Android Chrome.** Use Add to Home screen → Install app. Check the
+  launcher mask, standalone launch, system Back and bottom tabs with gesture
+  navigation.
+- [ ] **Desktop Chrome.** Inspect the icon mask in DevTools → Application →
+  Manifest, install from Chrome's menu and launch from the app icon. Compare
+  the dashboard and account flows with a normal browser tab.
+
 ### Choose the local target
 
 - `playwright.config.ts` uses Chromium, one worker and

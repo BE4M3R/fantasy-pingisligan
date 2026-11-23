@@ -7,6 +7,8 @@ import { animatePopupOpen } from "@/app/dashboard/popup-animation";
 import { SquadLineupView } from "@/app/dashboard/squad-lineup-view";
 import { createClient } from "@/lib/supabase/browser";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { usePageRefreshTask } from "@/app/page-refresh";
+import { refreshVisibleRows } from "@/app/refresh-visible-rows";
 
 export type LeagueTableRow = {
   rank?: number;
@@ -23,10 +25,11 @@ type GameweekScore = {
   round_order: number | null;
 };
 
-async function loadGameweekScores(userId: string) {
-  const { data, error } = await createClient().rpc(
+async function loadGameweekScores(userId: string, signal?: AbortSignal) {
+  const query = createClient().rpc(
     "get_leaderboard_team_gameweek_points", { p_user_id: userId },
   );
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
   if (error) throw new Error(error.message);
   return (data ?? []) as GameweekScore[];
 }
@@ -169,6 +172,54 @@ export function LeagueTable({
       ]
     : rankedRows;
 
+  async function fetchRows(offset: number, search: string, signal?: AbortSignal) {
+    const params = new URLSearchParams({ offset: String(offset) });
+    if (gameweekId) params.set("gameweek", gameweekId);
+    if (search) params.set("search", search);
+    const response = await fetch(`/api/leaderboard?${params}`, { cache: "no-store", signal });
+    if (!response.ok) throw new Error("Standings could not be loaded.");
+    return await response.json() as { rows: LeagueTableRow[]; total: number };
+  }
+
+  usePageRefreshTask(async (signal) => {
+    if (isLoadingRows || (!activeSearch && !(paginated && showAll))) return;
+    const requestId = searchRequestRef.current;
+    const next = await refreshVisibleRows(visibleSourceRows.length,
+      (offset) => fetchRows(offset, activeSearch, signal), (page) => page.total);
+    if (signal.aborted || requestId !== searchRequestRef.current) return;
+    if (activeSearch) {
+      setSearchTotal(next.total);
+      setSearchRows(next.rows);
+    } else {
+      setRemainingTotal(next.total);
+      setLoadedRows(next.rows);
+    }
+    setRowsError("");
+  });
+
+  usePageRefreshTask(async (signal) => {
+    if (!selectedTeam || !dialogRef.current?.open || isLoading || isLoadingLineup || isNavigating) return;
+    const scoresRequest = scoresRequestRef.current;
+    const lineupRequest = lineupRequestRef.current;
+    const scores = await loadGameweekScores(selectedTeam.user_id, signal);
+    const current = () => !signal.aborted && dialogRef.current?.open &&
+      scoresRequest === scoresRequestRef.current && lineupRequest === lineupRequestRef.current;
+    if (!current()) return;
+    const index = scores.findIndex((score) => score.gameweek_id === selectedGameweek?.gameweek_id);
+    if (index < 0 && selectedGameweek) return;
+    if (index >= 0) {
+      const id = scores[index].gameweek_id;
+      delete lineupCacheRef.current[id];
+      const players = await getCachedLineup(selectedTeam.user_id, id);
+      if (!current()) return;
+      setLineupByGameweek((previous) => ({ ...previous, [id]: players }));
+      setLineupError(false);
+    }
+    setGameweekScores(scores);
+    setGameweekIndex(Math.max(0, index));
+    setLoadError(false);
+  });
+
   // Install cleanup before accepting input: a delayed mount-effect cleanup in
   // development Strict Mode can otherwise cancel the first debounced search.
   useLayoutEffect(() => () => {
@@ -198,14 +249,7 @@ export function LeagueTable({
     searchAbortRef.current = controller;
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ search: query, offset: "0" });
-        if (gameweekId) params.set("gameweek", gameweekId);
-        const response = await fetch(`/api/leaderboard?${params}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("Search could not be loaded.");
-        const payload = await response.json() as { rows: LeagueTableRow[]; total: number };
+        const payload = await fetchRows(0, query, controller.signal);
         if (requestId !== searchRequestRef.current) return;
         setSearchRows(payload.rows);
         setSearchTotal(payload.total);
@@ -219,17 +263,12 @@ export function LeagueTable({
 
   async function loadMoreRows() {
     if (isLoadingRows) return;
-    const requestId = searchRequestRef.current;
+    const requestId = ++searchRequestRef.current;
     setIsLoadingRows(true);
     setRowsError("");
     try {
       const offset = activeSearch ? searchRows.length : showAll ? loadedRows.length : 0;
-      const params = new URLSearchParams({ offset: String(offset) });
-      if (gameweekId) params.set("gameweek", gameweekId);
-      if (activeSearch) params.set("search", activeSearch);
-      const response = await fetch(`/api/leaderboard?${params}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Standings could not be loaded.");
-      const payload = await response.json() as { rows: LeagueTableRow[]; total: number };
+      const payload = await fetchRows(offset, activeSearch);
       if (requestId !== searchRequestRef.current) return;
       if (activeSearch) {
         setSearchTotal(payload.total);

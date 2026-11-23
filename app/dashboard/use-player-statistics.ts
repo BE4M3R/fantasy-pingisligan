@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePageRefreshTask } from "@/app/page-refresh";
 import type { PlayerStatistics } from "@/lib/player-statistics-data";
 
 // Sports data only; bounded reuse across picker instances and repeated opens.
 const cache = new Map<string, { data: PlayerStatistics; expiresAt: number }>();
 const requests = new Map<string, Promise<PlayerStatistics>>();
-async function loadStatistics(id: string) {
+async function loadStatistics(id: string, refresh = false) {
   const cached = cache.get(id);
-  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (!refresh && cached && cached.expiresAt > Date.now()) return cached.data;
   const pending = requests.get(id);
   if (pending) return pending;
   const request = (async () => {
@@ -26,6 +27,15 @@ async function loadStatistics(id: string) {
 export function usePlayerStatistics(playerId: string, enabled: boolean) {
   const [statistics, setStatistics] = useState<PlayerStatistics | null>(null);
   const [error, setError] = useState("");
+
+  usePageRefreshTask(async (signal) => {
+    if (!enabled) return;
+    const next = await loadStatistics(playerId, true);
+    if (!signal.aborted) {
+      setStatistics(next);
+      setError("");
+    }
+  });
 
   const load = useCallback(async () => {
     setError("");

@@ -130,7 +130,7 @@ export function DashboardBottomNavigation() {
   return (
     <nav
       aria-label="Dashboard"
-      className="fixed inset-x-0 bottom-0 z-[9999] border-t border-[var(--pf-card-border)] bg-[var(--pf-navy)]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,23,43,0.24)] backdrop-blur-md sm:px-4"
+      className="fixed inset-x-0 bottom-0 z-[9999] border-t border-[var(--pf-card-border)] bg-[var(--pf-navy)]/95 px-1 pb-[var(--pf-dashboard-bottom-inset)] shadow-[0_-8px_24px_rgba(0,23,43,0.24)] backdrop-blur-md sm:px-4"
       // Safari moves fixed footers above the keyboard; conceal the covered bar without moving it.
       style={{ visibility: isKeyboardOpen ? "hidden" : undefined }}
     >
