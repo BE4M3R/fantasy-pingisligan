@@ -403,3 +403,58 @@ const eveningResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectI
 if (eveningResult.error) throw eveningResult.error;
 assert.equal(eveningResult.status, 0, `Prize evening upgrade: ${eveningResult.stderr}`);
 console.log("Prize evening upgrade passed: Stockholm calendar/DST defaults and custom/cleared/past date preservation");
+
+const bannerNumberMigration = (await readFile(path.join(root,
+  "supabase/migrations/20261128120000_homepage_banner_gameweek_number.sql"), "utf8"))
+  .replace(/^begin;$/m, "").replace(/^commit;$/m, "");
+const bannerNumberUpgrade = `begin;
+  drop trigger sync_homepage_banner_gameweek_number on public.fantasy_gameweeks;
+  drop trigger set_homepage_banner_gameweek_number on public.homepage_banners;
+  drop function private.sync_homepage_banner_gameweek_number();
+  drop function private.set_homepage_banner_gameweek_number();
+  alter table public.homepage_banners drop column gameweek_number;
+  insert into public.fantasy_gameweeks (stupa_round_id, name, round_order,
+    lock_at, first_match_starts_at, last_match_ends_at, unlock_at)
+  values (-1999999731, 'Banner number upgrade', 7, now(), now(), now(), now());
+  update public.homepage_banners set prize_title = 'Original prize', teaser = 'Original teaser'
+  where gameweek_id = (select id from public.fantasy_gameweeks where stupa_round_id = -1999999731);
+  insert into public.homepage_banners (kind, title) values ('season', 'Original season');
+  create temp table banners_before_number as select id, to_jsonb(b) as row from public.homepage_banners b;
+  ${bannerNumberMigration}
+  do $test$
+  declare week_id uuid := (select id from public.fantasy_gameweeks where stupa_round_id = -1999999731);
+  begin
+    if (select gameweek_number from public.homepage_banners where gameweek_id = week_id) is distinct from 7
+      or exists (select 1 from banners_before_number old left join public.homepage_banners b using (id)
+        where (to_jsonb(b) - 'gameweek_number') is distinct from old.row) then
+      raise exception 'Banner number backfill failed or changed existing content';
+    end if;
+    update public.fantasy_gameweeks set round_order = 8 where id = week_id;
+    if (select gameweek_number from public.homepage_banners where gameweek_id = week_id) is distinct from 8 then
+      raise exception 'Renumbering a Gameweek did not update its banner';
+    end if;
+    update public.homepage_banners set gameweek_number = 99 where gameweek_id = week_id;
+    update public.homepage_banners set gameweek_number = 99 where kind = 'season';
+    if (select gameweek_number from public.homepage_banners where gameweek_id = week_id) is distinct from 8
+      or exists (select 1 from public.homepage_banners where kind = 'season' and gameweek_number is not null) then
+      raise exception 'Banner numbers do not follow the linked Gameweek';
+    end if;
+    update public.fantasy_gameweeks set round_order = null where id = week_id;
+    if exists (select 1 from public.homepage_banners where gameweek_id = week_id and gameweek_number is not null) then
+      raise exception 'Unnumbered Gameweek retained a stale number';
+    end if;
+    insert into public.fantasy_gameweeks (stupa_round_id, name, round_order,
+      lock_at, first_match_starts_at, last_match_ends_at, unlock_at)
+    values (-1999999732, 'New numbered Gameweek', 9, now(), now(), now(), now())
+    returning id into week_id;
+    if (select gameweek_number from public.homepage_banners where gameweek_id = week_id) is distinct from 9 then
+      raise exception 'Automatically created banner is missing its Gameweek number';
+    end if;
+  end; $test$;
+  rollback;`;
+const bannerNumberResult = spawnSync("docker", ["exec", "-i", `supabase_db_${projectId}`,
+  "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
+{ input: bannerNumberUpgrade, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 120000, env: developmentEnvironment() });
+if (bannerNumberResult.error) throw bannerNumberResult.error;
+assert.equal(bannerNumberResult.status, 0, `Banner number upgrade: ${bannerNumberResult.stderr}`);
+console.log("Banner number upgrade passed: existing content preserved and imported round numbers synchronized");

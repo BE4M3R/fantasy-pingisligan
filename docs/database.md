@@ -121,7 +121,9 @@ existing choices and replaces the old per-gameweek column and season singleton
 column without resetting data.
 
 `homepage_banners` stores one automatically created draft row per Gameweek plus
-an optional season row. Weekly `content_ready` and `prize_reveal_at` gate public
+an optional season row. Its `gameweek_number` column mirrors the linked
+`fantasy_gameweeks.round_order` for sorting and filtering in Table Editor.
+Weekly `content_ready` and `prize_reveal_at` gate public
 editorial reads. The date defaults to 18:00 Europe/Stockholm on the day after the
 preceding Fantasy Gameweek's `last_match_ends_at`, with daylight saving handled
 in SQL. Schedule imports preserve saved dates and copy. Clearing the date restores
