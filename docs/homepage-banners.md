@@ -85,10 +85,13 @@ when ready to launch. These controls are independent of `content_ready` below.
 
 ## Edit a Gameweek teaser
 
-In Supabase Table Editor, open `homepage_banners`, find the row linked to the
-Gameweek through `gameweek_id`, and edit its optional `teaser` (up to 240
+In Supabase Table Editor, open `homepage_banners`, filter or sort by
+`gameweek_number`, and edit the row's optional `teaser` (up to 240
 characters). Rows are created automatically for all Gameweeks. If an operator
 deleted a row, recreate it with `kind = gameweek` and the matching `gameweek_id`.
+`gameweek_number` follows the linked round's stored `round_order` automatically.
+It is blank for Season banners and rounds without a stored number. If multiple
+seasons reuse a number, confirm the linked `gameweek_id` before editing.
 Use this single column on each banner row; no new column
 is needed for each round. Publication controls and winner selection remain in
 `competition_publication`.
